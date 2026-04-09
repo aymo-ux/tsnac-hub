@@ -1154,16 +1154,47 @@
         <div class="header">
           <div>
             <h1 class="page-title">Daily Tracking</h1>
-            <p class="page-subtitle">Update status and spend for each account</p>
+            <p class="page-subtitle">Track daily spend for each account</p>
           </div>
           <div class="header-actions">
+            <button class="btn btn-secondary" onclick="toggleTrackingView()">
+              📊 Toggle View
+            </button>
             <button class="btn btn-primary" onclick="saveAllTracking()">
               💾 Save All Changes
             </button>
           </div>
         </div>
 
-        <div id="trackingList"></div>
+        <!-- Calendar/Grid View -->
+        <div id="trackingCalendarView" style="display: none;">
+          <div class="card" style="overflow-x: auto;">
+            <div class="card-body">
+              <table class="table" id="trackingCalendarTable" style="min-width: 800px;">
+                <thead>
+                  <tr id="trackingCalendarHeader">
+                    <th style="position: sticky; left: 0; background: var(--bg-card); z-index: 1;">Store</th>
+                    <th>Profile</th>
+                    <!-- Days will be added dynamically -->
+                  </tr>
+                </thead>
+                <tbody id="trackingCalendarBody"></tbody>
+                <tfoot>
+                  <tr id="trackingCalendarTotals" style="font-weight: 600; background: var(--bg-tertiary);">
+                    <td style="position: sticky; left: 0; background: var(--bg-tertiary);">TOTAL</td>
+                    <td></td>
+                    <!-- Totals will be added dynamically -->
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card View (Original) -->
+        <div id="trackingCardView">
+          <div id="trackingList"></div>
+        </div>
       </section>
 
       <!-- Profiles Section -->
@@ -2160,6 +2191,116 @@ Or just card numbers:
       });
       
       document.getElementById('trackingList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts to track</p></div>';
+    }
+
+    // Daily spend history (stored locally, will sync to Supabase later)
+    let dailySpendHistory = {};
+
+    function toggleTrackingView() {
+      const cardView = document.getElementById('trackingCardView');
+      const calendarView = document.getElementById('trackingCalendarView');
+      
+      if (cardView.style.display === 'none') {
+        cardView.style.display = 'block';
+        calendarView.style.display = 'none';
+      } else {
+        cardView.style.display = 'none';
+        calendarView.style.display = 'block';
+        renderTrackingCalendar();
+      }
+    }
+
+    function renderTrackingCalendar() {
+      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
+      
+      // Get last 7 days
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push({
+          date: d.toISOString().split('T')[0],
+          day: d.getDate(),
+          label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        });
+      }
+      
+      // Build header
+      let headerHtml = '<th style="position: sticky; left: 0; background: var(--bg-card); z-index: 1;">Store</th><th>Profile</th>';
+      days.forEach(d => {
+        headerHtml += `<th style="min-width: 80px; text-align: center;">${d.day}<br><small style="color: var(--text-muted);">${d.label.split(' ')[0]}</small></th>`;
+      });
+      headerHtml += '<th style="text-align: center;">Total</th>';
+      document.getElementById('trackingCalendarHeader').innerHTML = headerHtml;
+      
+      // Build rows
+      let bodyHtml = '';
+      const dayTotals = {};
+      days.forEach(d => dayTotals[d.date] = 0);
+      let grandTotal = 0;
+      
+      accounts.forEach(account => {
+        const store = getStore(account.storeId);
+        const profile = getProfile(account.profileId);
+        let rowTotal = 0;
+        
+        bodyHtml += `<tr>
+          <td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500;">
+            ${store?.name || 'N/A'}
+            ${store?.isPerformer ? ' ⭐' : ''}
+          </td>
+          <td style="color: var(--text-secondary);">${profile?.name || 'N/A'}</td>`;
+        
+        days.forEach(d => {
+          const key = `${account.id}_${d.date}`;
+          const spend = dailySpendHistory[key] || (d.date === new Date().toISOString().split('T')[0] ? account.spend : 0);
+          rowTotal += spend;
+          dayTotals[d.date] += spend;
+          
+          bodyHtml += `<td style="text-align: center;">
+            <input type="number" 
+              class="form-input" 
+              style="width: 70px; padding: 0.3rem; text-align: center; font-size: 0.85rem;" 
+              value="${spend || ''}" 
+              placeholder="0"
+              data-account-id="${account.id}" 
+              data-date="${d.date}"
+              onchange="updateDailySpend(${account.id}, '${d.date}', this.value)">
+          </td>`;
+        });
+        
+        grandTotal += rowTotal;
+        bodyHtml += `<td style="text-align: center; font-weight: 600; color: var(--success);">$${rowTotal}</td></tr>`;
+      });
+      
+      document.getElementById('trackingCalendarBody').innerHTML = bodyHtml || '<tr><td colspan="10" style="text-align: center; padding: 2rem;">No accounts to track</td></tr>';
+      
+      // Build totals row
+      let totalsHtml = '<td style="position: sticky; left: 0; background: var(--bg-tertiary); font-weight: 600;">TOTAL</td><td></td>';
+      days.forEach(d => {
+        totalsHtml += `<td style="text-align: center; font-weight: 600; color: var(--accent);">$${dayTotals[d.date]}</td>`;
+      });
+      totalsHtml += `<td style="text-align: center; font-weight: 700; color: var(--success); font-size: 1.1rem;">$${grandTotal}</td>`;
+      document.getElementById('trackingCalendarTotals').innerHTML = totalsHtml;
+    }
+
+    function updateDailySpend(accountId, date, value) {
+      const spend = parseFloat(value) || 0;
+      const key = `${accountId}_${date}`;
+      dailySpendHistory[key] = spend;
+      
+      // Update today's spend in account data if it's today
+      const today = new Date().toISOString().split('T')[0];
+      if (date === today) {
+        const account = data.accounts[currentChannel].find(a => a.id === accountId);
+        if (account) {
+          account.spend = spend;
+        }
+      }
+      
+      // Recalculate totals
+      renderTrackingCalendar();
+      showAutoSaveIndicator('✓ Spend updated');
     }
 
     function renderProfiles() {
