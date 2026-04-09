@@ -1634,7 +1634,7 @@
             if (data.vccs[channel]) {
               data.vccs[channel].push({
                 id: v.id,
-                number: v.number,
+                number: v.card_number,
                 expiry: v.expiry,
                 cvv: v.cvv,
                 balance: parseFloat(v.balance) || 0,
@@ -1762,7 +1762,7 @@
         const { data: newVCC, error } = await supabaseClient
           .from('vccs')
           .insert({
-            number: vcc.number,
+            card_number: vcc.number,
             expiry: vcc.expiry,
             cvv: vcc.cvv,
             balance: vcc.balance,
