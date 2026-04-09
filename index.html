@@ -1922,11 +1922,26 @@ Or just card numbers:
     // ============================================
     // PERMISSIONS - Everyone uses Google for now
     // ============================================
+    // ALL USERS HAVE SAME FULL ACCESS
+    const fullAccess = { 
+      canAddVCC: true, 
+      canAddProfile: true, 
+      canAddAccount: true, 
+      canAddStore: true, 
+      canDeleteStore: true, 
+      canTrack: true, 
+      canSeeVCCDetails: true, 
+      canSetPerformer: true, 
+      canSaveAccount: true, 
+      channels: ['google'], 
+      alertsFor: ['suspended', 'payment_issue', 'needs_verif', 'store_inactive'] 
+    };
+    
     const permissions = {
-      admin: { canAddVCC: true, canAddProfile: true, canAddAccount: true, canAddStore: true, canDeleteStore: true, canTrack: true, canSeeVCCDetails: true, canSetPerformer: true, canSaveAccount: true, channels: ['google'], alertsFor: ['suspended', 'payment_issue'] },
-      account_creator: { canAddVCC: false, canAddProfile: true, canAddAccount: true, canAddStore: false, canDeleteStore: false, canTrack: false, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: ['needs_verif', 'unassigned_vcc'] },
-      tracker: { canAddVCC: false, canAddProfile: false, canAddAccount: false, canAddStore: false, canDeleteStore: false, canTrack: true, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: [] },
-      designer: { canAddVCC: false, canAddProfile: false, canAddAccount: false, canAddStore: false, canDeleteStore: false, canTrack: false, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: [] }
+      admin: fullAccess,
+      account_creator: fullAccess,
+      tracker: fullAccess,
+      designer: fullAccess
     };
 
     // ============================================
@@ -2214,13 +2229,13 @@ Or just card numbers:
         dailySpendHistory[`${accountId}_${today}`] = account.spend;
       } else if (field === 'storeStatus') {
         account.storeStatus = value;
-        // Add notification if store becomes Inactive - notify Admin and Designer
+        // Add notification if store becomes Inactive - notify EVERYONE
         if (value === 'inactive') {
           addNotification({
             type: 'store_inactive',
             title: '🏪 Store Inactive',
             message: `${store?.name || 'Unknown Store'} has been marked as Inactive`,
-            forRoles: ['admin', 'designer'],
+            forRoles: ['admin', 'account_creator', 'tracker', 'designer'],
             accountId: accountId,
             storeId: account.storeId,
             createdAt: new Date().toISOString()
@@ -2233,12 +2248,12 @@ Or just card numbers:
           account.suspendedAt = new Date().toISOString().split('T')[0];
           // Delete the VCC immediately when account is suspended
           await handleAccountSuspended(accountId);
-          // Notify Admin and Designer about suspension
+          // Notify EVERYONE about suspension
           addNotification({
             type: 'account_suspended',
             title: '🚫 Account Suspended',
             message: `Google Ads account for ${store?.name || 'Unknown Store'} has been suspended`,
-            forRoles: ['admin', 'designer'],
+            forRoles: ['admin', 'account_creator', 'tracker', 'designer'],
             accountId: accountId,
             storeId: account.storeId,
             createdAt: new Date().toISOString()
@@ -2246,25 +2261,25 @@ Or just card numbers:
         } else if (value !== 'suspended') {
           account.suspendedAt = null;
         }
-        // Notify for payment issues
+        // Notify for payment issues - EVERYONE
         if (value === 'payment_issue') {
           addNotification({
             type: 'payment_issue',
             title: '💳 Payment Issue',
             message: `${store?.name || 'Unknown Store'} has a payment issue`,
-            forRoles: ['admin'],
+            forRoles: ['admin', 'account_creator', 'tracker', 'designer'],
             accountId: accountId,
             storeId: account.storeId,
             createdAt: new Date().toISOString()
           });
         }
-        // Notify for verification needed
+        // Notify for verification needed - EVERYONE
         if (value === 'needs_verif') {
           addNotification({
             type: 'needs_verification',
             title: '⚠️ Verification Needed',
             message: `${store?.name || 'Unknown Store'} needs verification`,
-            forRoles: ['admin', 'account_creator'],
+            forRoles: ['admin', 'account_creator', 'tracker', 'designer'],
             accountId: accountId,
             storeId: account.storeId,
             createdAt: new Date().toISOString()
