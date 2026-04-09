@@ -2556,16 +2556,22 @@ Or just card numbers:
       
       return `
         <div class="vcc-card" style="${cardStyle}">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
-            <div class="vcc-number" style="cursor: pointer;" onclick="copyToClipboard('${cardNumber}', 'Card number')" title="Click to copy full number">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div class="vcc-number" style="cursor: pointer; flex: 1;" onclick="copyToClipboard('${cardNumber}', 'Card number')" title="Click to copy full number">
               ${maskedNumber}
               <span style="font-size: 0.75rem; margin-left: 0.5rem; opacity: 0.6;">📋</span>
             </div>
-            <button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="deleteVCC('${vcc.id}')">
-              🗑️ Delete
-            </button>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="text-align: right;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Balance</div>
+                <div style="font-size: 1.1rem; font-weight: 600; color: var(--success);">$${(vcc.balance || 0).toFixed(2)}</div>
+              </div>
+              <button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.4rem 0.75rem;" onclick="deleteVCC('${vcc.id}')">
+                🗑️
+              </button>
+            </div>
           </div>
-          <div class="vcc-details">
+          <div class="vcc-details" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
             <div onclick="copyToClipboard('${vcc.expiry}', 'Expiry')" style="cursor: pointer;" title="Click to copy">
               <div class="vcc-detail-label">Expiry</div>
               <div class="vcc-detail-value">${vcc.expiry} <span style="opacity: 0.5;">📋</span></div>
@@ -2579,16 +2585,10 @@ Or just card numbers:
               <div>${statusBadge}</div>
             </div>
           </div>
-          <div class="vcc-balance">
-            <div class="vcc-balance-label">Balance</div>
-            <div class="vcc-balance-value">$${(vcc.balance || 0).toFixed(2)}</div>
-          </div>
-          ${store ? `<div class="vcc-linked" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">Linked to: <strong>${store.name}</strong></div>` : ''}
-          <div style="margin-top: 0.75rem;">
-            <button class="btn btn-sm btn-primary" style="width: 100%;" onclick="copyAllVCCDetails('${cardNumber}', '${vcc.expiry}', '${vcc.cvv}')">
-              📋 Copy All Details
-            </button>
-          </div>
+          ${store ? `<div class="vcc-linked" style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">Linked to: <strong>${store.name}</strong></div>` : ''}
+          <button class="btn btn-sm btn-primary" style="width: 100%;" onclick="copyAllVCCDetails('${cardNumber}', '${vcc.expiry}', '${vcc.cvv}')">
+            📋 Copy All Details
+          </button>
         </div>
       `;
     }
