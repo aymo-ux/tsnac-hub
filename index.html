@@ -2121,17 +2121,17 @@ Or just card numbers:
                   ${store.name}
                   ${store.isPerformer ? '<span class="performer-badge">⭐ TOP PERFORMER</span>' : ''}
                 </div>
-                <div class="store-url">${store.url}</div>
+                <div class="store-url">${store.url || ''}</div>
                 <div class="store-channels">
                   ${googleAccounts.length > 0 ? '<span class="channel-tag google">Google (' + googleAccounts.length + ')</span>' : ''}
                   ${tiktokAccounts.length > 0 ? '<span class="channel-tag tiktok">TikTok (' + tiktokAccounts.length + ')</span>' : ''}
                   ${fbAccounts.length > 0 ? '<span class="channel-tag facebook">Facebook (' + fbAccounts.length + ')</span>' : ''}
                 </div>
               </div>
-              <div style="display: flex; gap: 0.5rem;">
-                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer(${store.id})">${store.isPerformer ? '⭐ Top Performer' : 'Set as Top'}</button>` : ''}
-                <button class="btn btn-sm btn-secondary" onclick="viewAssets(${store.id})">📋 Assets</button>
-                ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteStore(${store.id})">🗑️ Delete</button>` : ''}
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')">${store.isPerformer ? '⭐ Top Performer' : 'Set as Top'}</button>` : ''}
+                <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')">📋 Assets</button>
+                ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteStore('${store.id}')">🗑️ Delete</button>` : ''}
               </div>
             </div>
           </div>
@@ -2818,18 +2818,22 @@ Or just card numbers:
       updateBadges();
     }
 
-    function togglePerformer(storeId) {
-      const store = data.stores.find(s => s.id === storeId);
+    async function togglePerformer(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (store) {
         store.isPerformer = !store.isPerformer;
+        
+        // Save to Supabase
+        await updateStoreInSupabase(storeId, { is_performer: store.isPerformer });
+        
         showToast(store.isPerformer ? `${store.name} is now a Top Performer!` : `${store.name} removed from Top Performers`);
         renderStores();
         renderDashboard();
       }
     }
 
-    function deleteStore(storeId) {
-      const store = data.stores.find(s => s.id === storeId);
+    async function deleteStore(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       
       // Check if there are linked accounts
@@ -2932,38 +2936,40 @@ Balance: $${vcc.balance.toFixed(2)}`;
     }
 
     function viewAssets(storeId) {
-      const store = data.stores.find(s => s.id === storeId);
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
+      
+      const assets = store.assets || {};
       
       document.getElementById('viewAssetsTitle').textContent = `${store.name} - Ad Assets`;
       document.getElementById('viewAssetsBody').innerHTML = `
         <div class="assets-grid">
           <div class="asset-item">
             <div class="asset-label">Keywords</div>
-            <div class="asset-value">${store.assets.keywords || '-'}</div>
+            <div class="asset-value">${assets.keywords || '-'}</div>
           </div>
           <div class="asset-item">
             <div class="asset-label">Final URL</div>
-            <div class="asset-value">${store.url}</div>
+            <div class="asset-value">${store.url || '-'}</div>
           </div>
           <div class="asset-item" style="grid-column: span 2;">
             <div class="asset-label">Headlines</div>
-            <div class="asset-value">${store.assets.headlines || '-'}</div>
+            <div class="asset-value">${assets.headlines || '-'}</div>
           </div>
           <div class="asset-item" style="grid-column: span 2;">
             <div class="asset-label">Descriptions</div>
-            <div class="asset-value">${store.assets.descriptions || '-'}</div>
+            <div class="asset-value">${assets.descriptions || '-'}</div>
           </div>
           <div class="asset-item">
             <div class="asset-label">Callouts</div>
-            <div class="asset-value">${store.assets.callouts || '-'}</div>
+            <div class="asset-value">${assets.callouts || '-'}</div>
           </div>
           <div class="asset-item">
             <div class="asset-label">Sitelinks</div>
-            <div class="asset-value">${store.assets.sitelinks || '-'}</div>
+            <div class="asset-value">${assets.sitelinks || '-'}</div>
           </div>
-          ${store.assets.logo ? `<div class="asset-item"><div class="asset-label">Logo</div><div class="asset-value"><a href="${store.assets.logo}" target="_blank" style="color: var(--accent);">View Logo</a></div></div>` : ''}
-          ${store.assets.docLink ? `<div class="asset-item"><div class="asset-label">Full Brief</div><div class="asset-value"><a href="${store.assets.docLink}" target="_blank" style="color: var(--accent);">Open Google Doc</a></div></div>` : ''}
+          ${assets.logo ? `<div class="asset-item"><div class="asset-label">Logo</div><div class="asset-value"><a href="${assets.logo}" target="_blank" style="color: var(--accent);">View Logo</a></div></div>` : ''}
+          ${assets.docLink ? `<div class="asset-item"><div class="asset-label">Full Brief</div><div class="asset-value"><a href="${assets.docLink}" target="_blank" style="color: var(--accent);">Open Google Doc</a></div></div>` : ''}
         </div>
       `;
       openModal('viewAssets');
