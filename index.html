@@ -993,7 +993,8 @@
       </div>
 
       <!-- Channel Switcher -->
-      <div class="channel-switcher">
+      <!-- Channel switcher hidden - Google only for now -->
+      <div class="channel-switcher" style="display: none;">
         <button class="channel-btn google active" onclick="switchChannel('google')">
           <span class="channel-icon">🔍</span>
           Google
@@ -1889,13 +1890,13 @@
     }
 
     // ============================================
-    // PERMISSIONS
+    // PERMISSIONS - Everyone uses Google for now
     // ============================================
     const permissions = {
-      admin: { canAddVCC: true, canAddProfile: true, canAddAccount: true, canAddStore: true, canDeleteStore: true, canTrack: true, canSeeVCCDetails: true, canSetPerformer: true, canSaveAccount: true, channels: ['google', 'tiktok', 'facebook'], alertsFor: ['suspended', 'payment_issue'] },
+      admin: { canAddVCC: true, canAddProfile: true, canAddAccount: true, canAddStore: true, canDeleteStore: true, canTrack: true, canSeeVCCDetails: true, canSetPerformer: true, canSaveAccount: true, channels: ['google'], alertsFor: ['suspended', 'payment_issue'] },
       account_creator: { canAddVCC: false, canAddProfile: true, canAddAccount: true, canAddStore: false, canDeleteStore: false, canTrack: false, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: ['needs_verif', 'unassigned_vcc'] },
       tracker: { canAddVCC: false, canAddProfile: false, canAddAccount: false, canAddStore: false, canDeleteStore: false, canTrack: true, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: [] },
-      designer: { canAddVCC: false, canAddProfile: false, canAddAccount: false, canAddStore: false, canDeleteStore: false, canTrack: false, canSeeVCCDetails: false, canSetPerformer: false, canSaveAccount: false, channels: ['tiktok', 'facebook'], alertsFor: ['store_inactive'] }
+      designer: { canAddVCC: false, canAddProfile: false, canAddAccount: false, canAddStore: false, canDeleteStore: false, canTrack: false, canSeeVCCDetails: true, canSetPerformer: false, canSaveAccount: false, channels: ['google'], alertsFor: [] }
     };
 
     // ============================================
