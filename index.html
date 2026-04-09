@@ -3380,9 +3380,9 @@ Or just card numbers:
       if (!store) return;
       
       // Check if there are linked accounts
-      const linkedGoogleAccounts = data.accounts.google.filter(a => a.storeId === storeId);
-      const linkedTiktokAccounts = data.accounts.tiktok.filter(a => a.storeId === storeId);
-      const linkedFbAccounts = data.accounts.facebook.filter(a => a.storeId === storeId);
+      const linkedGoogleAccounts = data.accounts.google.filter(a => a.storeId === storeId || a.storeId == storeId);
+      const linkedTiktokAccounts = data.accounts.tiktok.filter(a => a.storeId === storeId || a.storeId == storeId);
+      const linkedFbAccounts = data.accounts.facebook.filter(a => a.storeId === storeId || a.storeId == storeId);
       const totalLinked = linkedGoogleAccounts.length + linkedTiktokAccounts.length + linkedFbAccounts.length;
       
       let confirmMsg = `Are you sure you want to delete "${store.name}"?`;
@@ -3392,21 +3392,41 @@ Or just card numbers:
       
       if (!confirm(confirmMsg)) return;
       
-      // Remove store
-      data.stores = data.stores.filter(s => s.id !== storeId);
-      
-      // Unlink accounts (set storeId to null)
-      ['google', 'tiktok', 'facebook'].forEach(channel => {
-        data.accounts[channel].forEach(account => {
-          if (account.storeId === storeId) {
-            account.storeId = null;
-          }
+      try {
+        // Delete from Supabase
+        const { error } = await supabaseClient
+          .from('stores')
+          .delete()
+          .eq('id', storeId);
+        
+        if (error) throw error;
+        
+        // Remove from local data
+        data.stores = data.stores.filter(s => s.id !== storeId && s.id != storeId);
+        
+        // Unlink accounts (set storeId to null) - in local data and Supabase
+        ['google', 'tiktok', 'facebook'].forEach(channel => {
+          data.accounts[channel].forEach(async (account) => {
+            if (account.storeId === storeId || account.storeId == storeId) {
+              account.storeId = null;
+              // Update in Supabase too
+              await supabaseClient
+                .from('ad_accounts')
+                .update({ store_id: null })
+                .eq('id', account.id);
+            }
+          });
         });
-      });
-      
-      showToast(`Store "${store.name}" deleted!`);
-      renderStores();
-      renderDashboard();
+        
+        showAutoSaveIndicator('✓ Store deleted');
+        showToast(`Store "${store.name}" deleted!`);
+        renderStores();
+        renderDashboard();
+        updateBadges();
+      } catch (error) {
+        console.error('Error deleting store:', error);
+        showAutoSaveIndicator('⚠ Delete failed');
+      }
     }
 
     function deleteSuspendedAccount(accountId) {
