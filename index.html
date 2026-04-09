@@ -1154,14 +1154,11 @@
         <div class="header">
           <div>
             <h1 class="page-title">Daily Tracking</h1>
-            <p class="page-subtitle">Track daily spend for each account</p>
+            <p class="page-subtitle">Track daily spend for each account • <span style="color: var(--success);">Auto-saves ✓</span></p>
           </div>
           <div class="header-actions">
             <button class="btn btn-secondary" onclick="toggleTrackingView()">
               📊 Toggle View
-            </button>
-            <button class="btn btn-primary" onclick="saveAllTracking()">
-              💾 Save All Changes
             </button>
           </div>
         </div>
@@ -2159,20 +2156,22 @@ Or just card numbers:
               </div>
               <div class="tracking-spend">
                 <div class="tracking-spend-label">Today's Spend</div>
-                <input type="number" class="tracking-spend-input" value="${account.spend}" data-field="spend">
+                <input type="number" class="tracking-spend-input" value="${account.spend}" 
+                  data-field="spend" 
+                  onchange="autoSaveTracking('${account.id}', 'spend', this.value)">
               </div>
             </div>
             <div class="tracking-statuses">
               <div class="tracking-status-group">
                 <label>Store Status</label>
-                <select data-field="storeStatus">
+                <select data-field="storeStatus" onchange="autoSaveTracking('${account.id}', 'storeStatus', this.value)">
                   <option value="active" ${account.storeStatus === 'active' ? 'selected' : ''}>✅ Active</option>
                   <option value="inactive" ${account.storeStatus === 'inactive' ? 'selected' : ''}>❌ Inactive</option>
                 </select>
               </div>
               <div class="tracking-status-group">
                 <label>Ads Status</label>
-                <select data-field="adsStatus">
+                <select data-field="adsStatus" onchange="autoSaveTracking('${account.id}', 'adsStatus', this.value)">
                   <option value="active" ${account.adsStatus === 'active' ? 'selected' : ''}>✅ Active</option>
                   <option value="needs_verif" ${account.adsStatus === 'needs_verif' ? 'selected' : ''}>⚠️ Needs Verif</option>
                   <option value="payment_issue" ${account.adsStatus === 'payment_issue' ? 'selected' : ''}>💳 Payment Issue</option>
@@ -2191,6 +2190,44 @@ Or just card numbers:
       });
       
       document.getElementById('trackingList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts to track</p></div>';
+    }
+
+    // Auto-save tracking changes
+    async function autoSaveTracking(accountId, field, value) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      if (!account) return;
+      
+      // Update local data
+      if (field === 'spend') {
+        account.spend = parseFloat(value) || 0;
+        // Also update daily spend history for today
+        const today = new Date().toISOString().split('T')[0];
+        dailySpendHistory[`${accountId}_${today}`] = account.spend;
+      } else if (field === 'storeStatus') {
+        account.storeStatus = value;
+      } else if (field === 'adsStatus') {
+        account.adsStatus = value;
+        // If suspended, set suspendedAt
+        if (value === 'suspended' && !account.suspendedAt) {
+          account.suspendedAt = new Date().toISOString().split('T')[0];
+        } else if (value !== 'suspended') {
+          account.suspendedAt = null;
+        }
+      }
+      
+      // Save to Supabase
+      const updates = {};
+      if (field === 'spend') updates.spend = account.spend;
+      if (field === 'storeStatus') updates.store_status = value;
+      if (field === 'adsStatus') {
+        updates.ads_status = value;
+        updates.suspended_at = account.suspendedAt;
+      }
+      
+      await updateAdAccountInSupabase(accountId, updates);
+      
+      // Update badges
+      updateBadges();
     }
 
     // Daily spend history (stored locally, will sync to Supabase later)
@@ -2351,7 +2388,7 @@ Or just card numbers:
       `;
     }
 
-    function updateDailySpend(accountId, date, value) {
+    async function updateDailySpend(accountId, date, value) {
       const spend = parseFloat(value) || 0;
       const key = `${accountId}_${date}`;
       dailySpendHistory[key] = spend;
@@ -2362,12 +2399,33 @@ Or just card numbers:
         const account = data.accounts[currentChannel].find(a => a.id == accountId);
         if (account) {
           account.spend = spend;
+          // Save to Supabase
+          await updateAdAccountInSupabase(accountId, { spend: spend });
         }
+      }
+      
+      // TODO: Save historical daily spend to a daily_spend table in Supabase
+      // For now, just update local storage
+      try {
+        localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
+      } catch (e) {
+        console.log('Could not save to localStorage');
       }
       
       // Recalculate totals (re-render the whole calendar)
       renderTrackingCalendar();
-      showAutoSaveIndicator('✓ Spend updated');
+    }
+
+    // Load daily spend history from localStorage on init
+    function loadDailySpendHistory() {
+      try {
+        const saved = localStorage.getItem('dailySpendHistory');
+        if (saved) {
+          dailySpendHistory = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.log('Could not load from localStorage');
+      }
     }
 
     function renderProfiles() {
@@ -3205,6 +3263,9 @@ Balance: $${vcc.balance.toFixed(2)}`;
       
       // Load data from Supabase
       await loadDataFromSupabase();
+      
+      // Load daily spend history from localStorage
+      loadDailySpendHistory();
       
       renderDashboard();
       updateUIForUser();
