@@ -2437,6 +2437,7 @@ Or just card numbers:
     function renderProfiles() {
       const profiles = data.profiles[currentChannel];
       const accounts = data.accounts[currentChannel];
+      const perms = permissions[currentUser];
       let html = '';
       
       profiles.forEach(profile => {
@@ -2444,21 +2445,65 @@ Or just card numbers:
         const initials = profile.name.substring(0, 2).toUpperCase();
         
         html += `
-          <div class="profile-item">
-            <div class="profile-avatar">${initials}</div>
-            <div class="profile-info">
-              <div class="profile-name">${profile.name}</div>
-              <div class="profile-meta">Created by ${profile.createdBy} • ${formatDate(profile.createdAt)}</div>
+          <div class="profile-item" style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+              <div class="profile-avatar">${initials}</div>
+              <div class="profile-info">
+                <div class="profile-name">${profile.name}</div>
+                <div class="profile-meta">Created ${profile.createdAt ? formatDate(profile.createdAt) : 'N/A'}</div>
+              </div>
             </div>
-            <div class="profile-accounts">
-              <div class="profile-accounts-count">${accountCount}</div>
-              <div class="profile-accounts-label">accounts</div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="profile-accounts" style="text-align: center;">
+                <div class="profile-accounts-count">${accountCount}</div>
+                <div class="profile-accounts-label">accounts</div>
+              </div>
+              ${perms.canAddProfile ? `
+                <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteProfile('${profile.id}')">
+                  🗑️
+                </button>
+              ` : ''}
             </div>
           </div>
         `;
       });
       
       document.getElementById('profilesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No profiles yet</p></div>';
+    }
+
+    // Delete profile
+    async function deleteProfile(profileId) {
+      const profile = data.profiles[currentChannel].find(p => p.id === profileId || p.id == profileId);
+      if (!profile) return;
+      
+      // Check for linked accounts
+      const linkedAccounts = data.accounts[currentChannel].filter(a => a.profileId === profileId || a.profileId == profileId);
+      
+      let confirmMsg = `Delete profile "${profile.name}"?`;
+      if (linkedAccounts.length > 0) {
+        confirmMsg += `\n\n⚠️ Warning: This profile has ${linkedAccounts.length} linked account(s).`;
+      }
+      
+      if (!confirm(confirmMsg)) return;
+      
+      try {
+        // Delete from Supabase
+        const { error } = await supabaseClient
+          .from('profiles')
+          .delete()
+          .eq('id', profileId);
+        
+        if (error) throw error;
+        
+        // Remove from local data
+        data.profiles[currentChannel] = data.profiles[currentChannel].filter(p => p.id !== profileId && p.id != profileId);
+        
+        showAutoSaveIndicator('✓ Profile deleted');
+        renderProfiles();
+      } catch (error) {
+        console.error('Error deleting profile:', error);
+        showAutoSaveIndicator('⚠ Delete failed');
+      }
     }
 
     function renderAccounts() {
