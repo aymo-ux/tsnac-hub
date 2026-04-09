@@ -730,9 +730,260 @@
     }
 
     .campaign-type-label input { width: 16px; height: 16px; }
+
+    /* Auto-save indicator */
+    .auto-save-indicator {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background: var(--success);
+      color: white;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .auto-save-indicator.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Mobile hamburger menu */
+    .mobile-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1rem;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1001;
+    }
+
+    .mobile-header .logo {
+      margin: 0;
+    }
+
+    .hamburger {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-tertiary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .hamburger span {
+      width: 20px;
+      height: 2px;
+      background: var(--text-primary);
+      transition: all 0.3s;
+    }
+
+    .hamburger.active span:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .hamburger.active span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger.active span:nth-child(3) {
+      transform: rotate(-45deg) translate(5px, -5px);
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+
+    .sidebar-overlay.show {
+      display: block;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .mobile-header {
+        display: flex;
+      }
+
+      .sidebar {
+        position: fixed;
+        left: -300px;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        padding-top: 1.5rem;
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 80px 1rem 1rem 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+      }
+
+      .stat-card {
+        padding: 1rem;
+      }
+
+      .stat-value {
+        font-size: 1.25rem;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .header-actions .btn {
+        flex: 1;
+        min-width: 120px;
+        justify-content: center;
+      }
+
+      .page-title {
+        font-size: 1.35rem;
+      }
+
+      .table {
+        display: block;
+        overflow-x: auto;
+      }
+
+      .card-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+
+      .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: 1rem;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .tracking-card {
+        padding: 1rem;
+      }
+
+      .tracking-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .tracking-field {
+        min-width: 100%;
+      }
+
+      .vcc-card {
+        padding: 1rem;
+      }
+
+      .vcc-details {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .alert-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .channel-switcher {
+        padding: 0.25rem;
+      }
+
+      .channel-btn {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.7rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .vcc-details {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .header-actions .btn {
+        width: 100%;
+        min-width: auto;
+      }
+
+      .nav-item {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Mobile Header -->
+  <div class="mobile-header">
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      <span>TSNAC Hub</span>
+    </div>
+    <button class="hamburger" onclick="toggleSidebar()">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Auto-save Indicator -->
+  <div class="auto-save-indicator" id="autoSaveIndicator">✓ Saved</div>
+
   <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -1298,108 +1549,344 @@
       window.location.href = 'login.html';
     }
 
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      const hamburger = document.querySelector('.hamburger');
+      const overlay = document.querySelector('.sidebar-overlay');
+      
+      sidebar.classList.toggle('open');
+      hamburger.classList.toggle('active');
+      overlay.classList.toggle('show');
+    }
+
+    // Close sidebar when clicking a nav item on mobile
+    function closeSidebarOnMobile() {
+      if (window.innerWidth <= 768) {
+        const sidebar = document.querySelector('.sidebar');
+        const hamburger = document.querySelector('.hamburger');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        sidebar.classList.remove('open');
+        hamburger.classList.remove('active');
+        overlay.classList.remove('show');
+      }
+    }
+
+    // Auto-save indicator
+    function showAutoSaveIndicator(message = '✓ Saved') {
+      const indicator = document.getElementById('autoSaveIndicator');
+      indicator.textContent = message;
+      indicator.classList.add('show');
+      setTimeout(() => {
+        indicator.classList.remove('show');
+      }, 2000);
+    }
+
     // ============================================
-    // DATA STORE
+    // DATA STORE (loads from Supabase)
     // ============================================
     let currentUser = 'admin';
     let currentChannel = 'google';
     let reassigningAccountId = null;
 
+    // Initialize empty data structure - will be loaded from Supabase
     let data = {
-      stores: [
-        { 
-          id: 1, name: 'Deos', url: 'https://deos-store.com', isPerformer: true,
-          assets: {
-            keywords: 'deos supplement\nbuy deos\ndeos health',
-            headlines: 'Premium Deos Supplement\nBoost Your Health Today\nNatural Ingredients',
-            descriptions: 'Discover the power of Deos supplements. 100% natural, clinically tested.\nFree shipping on orders over $50. Order now and feel the difference.',
-            callouts: 'Free Shipping, 24/7 Support, Money Back Guarantee',
-            sitelinks: 'About Us | /about\nShop Now | /shop\nContact | /contact',
-            logo: 'https://example.com/deos-logo.png',
-            docLink: ''
-          },
-          createdBy: 'ayman', createdAt: '2026-03-10'
-        },
-        { 
-          id: 2, name: 'Emma', url: 'https://emma-wellness.com', isPerformer: false,
-          assets: {
-            keywords: 'emma wellness\nemma supplements\nwellness products',
-            headlines: 'Emma Wellness Products\nFeel Better Every Day\nNatural Health Solutions',
-            descriptions: 'Emma Wellness - your partner in health. Premium supplements for daily wellness.',
-            callouts: 'Organic, Lab Tested, Fast Delivery',
-            sitelinks: 'Products | /products\nReviews | /reviews',
-            logo: '',
-            docLink: 'https://docs.google.com/document/d/emma-brief'
-          },
-          createdBy: 'ayman', createdAt: '2026-03-12'
-        },
-        { 
-          id: 3, name: 'Beetroot', url: 'https://beetroot-health.com', isPerformer: false,
-          assets: { keywords: 'beetroot supplement', headlines: 'Beetroot Power', descriptions: 'Natural beetroot supplements', callouts: 'Organic', sitelinks: '', logo: '', docLink: '' },
-          createdBy: 'ayman', createdAt: '2026-03-14'
-        },
-        { 
-          id: 4, name: 'Moringa', url: 'https://moringa-life.com', isPerformer: true,
-          assets: { keywords: 'moringa supplement\nmoringa powder', headlines: 'Pure Moringa\nNature\'s Superfood', descriptions: 'Premium moringa supplements for energy and vitality', callouts: 'Superfood, Energy Boost', sitelinks: 'Shop | /shop', logo: '', docLink: '' },
-          createdBy: 'ayman', createdAt: '2026-03-16'
-        },
-        { 
-          id: 5, name: 'Provitalize', url: 'https://provitalize.com', isPerformer: false,
-          assets: { keywords: 'provitalize\nprobiotic supplement', headlines: 'Provitalize Probiotics', descriptions: 'Advanced probiotic formula', callouts: 'Probiotics, Gut Health', sitelinks: '', logo: '', docLink: '' },
-          createdBy: 'ayman', createdAt: '2026-03-18'
-        },
-      ],
-      vccs: {
-        google: [
-          { id: 1, number: '4532 8921 3847 0916', expiry: '08/27', cvv: '412', balance: 90.88, status: 'in_use', linkedAccount: 1, createdBy: 'ayman', createdAt: '2026-03-15' },
-          { id: 2, number: '4716 2938 4756 9252', expiry: '11/26', cvv: '887', balance: 425.92, status: 'in_use', linkedAccount: 2, createdBy: 'ayman', createdAt: '2026-03-18' },
-          { id: 3, number: '4929 1847 2635 3847', expiry: '03/27', cvv: '156', balance: 0, status: 'in_use', linkedAccount: 3, createdBy: 'ayman', createdAt: '2026-03-20' },
-          { id: 4, number: '4532 9182 7364 7721', expiry: '09/27', cvv: '243', balance: 312.45, status: 'in_use', linkedAccount: 4, createdBy: 'ayman', createdAt: '2026-03-22' },
-          { id: 5, number: '4716 8273 9182 5534', expiry: '12/27', cvv: '891', balance: 150.00, status: 'in_use', linkedAccount: 5, createdBy: 'ayman', createdAt: '2026-03-25' },
-          { id: 6, number: '4929 3847 2918 6647', expiry: '06/28', cvv: '334', balance: 500.00, status: 'unassigned', linkedAccount: null, createdBy: 'ayman', createdAt: '2026-04-05' },
-          { id: 7, number: '4532 1928 3746 8821', expiry: '10/27', cvv: '556', balance: 750.00, status: 'unassigned', linkedAccount: null, createdBy: 'ayman', createdAt: '2026-04-06' },
-        ],
-        tiktok: [
-          { id: 101, number: '5432 1111 2222 3333', expiry: '05/27', cvv: '123', balance: 300.00, status: 'unassigned', linkedAccount: null, createdBy: 'ayman', createdAt: '2026-04-01' },
-        ],
-        facebook: [
-          { id: 201, number: '5432 4444 5555 6666', expiry: '07/27', cvv: '456', balance: 400.00, status: 'unassigned', linkedAccount: null, createdBy: 'ayman', createdAt: '2026-04-02' },
-        ]
-      },
-      profiles: {
-        google: [
-          { id: 1, name: 'Jsky', createdBy: 'ayman', createdAt: '2026-03-10' },
-          { id: 2, name: 'Wacix', createdBy: 'ayman', createdAt: '2026-03-12' },
-          { id: 3, name: 'Elaci', createdBy: 'ara', createdAt: '2026-03-14' },
-          { id: 4, name: 'Jkforever 21', createdBy: 'ara', createdAt: '2026-03-16' },
-        ],
-        tiktok: [
-          { id: 101, name: 'TikTok Main', createdBy: 'ayman', createdAt: '2026-04-01' },
-        ],
-        facebook: [
-          { id: 201, name: 'FB Business 1', createdBy: 'ayman', createdAt: '2026-04-02' },
-        ]
-      },
-      accounts: {
-        google: [
-          { id: 1, storeId: 1, profileId: 1, vccId: 1, storeStatus: 'active', adsStatus: 'active', spend: 52, lifetimeSpend: 1250, campaigns: ['search', 'youtube'], status: 'active', suspendedAt: null, createdBy: 'ara', createdAt: '2026-03-15' },
-          { id: 2, storeId: 2, profileId: 2, vccId: 2, storeStatus: 'active', adsStatus: 'needs_verif', spend: 20, lifetimeSpend: 180, campaigns: ['search'], status: 'active', suspendedAt: null, createdBy: 'ara', createdAt: '2026-03-18' },
-          { id: 3, storeId: 3, profileId: 3, vccId: 3, storeStatus: 'active', adsStatus: 'suspended', spend: 0, lifetimeSpend: 85, campaigns: ['search'], status: 'active', suspendedAt: '2026-04-05', createdBy: 'ara', createdAt: '2026-03-20' },
-          { id: 4, storeId: 4, profileId: 4, vccId: 4, storeStatus: 'inactive', adsStatus: 'active', spend: 26, lifetimeSpend: 890, campaigns: ['search', 'youtube'], status: 'active', suspendedAt: null, createdBy: 'ara', createdAt: '2026-03-22' },
-          { id: 5, storeId: 5, profileId: 1, vccId: 5, storeStatus: 'active', adsStatus: 'payment_issue', spend: 39, lifetimeSpend: 210, campaigns: ['search'], status: 'active', suspendedAt: null, createdBy: 'ara', createdAt: '2026-03-25' },
-        ],
-        tiktok: [],
-        facebook: []
-      },
-      savedAccounts: {
-        google: [
-          { id: 901, originalStoreId: null, profileId: 2, vccId: null, lifetimeSpend: 120, savedAt: '2026-04-01', savedBy: 'ayman', reason: 'manual' },
-          { id: 902, originalStoreId: null, profileId: 3, vccId: null, lifetimeSpend: 85, savedAt: '2026-04-03', savedBy: 'system', reason: 'auto' },
-        ],
-        tiktok: [],
-        facebook: []
-      }
+      stores: [],
+      vccs: { google: [], tiktok: [], facebook: [] },
+      profiles: { google: [], tiktok: [], facebook: [] },
+      accounts: { google: [], tiktok: [], facebook: [] },
+      savedAccounts: { google: [], tiktok: [], facebook: [] }
     };
+
+    // Load data from Supabase
+    async function loadDataFromSupabase() {
+      try {
+        // Load stores
+        const { data: stores, error: storesError } = await supabaseClient
+          .from('stores')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (stores) {
+          data.stores = stores.map(s => ({
+            id: s.id,
+            name: s.name,
+            url: s.url,
+            isPerformer: s.is_performer,
+            assets: s.assets || {},
+            createdBy: s.created_by,
+            createdAt: s.created_at
+          }));
+        }
+
+        // Load VCCs
+        const { data: vccs, error: vccsError } = await supabaseClient
+          .from('vccs')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (vccs) {
+          data.vccs = { google: [], tiktok: [], facebook: [] };
+          vccs.forEach(v => {
+            const channel = v.channel || 'google';
+            if (data.vccs[channel]) {
+              data.vccs[channel].push({
+                id: v.id,
+                number: v.number,
+                expiry: v.expiry,
+                cvv: v.cvv,
+                balance: parseFloat(v.balance) || 0,
+                status: v.status || 'unassigned',
+                linkedAccount: v.linked_account,
+                createdBy: v.created_by,
+                createdAt: v.created_at
+              });
+            }
+          });
+        }
+
+        // Load profiles
+        const { data: profiles, error: profilesError } = await supabaseClient
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (profiles) {
+          data.profiles = { google: [], tiktok: [], facebook: [] };
+          profiles.forEach(p => {
+            const channel = p.channel || 'google';
+            if (data.profiles[channel]) {
+              data.profiles[channel].push({
+                id: p.id,
+                name: p.name,
+                createdBy: p.created_by,
+                createdAt: p.created_at
+              });
+            }
+          });
+        }
+
+        // Load ad accounts
+        const { data: accounts, error: accountsError } = await supabaseClient
+          .from('ad_accounts')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (accounts) {
+          data.accounts = { google: [], tiktok: [], facebook: [] };
+          accounts.forEach(a => {
+            const channel = a.channel || 'google';
+            if (data.accounts[channel]) {
+              data.accounts[channel].push({
+                id: a.id,
+                storeId: a.store_id,
+                profileId: a.profile_id,
+                vccId: a.vcc_id,
+                storeStatus: a.store_status || 'active',
+                adsStatus: a.ads_status || 'active',
+                spend: parseFloat(a.spend) || 0,
+                lifetimeSpend: parseFloat(a.lifetime_spend) || 0,
+                campaigns: a.campaigns || ['search'],
+                status: a.status || 'active',
+                suspendedAt: a.suspended_at,
+                createdBy: a.created_by,
+                createdAt: a.created_at
+              });
+            }
+          });
+        }
+
+        // Load saved accounts
+        const { data: savedAccounts, error: savedError } = await supabaseClient
+          .from('saved_accounts')
+          .select('*')
+          .order('saved_at', { ascending: true });
+        
+        if (savedAccounts) {
+          data.savedAccounts = { google: [], tiktok: [], facebook: [] };
+          savedAccounts.forEach(s => {
+            const channel = s.channel || 'google';
+            if (data.savedAccounts[channel]) {
+              data.savedAccounts[channel].push({
+                id: s.id,
+                originalStoreId: s.original_store_id,
+                profileId: s.profile_id,
+                vccId: s.vcc_id,
+                lifetimeSpend: parseFloat(s.lifetime_spend) || 0,
+                savedAt: s.saved_at,
+                savedBy: s.saved_by,
+                reason: s.reason || 'manual'
+              });
+            }
+          });
+        }
+
+        console.log('Data loaded from Supabase:', data);
+        return true;
+      } catch (error) {
+        console.error('Error loading data from Supabase:', error);
+        return false;
+      }
+    }
+
+    // Save store to Supabase
+    async function saveStoreToSupabase(store) {
+      try {
+        const { data: newStore, error } = await supabaseClient
+          .from('stores')
+          .insert({
+            name: store.name,
+            url: store.url,
+            is_performer: store.isPerformer || false,
+            assets: store.assets || {},
+            created_by: dbUser?.id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Store saved');
+        return newStore;
+      } catch (error) {
+        console.error('Error saving store:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return null;
+      }
+    }
+
+    // Save VCC to Supabase
+    async function saveVCCToSupabase(vcc, channel) {
+      try {
+        const { data: newVCC, error } = await supabaseClient
+          .from('vccs')
+          .insert({
+            number: vcc.number,
+            expiry: vcc.expiry,
+            cvv: vcc.cvv,
+            balance: vcc.balance,
+            status: 'unassigned',
+            channel: channel,
+            created_by: dbUser?.id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ VCC saved');
+        return newVCC;
+      } catch (error) {
+        console.error('Error saving VCC:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return null;
+      }
+    }
+
+    // Save profile to Supabase
+    async function saveProfileToSupabase(profile, channel) {
+      try {
+        const { data: newProfile, error } = await supabaseClient
+          .from('profiles')
+          .insert({
+            name: profile.name,
+            channel: channel,
+            created_by: dbUser?.id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Profile saved');
+        return newProfile;
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return null;
+      }
+    }
+
+    // Save ad account to Supabase
+    async function saveAdAccountToSupabase(account, channel) {
+      try {
+        const { data: newAccount, error } = await supabaseClient
+          .from('ad_accounts')
+          .insert({
+            store_id: account.storeId,
+            profile_id: account.profileId,
+            vcc_id: account.vccId,
+            channel: channel,
+            store_status: 'active',
+            ads_status: 'active',
+            spend: 0,
+            lifetime_spend: 0,
+            campaigns: account.campaigns || ['search'],
+            status: 'active',
+            created_by: dbUser?.id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Account saved');
+        return newAccount;
+      } catch (error) {
+        console.error('Error saving account:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return null;
+      }
+    }
+
+    // Update ad account in Supabase
+    async function updateAdAccountInSupabase(accountId, updates) {
+      try {
+        const { error } = await supabaseClient
+          .from('ad_accounts')
+          .update(updates)
+          .eq('id', accountId);
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Saved');
+        return true;
+      } catch (error) {
+        console.error('Error updating account:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return false;
+      }
+    }
+
+    // Update store in Supabase
+    async function updateStoreInSupabase(storeId, updates) {
+      try {
+        const { error } = await supabaseClient
+          .from('stores')
+          .update(updates)
+          .eq('id', storeId);
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Saved');
+        return true;
+      } catch (error) {
+        console.error('Error updating store:', error);
+        showAutoSaveIndicator('⚠ Save failed');
+        return false;
+      }
+    }
+
+    // Update VCC in Supabase
+    async function updateVCCInSupabase(vccId, updates) {
+      try {
+        const { error } = await supabaseClient
+          .from('vccs')
+          .update(updates)
+          .eq('id', vccId);
+        
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error('Error updating VCC:', error);
+        return false;
+      }
+    }
 
     // ============================================
     // PERMISSIONS
@@ -1478,6 +1965,7 @@
       document.getElementById(`section-${sectionId}`).classList.add('active');
       document.querySelector(`.nav-item[data-section="${sectionId}"]`)?.classList.add('active');
       renderSection(sectionId);
+      closeSidebarOnMobile();
     }
 
     function renderSection(sectionId) {
@@ -2293,14 +2781,13 @@ Balance: $${vcc.balance.toFixed(2)}`;
     // ============================================
     // ADD FUNCTIONS
     // ============================================
-    function addStore() {
+    async function addStore() {
       const name = document.getElementById('storeName').value.trim();
       const url = document.getElementById('storeUrl').value.trim();
       
       if (!name) { alert('Please enter store name'); return; }
       
       const newStore = {
-        id: Date.now(),
         name: name,
         url: url,
         isPerformer: false,
@@ -2317,10 +2804,20 @@ Balance: $${vcc.balance.toFixed(2)}`;
         createdAt: new Date().toISOString().split('T')[0]
       };
       
-      data.stores.push(newStore);
+      // Save to Supabase
+      const savedStore = await saveStoreToSupabase(newStore);
+      if (savedStore) {
+        newStore.id = savedStore.id;
+        data.stores.push(newStore);
+      } else {
+        newStore.id = Date.now();
+        data.stores.push(newStore);
+      }
+      
       closeModal('addStore');
       showToast('Store added! Jeannie can see the assets.');
       renderStores();
+      closeSidebarOnMobile();
       
       // Clear form
       ['storeName', 'storeUrl', 'storeKeywords', 'storeHeadlines', 'storeDescriptions', 'storeCallouts', 'storeSitelinks', 'storeLogo', 'storeDocLink'].forEach(id => {
@@ -2328,7 +2825,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
       });
     }
 
-    function addVCC() {
+    async function addVCC() {
       const channel = document.getElementById('vccChannel').value;
       const number = document.getElementById('vccNumber').value.trim();
       const expiry = document.getElementById('vccExpiry').value.trim();
@@ -2337,8 +2834,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
       
       if (!number || !expiry || !cvv) { alert('Please fill all fields'); return; }
       
-      data.vccs[channel].push({
-        id: Date.now(),
+      const newVCC = {
         number: number,
         expiry: expiry,
         cvv: cvv,
@@ -2347,39 +2843,58 @@ Balance: $${vcc.balance.toFixed(2)}`;
         linkedAccount: null,
         createdBy: currentUser,
         createdAt: new Date().toISOString().split('T')[0]
-      });
+      };
       
+      // Save to Supabase
+      const savedVCC = await saveVCCToSupabase(newVCC, channel);
+      if (savedVCC) {
+        newVCC.id = savedVCC.id;
+      } else {
+        newVCC.id = Date.now();
+      }
+      
+      data.vccs[channel].push(newVCC);
       closeModal('addVCC');
       showToast('VCC added! Team has been notified.');
       if (channel === currentChannel) renderVCCs();
       updateBadges();
+      closeSidebarOnMobile();
       
       ['vccNumber', 'vccExpiry', 'vccCVV', 'vccBalance'].forEach(id => {
         document.getElementById(id).value = '';
       });
     }
 
-    function addProfile() {
+    async function addProfile() {
       const name = document.getElementById('profileName').value.trim();
       if (!name) { alert('Please enter profile name'); return; }
       
-      data.profiles[currentChannel].push({
-        id: Date.now(),
+      const newProfile = {
         name: name,
         createdBy: currentUser,
         createdAt: new Date().toISOString().split('T')[0]
-      });
+      };
       
+      // Save to Supabase
+      const savedProfile = await saveProfileToSupabase(newProfile, currentChannel);
+      if (savedProfile) {
+        newProfile.id = savedProfile.id;
+      } else {
+        newProfile.id = Date.now();
+      }
+      
+      data.profiles[currentChannel].push(newProfile);
       closeModal('addProfile');
       showToast('Profile created!');
       renderProfiles();
+      closeSidebarOnMobile();
       document.getElementById('profileName').value = '';
     }
 
-    function addAccount() {
-      const storeId = parseInt(document.getElementById('accountStore').value);
-      const profileId = parseInt(document.getElementById('accountProfile').value);
-      const vccId = parseInt(document.getElementById('accountVCC').value);
+    async function addAccount() {
+      const storeId = document.getElementById('accountStore').value;
+      const profileId = document.getElementById('accountProfile').value;
+      const vccId = document.getElementById('accountVCC').value;
       
       if (!storeId || !profileId || !vccId) { alert('Please fill all fields'); return; }
       
@@ -2389,8 +2904,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         campaigns.push('youtube');
       }
       
-      data.accounts[currentChannel].push({
-        id: Date.now(),
+      const newAccount = {
         storeId: storeId,
         profileId: profileId,
         vccId: vccId,
@@ -2402,7 +2916,19 @@ Balance: $${vcc.balance.toFixed(2)}`;
         status: 'active',
         createdBy: currentUser,
         createdAt: new Date().toISOString().split('T')[0]
-      });
+      };
+      
+      // Save to Supabase
+      const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
+      if (savedAccount) {
+        newAccount.id = savedAccount.id;
+        // Update VCC in Supabase
+        await updateVCCInSupabase(vccId, { status: 'in_use', linked_account: savedAccount.id });
+      } else {
+        newAccount.id = Date.now();
+      }
+      
+      data.accounts[currentChannel].push(newAccount);
       
       // Update VCC
       const vcc = data.vccs[currentChannel].find(v => v.id === vccId);
@@ -2425,6 +2951,9 @@ Balance: $${vcc.balance.toFixed(2)}`;
       // Check authentication first
       const isAuthenticated = await checkAuth();
       if (!isAuthenticated) return;
+      
+      // Load data from Supabase
+      await loadDataFromSupabase();
       
       renderDashboard();
       updateUIForUser();
