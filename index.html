@@ -1620,7 +1620,8 @@ Or just card numbers:
       vccs: { google: [], tiktok: [], facebook: [] },
       profiles: { google: [], tiktok: [], facebook: [] },
       accounts: { google: [], tiktok: [], facebook: [] },
-      savedAccounts: { google: [], tiktok: [], facebook: [] }
+      savedAccounts: { google: [], tiktok: [], facebook: [] },
+      notifications: []
     };
 
     // Load data from Supabase
@@ -2203,6 +2204,8 @@ Or just card numbers:
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
       if (!account) return;
       
+      const store = getStore(account.storeId);
+      
       // Update local data
       if (field === 'spend') {
         account.spend = parseFloat(value) || 0;
@@ -2211,13 +2214,61 @@ Or just card numbers:
         dailySpendHistory[`${accountId}_${today}`] = account.spend;
       } else if (field === 'storeStatus') {
         account.storeStatus = value;
+        // Add notification if store becomes Inactive - notify Admin and Designer
+        if (value === 'inactive') {
+          addNotification({
+            type: 'store_inactive',
+            title: '🏪 Store Inactive',
+            message: `${store?.name || 'Unknown Store'} has been marked as Inactive`,
+            forRoles: ['admin', 'designer'],
+            accountId: accountId,
+            storeId: account.storeId,
+            createdAt: new Date().toISOString()
+          });
+        }
       } else if (field === 'adsStatus') {
         account.adsStatus = value;
-        // If suspended, set suspendedAt
-        if (value === 'suspended' && !account.suspendedAt) {
+        // If suspended, set suspendedAt and DELETE THE VCC
+        if (value === 'suspended') {
           account.suspendedAt = new Date().toISOString().split('T')[0];
+          // Delete the VCC immediately when account is suspended
+          await handleAccountSuspended(accountId);
+          // Notify Admin and Designer about suspension
+          addNotification({
+            type: 'account_suspended',
+            title: '🚫 Account Suspended',
+            message: `Google Ads account for ${store?.name || 'Unknown Store'} has been suspended`,
+            forRoles: ['admin', 'designer'],
+            accountId: accountId,
+            storeId: account.storeId,
+            createdAt: new Date().toISOString()
+          });
         } else if (value !== 'suspended') {
           account.suspendedAt = null;
+        }
+        // Notify for payment issues
+        if (value === 'payment_issue') {
+          addNotification({
+            type: 'payment_issue',
+            title: '💳 Payment Issue',
+            message: `${store?.name || 'Unknown Store'} has a payment issue`,
+            forRoles: ['admin'],
+            accountId: accountId,
+            storeId: account.storeId,
+            createdAt: new Date().toISOString()
+          });
+        }
+        // Notify for verification needed
+        if (value === 'needs_verif') {
+          addNotification({
+            type: 'needs_verification',
+            title: '⚠️ Verification Needed',
+            message: `${store?.name || 'Unknown Store'} needs verification`,
+            forRoles: ['admin', 'account_creator'],
+            accountId: accountId,
+            storeId: account.storeId,
+            createdAt: new Date().toISOString()
+          });
         }
       }
       
@@ -2232,8 +2283,124 @@ Or just card numbers:
       
       await updateAdAccountInSupabase(accountId, updates);
       
-      // Update badges
+      // Update badges and re-render
       updateBadges();
+      renderTracking();
+      renderNotifications();
+    }
+
+    // Add notification
+    function addNotification(notification) {
+      notification.id = Date.now();
+      notification.read = false;
+      data.notifications.unshift(notification); // Add to beginning
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('tsnac_notifications', JSON.stringify(data.notifications));
+      } catch (e) {
+        console.log('Could not save notifications');
+      }
+      
+      // Update badge
+      updateNotificationBadge();
+      
+      // Show toast for current user if they should see this notification
+      if (notification.forRoles.includes(currentUser)) {
+        showToast(notification.message);
+      }
+    }
+
+    // Load notifications from localStorage
+    function loadNotifications() {
+      try {
+        const saved = localStorage.getItem('tsnac_notifications');
+        if (saved) {
+          data.notifications = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.log('Could not load notifications');
+      }
+    }
+
+    // Update notification badge
+    function updateNotificationBadge() {
+      const unreadCount = data.notifications.filter(n => 
+        !n.read && n.forRoles.includes(currentUser)
+      ).length;
+      
+      const badge = document.querySelector('#section-alerts-nav .badge, .nav-item[onclick*="alerts"] .badge');
+      // Update the nav badge if exists
+    }
+
+    // Render notifications
+    function renderNotifications() {
+      const myNotifications = data.notifications.filter(n => n.forRoles.includes(currentUser));
+      
+      let html = '';
+      
+      if (myNotifications.length === 0) {
+        html = '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No notifications</p></div>';
+      } else {
+        myNotifications.forEach(notification => {
+          const timeAgo = getTimeAgo(notification.createdAt);
+          const bgColor = notification.read ? 'var(--bg-secondary)' : 'var(--bg-tertiary)';
+          const borderColor = notification.type === 'store_inactive' ? 'var(--warning)' : 
+                             notification.type === 'account_suspended' ? 'var(--danger)' : 
+                             notification.type === 'payment_issue' ? 'var(--danger)' : 'var(--accent)';
+          
+          html += `
+            <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${borderColor}; background: ${bgColor};">
+              <div class="card-body" style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <div style="font-weight: 600; margin-bottom: 0.25rem;">${notification.title}</div>
+                  <div style="color: var(--text-secondary);">${notification.message}</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">${timeAgo}</div>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                  ${!notification.read ? `<button class="btn btn-sm btn-secondary" onclick="markNotificationRead(${notification.id})">✓ Read</button>` : ''}
+                  <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteNotification(${notification.id})">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      document.getElementById('alertsList').innerHTML = html;
+    }
+
+    // Mark notification as read
+    function markNotificationRead(notificationId) {
+      const notification = data.notifications.find(n => n.id === notificationId);
+      if (notification) {
+        notification.read = true;
+        try {
+          localStorage.setItem('tsnac_notifications', JSON.stringify(data.notifications));
+        } catch (e) {}
+        renderNotifications();
+      }
+    }
+
+    // Delete notification
+    function deleteNotification(notificationId) {
+      data.notifications = data.notifications.filter(n => n.id !== notificationId);
+      try {
+        localStorage.setItem('tsnac_notifications', JSON.stringify(data.notifications));
+      } catch (e) {}
+      renderNotifications();
+    }
+
+    // Get time ago string
+    function getTimeAgo(dateString) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const seconds = Math.floor((now - date) / 1000);
+      
+      if (seconds < 60) return 'Just now';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+      return `${Math.floor(seconds / 86400)} days ago`;
     }
 
     // Daily spend history (stored locally, will sync to Supabase later)
@@ -2525,14 +2692,64 @@ Or just card numbers:
             <td>${getCampaignTags(account.campaigns, store)}</td>
             <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
             <td class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="font-family: 'JetBrains Mono', monospace;">$${account.lifetimeSpend}</td>
-            <td>
-              ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button class="btn btn-sm btn-secondary" onclick="saveAccount(${account.id})">💾 Save</button>` : ''}
+            <td style="display: flex; gap: 0.5rem;">
+              ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button class="btn btn-sm btn-secondary" onclick="saveAccount('${account.id}')">💾</button>` : ''}
+              <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteAdAccount('${account.id}')">🗑️</button>
             </td>
           </tr>
         `;
       });
       
-      document.getElementById('accountsTable').innerHTML = html;
+      document.getElementById('accountsTable').innerHTML = html || '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No ad accounts yet</td></tr>';
+    }
+
+    // Delete Ad Account
+    async function deleteAdAccount(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      
+      const store = getStore(account.storeId);
+      const vcc = getVCC(account.vccId);
+      
+      let confirmMsg = `Delete this ad account?`;
+      if (store) confirmMsg += `\nStore: ${store.name}`;
+      if (vcc) confirmMsg += `\n\n⚠️ The linked VCC (ending ${vcc.number.slice(-4)}) will also be deleted!`;
+      
+      if (!confirm(confirmMsg)) return;
+      
+      try {
+        // Delete the linked VCC first
+        if (vcc) {
+          const { error: vccError } = await supabaseClient
+            .from('vccs')
+            .delete()
+            .eq('id', vcc.id);
+          
+          if (!vccError) {
+            data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
+          }
+        }
+        
+        // Delete the ad account from Supabase
+        const { error } = await supabaseClient
+          .from('ad_accounts')
+          .delete()
+          .eq('id', accountId);
+        
+        if (error) throw error;
+        
+        // Remove from local data
+        data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId && a.id != accountId);
+        
+        showAutoSaveIndicator('✓ Account deleted');
+        renderAccounts();
+        renderVCCs();
+        renderDashboard();
+        updateBadges();
+      } catch (error) {
+        console.error('Error deleting ad account:', error);
+        showAutoSaveIndicator('⚠ Delete failed');
+      }
     }
 
     function renderVCCs() {
@@ -2962,19 +3179,66 @@ Or just card numbers:
       updateBadges();
     }
 
-    function autoDeleteSuspendedAccount(accountId) {
-      const account = data.accounts[currentChannel].find(a => a.id === accountId);
+    async function autoDeleteSuspendedAccount(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
       
-      // Release the VCC
+      // Get the VCC linked to this account
       const vcc = getVCC(account.vccId);
+      
+      // Delete the VCC from Supabase
       if (vcc) {
-        vcc.status = 'unassigned';
-        vcc.linkedAccount = null;
+        try {
+          const { error } = await supabaseClient
+            .from('vccs')
+            .delete()
+            .eq('id', vcc.id);
+          
+          if (error) throw error;
+          
+          // Remove VCC from local data
+          data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
+          console.log('VCC deleted due to suspended account:', vcc.id);
+        } catch (error) {
+          console.error('Error deleting VCC:', error);
+        }
       }
       
-      // Remove the account
-      data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId);
+      // Remove the account from local data
+      data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId && a.id != accountId);
+      
+      showAutoSaveIndicator('✓ Suspended account & VCC removed');
+      renderVCCs();
+      updateBadges();
+    }
+
+    // Handle when account gets suspended - delete VCC immediately
+    async function handleAccountSuspended(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      
+      const vcc = getVCC(account.vccId);
+      
+      // Delete the VCC immediately when suspended
+      if (vcc) {
+        try {
+          const { error } = await supabaseClient
+            .from('vccs')
+            .delete()
+            .eq('id', vcc.id);
+          
+          if (!error) {
+            // Remove VCC from local data
+            data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
+            showToast(`VCC ending in ${vcc.number.slice(-4)} deleted (account suspended)`);
+          }
+        } catch (error) {
+          console.error('Error deleting VCC:', error);
+        }
+      }
+      
+      renderVCCs();
+      updateBadges();
     }
 
     function copyVCCDetails(accountId) {
@@ -3426,7 +3690,11 @@ Balance: $${vcc.balance.toFixed(2)}`;
       // Load daily spend history from localStorage
       loadDailySpendHistory();
       
+      // Load notifications from localStorage
+      loadNotifications();
+      
       renderDashboard();
+      renderNotifications();
       updateUIForUser();
       updateBadges();
       
