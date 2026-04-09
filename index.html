@@ -2599,6 +2599,9 @@ Or just card numbers:
       // Card style - yellow border only if truly available
       const cardStyle = !actuallyInUse ? 'border: 2px solid var(--warning); background: var(--warning-bg);' : '';
       
+      // Get total spend from linked account
+      const totalSpend = linkedAccount ? linkedAccount.lifetimeSpend || 0 : 0;
+      
       return `
         <div class="vcc-card" style="${cardStyle}">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -2608,8 +2611,8 @@ Or just card numbers:
             </div>
             <div style="display: flex; align-items: center; gap: 1rem;">
               <div style="text-align: right;">
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Balance</div>
-                <div style="font-size: 1.1rem; font-weight: 600; color: var(--success);">$${(vcc.balance || 0).toFixed(2)}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Total Spend</div>
+                <div style="font-size: 1.1rem; font-weight: 600; color: ${totalSpend > 0 ? 'var(--success)' : 'var(--text-muted)'};">$${totalSpend}</div>
               </div>
               <button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.4rem 0.75rem;" onclick="deleteVCC('${vcc.id}')">
                 🗑️
