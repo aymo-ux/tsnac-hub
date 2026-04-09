@@ -2001,8 +2001,7 @@ Or just card numbers:
           balance: vcc.balance
         };
         
-        // Try to add optional columns if they exist
-        // status, channel, created_by might not exist
+        console.log('Saving VCC to Supabase:', insertData);
         
         const { data: newVCC, error } = await supabaseClient
           .from('vccs')
@@ -2012,8 +2011,12 @@ Or just card numbers:
         
         if (error) {
           console.error('VCC insert error:', error);
+          console.error('Error details:', error.message, error.details, error.hint);
+          alert('VCC save failed: ' + error.message);
           throw error;
         }
+        
+        console.log('VCC saved successfully:', newVCC);
         showAutoSaveIndicator('✓ VCC saved');
         return newVCC;
       } catch (error) {
@@ -3937,6 +3940,8 @@ Balance: $${vcc.balance.toFixed(2)}`;
       const defaultBalance = parseFloat(document.getElementById('vccDefaultBalance').value) || 500;
       const lines = input.split('\n').filter(l => l.trim());
       
+      console.log('Adding VCCs, lines:', lines);
+      
       if (lines.length === 0) {
         alert('Please paste VCC data');
         return;
@@ -3944,13 +3949,20 @@ Balance: $${vcc.balance.toFixed(2)}`;
       
       let added = 0;
       let failed = 0;
+      let parseErrors = [];
       
       for (const line of lines) {
+        console.log('Processing line:', line);
         const parsed = parseVCCLine(line);
+        
         if (!parsed) {
+          console.log('Failed to parse:', line);
+          parseErrors.push(line);
           failed++;
           continue;
         }
+        
+        console.log('Parsed successfully:', parsed);
         
         const newVCC = {
           number: parsed.number,
@@ -3969,8 +3981,10 @@ Balance: $${vcc.balance.toFixed(2)}`;
           newVCC.id = savedVCC.id;
           data.vccs.google.push(newVCC);
           added++;
+          console.log('VCC added successfully');
         } else {
           failed++;
+          console.log('VCC save failed');
         }
       }
       
@@ -3982,7 +3996,12 @@ Balance: $${vcc.balance.toFixed(2)}`;
         renderVCCs();
         updateBadges();
       } else {
-        showToast('No VCCs could be parsed. Check format.');
+        if (parseErrors.length > 0) {
+          showToast(`Parse failed. Check console (F12) for details.`);
+          console.log('Parse errors for lines:', parseErrors);
+        } else {
+          showToast('VCCs parsed but save to Supabase failed. Check console.');
+        }
       }
       closeSidebarOnMobile();
     }
