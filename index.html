@@ -1782,21 +1782,27 @@ Or just card numbers:
     // Save VCC to Supabase
     async function saveVCCToSupabase(vcc, channel) {
       try {
+        // Only include columns that exist in the vccs table
+        const insertData = {
+          card_number: vcc.number,
+          expiry: vcc.expiry,
+          cvv: vcc.cvv,
+          balance: vcc.balance
+        };
+        
+        // Try to add optional columns if they exist
+        // status, channel, created_by might not exist
+        
         const { data: newVCC, error } = await supabaseClient
           .from('vccs')
-          .insert({
-            card_number: vcc.number,
-            expiry: vcc.expiry,
-            cvv: vcc.cvv,
-            balance: vcc.balance,
-            status: 'unassigned',
-            channel: channel,
-            created_by: dbUser?.id
-          })
+          .insert(insertData)
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('VCC insert error:', error);
+          throw error;
+        }
         showAutoSaveIndicator('✓ VCC saved');
         return newVCC;
       } catch (error) {
@@ -2488,9 +2494,11 @@ Or just card numbers:
       const perms = permissions[currentUser];
       const vccs = data.vccs[currentChannel];
       const unassignedVCCs = vccs.filter(v => v.status === 'unassigned');
+      const inUseVCCs = vccs.filter(v => v.status === 'in_use');
       
+      // Show unassigned VCCs section for admin and account_creator
       const unassignedSection = document.getElementById('unassignedVCCs');
-      if (unassignedVCCs.length > 0 && (currentUser === 'ara' || currentUser === 'ayman')) {
+      if (unassignedVCCs.length > 0 && (currentUser === 'admin' || currentUser === 'account_creator')) {
         unassignedSection.style.display = 'block';
         let unassignedHtml = '';
         unassignedVCCs.forEach(vcc => {
@@ -2501,11 +2509,20 @@ Or just card numbers:
         unassignedSection.style.display = 'none';
       }
       
+      // Show in-use VCCs
       let html = '';
-      vccs.filter(v => v.status === 'in_use').forEach(vcc => {
+      inUseVCCs.forEach(vcc => {
         html += renderVCCCard(vcc, perms.canSeeVCCDetails, false);
       });
-      document.getElementById('vccsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">💳</div><p>No active VCCs</p></div>';
+      
+      // If no in-use VCCs but there are unassigned, show a different message
+      if (inUseVCCs.length === 0 && unassignedVCCs.length > 0) {
+        document.getElementById('vccsList').innerHTML = '<div class="empty-state"><div class="empty-state-icon">💳</div><p>No VCCs in use yet. Assign them to accounts!</p></div>';
+      } else if (vccs.length === 0) {
+        document.getElementById('vccsList').innerHTML = '<div class="empty-state"><div class="empty-state-icon">💳</div><p>No VCCs yet. Click "+ Add VCC" to add some!</p></div>';
+      } else {
+        document.getElementById('vccsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">💳</div><p>No active VCCs</p></div>';
+      }
     }
 
     function renderVCCCard(vcc, showDetails, isUnassigned) {
