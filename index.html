@@ -2529,24 +2529,87 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel];
       const linkedAccount = accounts.find(a => a.vccId === vcc.id);
       const store = linkedAccount ? getStore(linkedAccount.storeId) : null;
-      const cardNumber = showDetails ? vcc.number : '•••• •••• •••• ' + vcc.number.slice(-4);
+      const cardNumber = vcc.number || '';
+      const maskedNumber = showDetails ? cardNumber : '•••• •••• •••• ' + cardNumber.slice(-4);
       const cvv = showDetails ? vcc.cvv : '•••';
       
       return `
-        <div class="vcc-card" style="${isUnassigned ? 'border: 1px solid var(--warning);' : ''}">
-          <div class="vcc-number">${cardNumber}</div>
+        <div class="vcc-card" style="${isUnassigned ? 'border: 2px solid var(--warning); background: var(--warning-bg);' : ''}">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div class="vcc-number" style="cursor: pointer;" onclick="copyToClipboard('${cardNumber}', 'Card number')" title="Click to copy">
+              ${maskedNumber}
+              <span style="font-size: 0.7rem; margin-left: 0.5rem; color: var(--text-muted);">📋</span>
+            </div>
+            <button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.25rem 0.5rem;" onclick="deleteVCC('${vcc.id}')">
+              🗑️
+            </button>
+          </div>
           <div class="vcc-details">
-            <div><div class="vcc-detail-label">Expiry</div><div class="vcc-detail-value">${vcc.expiry}</div></div>
-            <div><div class="vcc-detail-label">CVV</div><div class="vcc-detail-value">${cvv}</div></div>
-            <div><div class="vcc-detail-label">Status</div><div>${getStatusBadge(vcc.status, 'vcc')}</div></div>
+            <div onclick="copyToClipboard('${vcc.expiry}', 'Expiry')" style="cursor: pointer;" title="Click to copy">
+              <div class="vcc-detail-label">Expiry</div>
+              <div class="vcc-detail-value">${vcc.expiry} 📋</div>
+            </div>
+            <div onclick="copyToClipboard('${vcc.cvv}', 'CVV')" style="cursor: pointer;" title="Click to copy">
+              <div class="vcc-detail-label">CVV</div>
+              <div class="vcc-detail-value">${cvv} ${showDetails ? '📋' : ''}</div>
+            </div>
+            <div>
+              <div class="vcc-detail-label">Status</div>
+              <div>${isUnassigned ? '<span class="status status-unassigned">⏳ Available</span>' : '<span class="status status-active">✓ In Use</span>'}</div>
+            </div>
           </div>
           <div class="vcc-balance">
             <div class="vcc-balance-label">Balance</div>
-            <div class="vcc-balance-value">$${vcc.balance.toFixed(2)}</div>
+            <div class="vcc-balance-value">$${(vcc.balance || 0).toFixed(2)}</div>
           </div>
-          ${store ? `<div class="vcc-linked">Linked to: <strong>${store.name}</strong></div>` : ''}
+          ${store ? `<div class="vcc-linked" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">Linked to: <strong>${store.name}</strong></div>` : ''}
+          ${isUnassigned ? `<div style="margin-top: 0.75rem;"><button class="btn btn-sm btn-primary" style="width: 100%;" onclick="copyAllVCCDetails('${cardNumber}', '${vcc.expiry}', '${vcc.cvv}')">📋 Copy All Details</button></div>` : ''}
         </div>
       `;
+    }
+
+    // Copy to clipboard helper
+    function copyToClipboard(text, label) {
+      navigator.clipboard.writeText(text).then(() => {
+        showAutoSaveIndicator(`✓ ${label} copied!`);
+      }).catch(err => {
+        console.error('Copy failed:', err);
+      });
+    }
+
+    // Copy all VCC details at once
+    function copyAllVCCDetails(number, expiry, cvv) {
+      const text = `${number} - ${expiry} - ${cvv}`;
+      navigator.clipboard.writeText(text).then(() => {
+        showAutoSaveIndicator('✓ VCC details copied!');
+      }).catch(err => {
+        console.error('Copy failed:', err);
+      });
+    }
+
+    // Delete VCC
+    async function deleteVCC(vccId) {
+      if (!confirm('Delete this VCC?')) return;
+      
+      try {
+        // Delete from Supabase
+        const { error } = await supabaseClient
+          .from('vccs')
+          .delete()
+          .eq('id', vccId);
+        
+        if (error) throw error;
+        
+        // Remove from local data
+        data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vccId);
+        
+        showAutoSaveIndicator('✓ VCC deleted');
+        renderVCCs();
+        updateBadges();
+      } catch (error) {
+        console.error('Error deleting VCC:', error);
+        showAutoSaveIndicator('⚠ Delete failed');
+      }
     }
 
     function renderSuspendedAccounts() {
