@@ -1344,42 +1344,37 @@
 
   <!-- Add VCC Modal -->
   <div class="modal-overlay" id="modal-addVCC">
-    <div class="modal">
+    <div class="modal" style="max-width: 600px;">
       <div class="modal-header">
-        <span class="modal-title">Add New VCC</span>
+        <span class="modal-title">Add VCCs (Bulk Import)</span>
         <button class="modal-close" onclick="closeModal('addVCC')">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Channel</label>
-          <select class="form-select" id="vccChannel">
-            <option value="google">Google Ads</option>
-            <option value="tiktok">TikTok</option>
-            <option value="facebook">Facebook</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Card Number</label>
-          <input type="text" class="form-input" id="vccNumber" placeholder="4532 1234 5678 9012">
+          <label class="form-label">Paste VCCs (one per line)</label>
+          <textarea class="form-input" id="vccBulkInput" rows="10" placeholder="Paste from your bank - format: 
+4361207709762237 - 01/31 - 965
+4361208011560194 - 09/29 - 025
+4361207909614162 - 12/31 - 873
+
+Or just card numbers:
+4361207709762237
+4361208011560194" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"></textarea>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Expiry</label>
-            <input type="text" class="form-input" id="vccExpiry" placeholder="MM/YY">
+            <label class="form-label">Default Balance (if not specified)</label>
+            <input type="number" class="form-input" id="vccDefaultBalance" placeholder="500" value="500">
           </div>
-          <div class="form-group">
-            <label class="form-label">CVV</label>
-            <input type="text" class="form-input" id="vccCVV" placeholder="123">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Balance</label>
-            <input type="number" class="form-input" id="vccBalance" placeholder="500">
-          </div>
+        </div>
+        <div id="vccParsePreview" style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; display: none;">
+          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Preview:</div>
+          <div id="vccPreviewList" style="font-size: 0.85rem; max-height: 150px; overflow-y: auto;"></div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('addVCC')">Cancel</button>
-        <button class="btn btn-primary" onclick="addVCC()">Add VCC</button>
+        <button class="btn btn-primary" onclick="addBulkVCCs()">Add All VCCs</button>
       </div>
     </div>
   </div>
@@ -2826,44 +2821,91 @@ Balance: $${vcc.balance.toFixed(2)}`;
       });
     }
 
-    async function addVCC() {
-      const channel = document.getElementById('vccChannel').value;
-      const number = document.getElementById('vccNumber').value.trim();
-      const expiry = document.getElementById('vccExpiry').value.trim();
-      const cvv = document.getElementById('vccCVV').value.trim();
-      const balance = parseFloat(document.getElementById('vccBalance').value) || 0;
+    // Parse VCC line from bank format: "4361207709762237 - 01/31 - 965"
+    function parseVCCLine(line) {
+      line = line.trim();
+      if (!line) return null;
       
-      if (!number || !expiry || !cvv) { alert('Please fill all fields'); return; }
+      // Format: NUMBER - MM/YY - CVV or NUMBER - MMYY - CVV
+      const parts = line.split(/\s*-\s*/);
       
-      const newVCC = {
-        number: number,
-        expiry: expiry,
-        cvv: cvv,
-        balance: balance,
-        status: 'unassigned',
-        linkedAccount: null,
-        createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      
-      // Save to Supabase
-      const savedVCC = await saveVCCToSupabase(newVCC, channel);
-      if (savedVCC) {
-        newVCC.id = savedVCC.id;
-      } else {
-        newVCC.id = Date.now();
+      if (parts.length >= 3) {
+        let number = parts[0].replace(/\s/g, '');
+        let expiry = parts[1].trim();
+        let cvv = parts[2].trim();
+        
+        // Format expiry if needed (convert 0131 to 01/31)
+        if (expiry.length === 4 && !expiry.includes('/')) {
+          expiry = expiry.slice(0, 2) + '/' + expiry.slice(2);
+        }
+        
+        if (number.length >= 15 && cvv.length >= 3) {
+          return { number, expiry, cvv };
+        }
       }
       
-      data.vccs[channel].push(newVCC);
-      closeModal('addVCC');
-      showToast('VCC added! Team has been notified.');
-      if (channel === currentChannel) renderVCCs();
-      updateBadges();
-      closeSidebarOnMobile();
+      // Just a card number
+      const justNumber = line.replace(/\s/g, '');
+      if (justNumber.length >= 15 && /^\d+$/.test(justNumber)) {
+        return { number: justNumber, expiry: '12/29', cvv: '000' };
+      }
       
-      ['vccNumber', 'vccExpiry', 'vccCVV', 'vccBalance'].forEach(id => {
-        document.getElementById(id).value = '';
-      });
+      return null;
+    }
+
+    async function addBulkVCCs() {
+      const input = document.getElementById('vccBulkInput').value;
+      const defaultBalance = parseFloat(document.getElementById('vccDefaultBalance').value) || 500;
+      const lines = input.split('\n').filter(l => l.trim());
+      
+      if (lines.length === 0) {
+        alert('Please paste VCC data');
+        return;
+      }
+      
+      let added = 0;
+      let failed = 0;
+      
+      for (const line of lines) {
+        const parsed = parseVCCLine(line);
+        if (!parsed) {
+          failed++;
+          continue;
+        }
+        
+        const newVCC = {
+          number: parsed.number,
+          expiry: parsed.expiry,
+          cvv: parsed.cvv,
+          balance: defaultBalance,
+          status: 'unassigned',
+          linkedAccount: null,
+          createdBy: currentUser,
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        
+        // Save to Supabase
+        const savedVCC = await saveVCCToSupabase(newVCC, 'google');
+        if (savedVCC) {
+          newVCC.id = savedVCC.id;
+          data.vccs.google.push(newVCC);
+          added++;
+        } else {
+          failed++;
+        }
+      }
+      
+      closeModal('addVCC');
+      document.getElementById('vccBulkInput').value = '';
+      
+      if (added > 0) {
+        showToast(`${added} VCCs added!${failed > 0 ? ` (${failed} failed)` : ''}`);
+        renderVCCs();
+        updateBadges();
+      } else {
+        showToast('No VCCs could be parsed. Check format.');
+      }
+      closeSidebarOnMobile();
     }
 
     async function addProfile() {
