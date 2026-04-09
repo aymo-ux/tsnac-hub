@@ -1468,12 +1468,12 @@ Or just card numbers:
 
   <!-- View Store Assets Modal -->
   <div class="modal-overlay" id="modal-viewAssets">
-    <div class="modal large">
+    <div class="modal" style="max-width: 700px; max-height: 90vh;">
       <div class="modal-header">
         <span class="modal-title" id="viewAssetsTitle">Store Assets</span>
         <button class="modal-close" onclick="closeModal('viewAssets')">&times;</button>
       </div>
-      <div class="modal-body" id="viewAssetsBody"></div>
+      <div class="modal-body" id="viewAssetsBody" style="max-height: 70vh; overflow-y: auto;"></div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('viewAssets')">Close</button>
       </div>
@@ -3278,35 +3278,122 @@ Balance: $${vcc.balance.toFixed(2)}`;
       
       const assets = store.assets || {};
       
+      // Helper to create copyable list items
+      function createCopyableList(items, label) {
+        if (!items || items === '-') return `<div style="color: var(--text-muted);">No ${label.toLowerCase()} added</div>`;
+        
+        const itemList = items.split('\n').filter(i => i.trim());
+        if (itemList.length === 0) return `<div style="color: var(--text-muted);">No ${label.toLowerCase()} added</div>`;
+        
+        let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+        itemList.forEach((item, index) => {
+          const escapedItem = item.trim().replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-tertiary); padding: 0.5rem 0.75rem; border-radius: 6px;">
+              <span style="flex: 1; margin-right: 0.5rem;">${item.trim()}</span>
+              <button class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="copyToClipboard('${escapedItem}', '${label} ${index + 1}')">📋</button>
+            </div>
+          `;
+        });
+        html += '</div>';
+        return html;
+      }
+      
+      // Helper for callouts (comma separated)
+      function createCopyableCallouts(callouts) {
+        if (!callouts || callouts === '-') return `<div style="color: var(--text-muted);">No callouts added</div>`;
+        
+        const items = callouts.split(',').filter(i => i.trim());
+        if (items.length === 0) return `<div style="color: var(--text-muted);">No callouts added</div>`;
+        
+        let html = '<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">';
+        items.forEach((item, index) => {
+          const escapedItem = item.trim().replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          html += `
+            <div style="display: flex; align-items: center; background: var(--bg-tertiary); padding: 0.4rem 0.6rem; border-radius: 6px; gap: 0.5rem;">
+              <span>${item.trim()}</span>
+              <button class="btn btn-sm btn-primary" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;" onclick="copyToClipboard('${escapedItem}', 'Callout')">📋</button>
+            </div>
+          `;
+        });
+        html += '</div>';
+        return html;
+      }
+      
       document.getElementById('viewAssetsTitle').textContent = `${store.name} - Ad Assets`;
       document.getElementById('viewAssetsBody').innerHTML = `
-        <div class="assets-grid">
-          <div class="asset-item">
-            <div class="asset-label">Keywords</div>
-            <div class="asset-value">${assets.keywords || '-'}</div>
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          
+          <!-- Final URL -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">🔗 Final URL</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(store.url || '').replace(/'/g, "\\'")}', 'URL')">📋 Copy</button>
+            </div>
+            <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: 6px; word-break: break-all;">${store.url || '-'}</div>
           </div>
-          <div class="asset-item">
-            <div class="asset-label">Final URL</div>
-            <div class="asset-value">${store.url || '-'}</div>
+          
+          <!-- Keywords -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">🔑 Keywords</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(assets.keywords || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}', 'All Keywords')">📋 Copy All</button>
+            </div>
+            ${createCopyableList(assets.keywords, 'Keyword')}
           </div>
-          <div class="asset-item" style="grid-column: span 2;">
-            <div class="asset-label">Headlines</div>
-            <div class="asset-value">${assets.headlines || '-'}</div>
+          
+          <!-- Headlines -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">📰 Headlines</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(assets.headlines || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}', 'All Headlines')">📋 Copy All</button>
+            </div>
+            ${createCopyableList(assets.headlines, 'Headline')}
           </div>
-          <div class="asset-item" style="grid-column: span 2;">
-            <div class="asset-label">Descriptions</div>
-            <div class="asset-value">${assets.descriptions || '-'}</div>
+          
+          <!-- Descriptions -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">📝 Descriptions</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(assets.descriptions || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}', 'All Descriptions')">📋 Copy All</button>
+            </div>
+            ${createCopyableList(assets.descriptions, 'Description')}
           </div>
-          <div class="asset-item">
-            <div class="asset-label">Callouts</div>
-            <div class="asset-value">${assets.callouts || '-'}</div>
+          
+          <!-- Callouts -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">💬 Callouts</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(assets.callouts || '').replace(/'/g, "\\'")}', 'All Callouts')">📋 Copy All</button>
+            </div>
+            ${createCopyableCallouts(assets.callouts)}
           </div>
-          <div class="asset-item">
-            <div class="asset-label">Sitelinks</div>
-            <div class="asset-value">${assets.sitelinks || '-'}</div>
+          
+          <!-- Sitelinks -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div class="asset-label" style="font-weight: 600; color: var(--accent);">🔗 Sitelinks</div>
+              <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${(assets.sitelinks || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}', 'All Sitelinks')">📋 Copy All</button>
+            </div>
+            ${createCopyableList(assets.sitelinks, 'Sitelink')}
           </div>
-          ${assets.logo ? `<div class="asset-item"><div class="asset-label">Logo</div><div class="asset-value"><a href="${assets.logo}" target="_blank" style="color: var(--accent);">View Logo</a></div></div>` : ''}
-          ${assets.docLink ? `<div class="asset-item"><div class="asset-label">Full Brief</div><div class="asset-value"><a href="${assets.docLink}" target="_blank" style="color: var(--accent);">Open Google Doc</a></div></div>` : ''}
+          
+          <!-- Logo & Doc Links -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            ${assets.logo ? `
+              <div>
+                <div class="asset-label" style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">🖼️ Logo</div>
+                <a href="${assets.logo}" target="_blank" class="btn btn-secondary" style="display: inline-block;">View Logo ↗</a>
+              </div>
+            ` : ''}
+            ${assets.docLink ? `
+              <div>
+                <div class="asset-label" style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">📄 Full Brief</div>
+                <a href="${assets.docLink}" target="_blank" class="btn btn-secondary" style="display: inline-block;">Open Google Doc ↗</a>
+              </div>
+            ` : ''}
+          </div>
+          
         </div>
       `;
       openModal('viewAssets');
