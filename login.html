@@ -223,12 +223,12 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16Zm9tZmxodnlvaHdzZGV5YXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njg3OTYsImV4cCI6MjA5MTE0NDc5Nn0.gfBg9vCPOzIeAGWMWyMoObd1XmFbF2rXsiBzohI2uSs';
     
     // Initialize Supabase client
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Check if already logged in
     async function checkSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
           window.location.href = 'index.html';
         }
@@ -268,7 +268,7 @@
       hideMessages();
 
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
           email,
           password
         });
