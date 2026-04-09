@@ -1993,12 +1993,13 @@ Or just card numbers:
     // Save VCC to Supabase
     async function saveVCCToSupabase(vcc, channel) {
       try {
-        // Only include columns that exist in the vccs table
+        // Include all required columns
         const insertData = {
           card_number: vcc.number,
           expiry: vcc.expiry,
           cvv: vcc.cvv,
-          balance: vcc.balance
+          balance: vcc.balance,
+          channel: channel || 'google'  // Add channel - required field
         };
         
         console.log('Saving VCC to Supabase:', insertData);
