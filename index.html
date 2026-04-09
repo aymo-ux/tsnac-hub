@@ -1584,13 +1584,43 @@
   <div class="modal-overlay" id="modal-addVCC">
     <div class="modal" style="max-width: 600px;">
       <div class="modal-header">
-        <span class="modal-title">Add VCCs (Bulk Import)</span>
+        <span class="modal-title">Add VCC</span>
         <button class="modal-close" onclick="closeModal('addVCC')">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Paste VCCs (one per line)</label>
-          <textarea class="form-input" id="vccBulkInput" rows="10" placeholder="Paste from your bank - format: 
+        <!-- Toggle Tabs -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--bg-tertiary); padding: 0.35rem; border-radius: 10px;">
+          <button id="vccTabSingle" onclick="switchVCCTab('single')" style="flex: 1; padding: 0.7rem; border: none; border-radius: 8px; background: var(--accent); color: white; font-family: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s;">➕ Single VCC</button>
+          <button id="vccTabBulk" onclick="switchVCCTab('bulk')" style="flex: 1; padding: 0.7rem; border: none; border-radius: 8px; background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s;">📋 Bulk Import</button>
+        </div>
+        
+        <!-- Single VCC Form -->
+        <div id="vccFormSingle">
+          <div class="form-group">
+            <label class="form-label">Card Number</label>
+            <input type="text" class="form-input" id="vccSingleNumber" placeholder="4361207709762237" style="font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;">
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Expiry (MM/YY)</label>
+              <input type="text" class="form-input" id="vccSingleExpiry" placeholder="06/29" style="font-family: 'JetBrains Mono', monospace;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CVV</label>
+              <input type="text" class="form-input" id="vccSingleCVV" placeholder="157" style="font-family: 'JetBrains Mono', monospace;">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Balance</label>
+            <input type="number" class="form-input" id="vccSingleBalance" placeholder="500" value="500">
+          </div>
+        </div>
+        
+        <!-- Bulk Import Form -->
+        <div id="vccFormBulk" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Paste VCCs (one per line)</label>
+            <textarea class="form-input" id="vccBulkInput" rows="10" placeholder="Paste from your bank - format: 
 4361207709762237 - 01/31 - 965
 4361208011560194 - 09/29 - 025
 4361207909614162 - 12/31 - 873
@@ -1598,21 +1628,20 @@
 Or just card numbers:
 4361207709762237
 4361208011560194" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"></textarea>
-        </div>
-        <div class="form-row">
+          </div>
           <div class="form-group">
             <label class="form-label">Default Balance (if not specified)</label>
             <input type="number" class="form-input" id="vccDefaultBalance" placeholder="500" value="500">
           </div>
-        </div>
-        <div id="vccParsePreview" style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; display: none;">
-          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Preview:</div>
-          <div id="vccPreviewList" style="font-size: 0.85rem; max-height: 150px; overflow-y: auto;"></div>
+          <div id="vccParsePreview" style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; display: none;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Preview:</div>
+            <div id="vccPreviewList" style="font-size: 0.85rem; max-height: 150px; overflow-y: auto;"></div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('addVCC')">Cancel</button>
-        <button class="btn btn-primary" onclick="addBulkVCCs()">Add All VCCs</button>
+        <button class="btn btn-primary" id="vccAddBtn" onclick="addSingleVCC()">Add VCC</button>
       </div>
     </div>
   </div>
@@ -3872,6 +3901,87 @@ Balance: $${vcc.balance.toFixed(2)}`;
       ['storeName', 'storeUrl', 'storeKeywords', 'storeHeadlines', 'storeDescriptions', 'storeCallouts', 'storeSitelinks', 'storeLogo', 'storeDocLink'].forEach(id => {
         document.getElementById(id).value = '';
       });
+    }
+
+    // Switch between Single and Bulk VCC tabs
+    function switchVCCTab(tab) {
+      const singleTab = document.getElementById('vccTabSingle');
+      const bulkTab = document.getElementById('vccTabBulk');
+      const singleForm = document.getElementById('vccFormSingle');
+      const bulkForm = document.getElementById('vccFormBulk');
+      const addBtn = document.getElementById('vccAddBtn');
+      
+      if (tab === 'single') {
+        singleTab.style.background = 'var(--accent)';
+        singleTab.style.color = 'white';
+        bulkTab.style.background = 'transparent';
+        bulkTab.style.color = 'var(--text-secondary)';
+        singleForm.style.display = 'block';
+        bulkForm.style.display = 'none';
+        addBtn.textContent = 'Add VCC';
+        addBtn.onclick = addSingleVCC;
+      } else {
+        bulkTab.style.background = 'var(--accent)';
+        bulkTab.style.color = 'white';
+        singleTab.style.background = 'transparent';
+        singleTab.style.color = 'var(--text-secondary)';
+        singleForm.style.display = 'none';
+        bulkForm.style.display = 'block';
+        addBtn.textContent = 'Add All VCCs';
+        addBtn.onclick = addBulkVCCs;
+      }
+    }
+
+    // Add single VCC with manual input
+    async function addSingleVCC() {
+      const number = document.getElementById('vccSingleNumber').value.replace(/\D/g, '').trim();
+      const expiry = document.getElementById('vccSingleExpiry').value.trim();
+      const cvv = document.getElementById('vccSingleCVV').value.replace(/\D/g, '').trim();
+      const balance = parseFloat(document.getElementById('vccSingleBalance').value) || 500;
+      
+      // Validation
+      if (!number || number.length < 15) {
+        alert('Please enter a valid card number (at least 15 digits)');
+        return;
+      }
+      if (!expiry || !expiry.includes('/')) {
+        alert('Please enter expiry in MM/YY format');
+        return;
+      }
+      if (!cvv || cvv.length < 3) {
+        alert('Please enter a valid CVV (3-4 digits)');
+        return;
+      }
+      
+      const newVCC = {
+        number: number,
+        expiry: expiry,
+        cvv: cvv,
+        balance: balance,
+        status: 'unassigned',
+        linkedAccount: null,
+        createdBy: currentUser,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      
+      // Save to Supabase
+      const savedVCC = await saveVCCToSupabase(newVCC, 'google');
+      if (savedVCC) {
+        newVCC.id = savedVCC.id;
+        data.vccs.google.push(newVCC);
+        
+        closeModal('addVCC');
+        
+        // Clear form
+        document.getElementById('vccSingleNumber').value = '';
+        document.getElementById('vccSingleExpiry').value = '';
+        document.getElementById('vccSingleCVV').value = '';
+        document.getElementById('vccSingleBalance').value = '500';
+        
+        showToast('VCC added successfully!');
+        renderVCCs();
+        updateBadges();
+      }
     }
 
     // Parse VCC line from bank format: "4361207709762237 - 01/31 - 965"
