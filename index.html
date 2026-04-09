@@ -3875,15 +3875,44 @@ Balance: $${vcc.balance.toFixed(2)}`;
       line = line.trim();
       if (!line) return null;
       
-      // Format: NUMBER - MM/YY - CVV or NUMBER - MMYY - CVV
-      const parts = line.split(/\s*-\s*/);
+      // Remove any extra whitespace
+      line = line.replace(/\s+/g, ' ');
+      
+      // Try multiple formats
+      
+      // Format 1: NUMBER - MM/YY - CVV (with spaces around dashes)
+      // Format 2: NUMBER-MM/YY-CVV (no spaces)
+      // Format 3: NUMBER  -  MM/YY  -  CVV (extra spaces)
+      const parts = line.split(/\s*[-–—]\s*/); // handles -, –, — dashes
+      
+      console.log('Parsing VCC line:', line);
+      console.log('Parts:', parts);
       
       if (parts.length >= 3) {
-        let number = parts[0].replace(/\s/g, '');
+        let number = parts[0].replace(/\s/g, '').replace(/\D/g, ''); // Remove non-digits
         let expiry = parts[1].trim();
-        let cvv = parts[2].trim();
+        let cvv = parts[2].trim().replace(/\D/g, ''); // Remove non-digits
         
         // Format expiry if needed (convert 0131 to 01/31)
+        if (expiry.length === 4 && !expiry.includes('/')) {
+          expiry = expiry.slice(0, 2) + '/' + expiry.slice(2);
+        }
+        
+        console.log('Parsed:', { number, expiry, cvv });
+        
+        // Validate: card number should be 15-19 digits, CVV should be 3-4 digits
+        if (number.length >= 15 && number.length <= 19 && cvv.length >= 3) {
+          return { number, expiry, cvv };
+        }
+      }
+      
+      // Try format: just spaces between parts (NUMBER MMYY CVV or NUMBER MM/YY CVV)
+      const spaceParts = line.split(/\s+/);
+      if (spaceParts.length >= 3) {
+        let number = spaceParts[0].replace(/\D/g, '');
+        let expiry = spaceParts[1];
+        let cvv = spaceParts[spaceParts.length - 1].replace(/\D/g, '');
+        
         if (expiry.length === 4 && !expiry.includes('/')) {
           expiry = expiry.slice(0, 2) + '/' + expiry.slice(2);
         }
@@ -3893,12 +3922,13 @@ Balance: $${vcc.balance.toFixed(2)}`;
         }
       }
       
-      // Just a card number
-      const justNumber = line.replace(/\s/g, '');
-      if (justNumber.length >= 15 && /^\d+$/.test(justNumber)) {
+      // Just a card number (fallback)
+      const justNumber = line.replace(/\D/g, '');
+      if (justNumber.length >= 15 && justNumber.length <= 19) {
         return { number: justNumber, expiry: '12/29', cvv: '000' };
       }
       
+      console.log('Failed to parse VCC line');
       return null;
     }
 
