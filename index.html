@@ -2399,27 +2399,52 @@ Or just card numbers:
       const perms = permissions[currentUser];
       let html = '';
       
-      data.stores.forEach(store => {
+      // Sort stores: new (no accounts) first, then performers, then others
+      const sortedStores = [...data.stores].sort((a, b) => {
+        const aAccounts = data.accounts.google.filter(acc => acc.storeId === a.id).length +
+                          data.accounts.tiktok.filter(acc => acc.storeId === a.id).length +
+                          data.accounts.facebook.filter(acc => acc.storeId === a.id).length;
+        const bAccounts = data.accounts.google.filter(acc => acc.storeId === b.id).length +
+                          data.accounts.tiktok.filter(acc => acc.storeId === b.id).length +
+                          data.accounts.facebook.filter(acc => acc.storeId === b.id).length;
+        
+        // New stores (no accounts) first
+        if (aAccounts === 0 && bAccounts > 0) return -1;
+        if (bAccounts === 0 && aAccounts > 0) return 1;
+        
+        // Then performers
+        if (a.isPerformer && !b.isPerformer) return -1;
+        if (b.isPerformer && !a.isPerformer) return 1;
+        
+        return 0;
+      });
+      
+      sortedStores.forEach(store => {
         const googleAccounts = data.accounts.google.filter(a => a.storeId === store.id);
         const tiktokAccounts = data.accounts.tiktok.filter(a => a.storeId === store.id);
         const fbAccounts = data.accounts.facebook.filter(a => a.storeId === store.id);
+        const totalAccounts = googleAccounts.length + tiktokAccounts.length + fbAccounts.length;
+        const isNew = totalAccounts === 0;
         
         html += `
-          <div class="store-card ${store.isPerformer ? 'performer' : ''}">
+          <div class="store-card ${store.isPerformer ? 'performer' : ''}" style="${isNew ? 'border: 2px solid var(--info); background: var(--info-bg);' : ''}">
             <div class="store-header">
               <div>
                 <div class="store-name">
                   ${store.name}
+                  ${isNew ? '<span style="background: var(--info); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem;">🆕 NEW</span>' : ''}
                   ${store.isPerformer ? '<span class="performer-badge">⭐ TOP PERFORMER</span>' : ''}
                 </div>
                 <div class="store-url">${store.url || ''}</div>
-                <div class="store-channels">
+                <div class="store-channels" style="margin-top: 0.5rem;">
+                  ${isNew ? '<span style="color: var(--info); font-size: 0.85rem;">⏳ Waiting for campaign launch</span>' : ''}
                   ${googleAccounts.length > 0 ? '<span class="channel-tag google">Google (' + googleAccounts.length + ')</span>' : ''}
                   ${tiktokAccounts.length > 0 ? '<span class="channel-tag tiktok">TikTok (' + tiktokAccounts.length + ')</span>' : ''}
                   ${fbAccounts.length > 0 ? '<span class="channel-tag facebook">Facebook (' + fbAccounts.length + ')</span>' : ''}
                 </div>
               </div>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
                 ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')">${store.isPerformer ? '⭐ Top Performer' : 'Set as Top'}</button>` : ''}
                 <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')">📋 Assets</button>
                 ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteStore('${store.id}')">🗑️ Delete</button>` : ''}
@@ -3638,6 +3663,16 @@ Or just card numbers:
         });
       }
       
+      // New stores waiting for campaign launch
+      data.stores.forEach(store => {
+        const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
+                           data.accounts.tiktok.some(a => a.storeId === store.id) ||
+                           data.accounts.facebook.some(a => a.storeId === store.id);
+        if (!hasAccounts) {
+          alerts.push({ type: 'info', icon: '🆕', title: 'New store - needs campaign', desc: `${store.name} is waiting for campaign launch`, action: 'Launch', storeId: store.id });
+        }
+      });
+      
       if (perms.alertsFor.includes('unassigned_vcc')) {
         data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(vcc => {
           alerts.push({ type: 'purple', icon: '💳', title: 'New VCC available', desc: `Card ••••${vcc.number.slice(-4)} ($${vcc.balance}) ready to use`, action: 'Use', vccId: vcc.id });
@@ -3653,7 +3688,7 @@ Or just card numbers:
             <div class="alert-title">${alert.title}</div>
             <div class="alert-desc">${alert.desc}</div>
           </div>
-          <button class="alert-action" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}')">${alert.action}</button>
+          <button class="alert-action" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
         </div>
       `).join('');
     }
@@ -3661,7 +3696,7 @@ Or just card numbers:
     // ============================================
     // ACTIONS
     // ============================================
-    function handleAlertAction(accountId, vccId) {
+    function handleAlertAction(accountId, vccId, storeId) {
       if (accountId) {
         const account = data.accounts[currentChannel].find(a => a.id == accountId);
         if (account && currentUser === 'ara' && account.adsStatus === 'needs_verif') {
@@ -3675,6 +3710,18 @@ Or just card numbers:
       if (vccId) {
         showSection('accounts');
         openModal('addAccount');
+      }
+      if (storeId) {
+        // Go to add account with this store pre-selected
+        showSection('accounts');
+        openModal('addAccount');
+        // Pre-select the store in the dropdown after modal opens
+        setTimeout(() => {
+          const storeSelect = document.getElementById('accountStore');
+          if (storeSelect) {
+            storeSelect.value = storeId;
+          }
+        }, 100);
       }
       renderSection(document.querySelector('.section.active').id.replace('section-', ''));
       updateBadges();
