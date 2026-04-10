@@ -2389,7 +2389,7 @@ Or just card numbers:
       document.getElementById('statWarning').textContent = needsAttention;
       document.getElementById('statSuspended').textContent = suspended;
 
-      document.getElementById('dashboardAlerts').innerHTML = generateAlertsHtml(3) || '<div class="empty-state"><p>No alerts</p></div>';
+      document.getElementById('dashboardAlerts').innerHTML = generateAlertsHtml(10) || '<div class="empty-state"><p>No alerts</p></div>';
 
       let tableHtml = '';
       accounts.forEach(account => {
