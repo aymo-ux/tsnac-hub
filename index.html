@@ -3008,16 +3008,24 @@ Or just card numbers:
           <tr>
             <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐</span>' : ''}</td>
             <td>${profile?.name || 'N/A'}</td>
-            <td style="font-family: 'JetBrains Mono', monospace; cursor: pointer;" onclick="openEditVCCModal('${account.id}')" title="Click to change VCC">
-              ${vccDisplay} <span style="color: var(--accent); font-size: 0.75rem;">✏️</span>
+            <td>
+              <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s;" 
+                    onclick="openEditVCCModal('${account.id}')" 
+                    onmouseover="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-glow)';"
+                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--bg-tertiary)';"
+                    title="Click to change VCC">
+                ${vccDisplay} ✏️
+              </span>
             </td>
             <td>${getCampaignTags(account.campaigns, store)}</td>
             <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
             <td class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="font-family: 'JetBrains Mono', monospace;">$${account.lifetimeSpend}</td>
-            <td style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-sm btn-secondary" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
-              ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button class="btn btn-sm btn-secondary" onclick="saveAccount('${account.id}')">💾</button>` : ''}
-              <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteAdAccount('${account.id}')">🗑️</button>
+            <td>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button type="button" class="btn btn-sm" style="background: var(--accent); color: white; padding: 0.4rem 0.6rem;" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
+                ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 0.4rem 0.6rem;" onclick="saveAccount('${account.id}')" title="Save Account">💾</button>` : ''}
+                <button type="button" class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.4rem 0.6rem;" onclick="deleteAdAccount('${account.id}')" title="Delete Account">🗑️</button>
+              </div>
             </td>
           </tr>
         `;
