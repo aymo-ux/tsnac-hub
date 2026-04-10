@@ -1276,7 +1276,7 @@
           </div>
         </div>
 
-        <div class="stats-grid">
+        <div class="stats-grid" style="grid-template-columns: repeat(6, 1fr);">
           <div class="stat-card info">
             <div class="stat-label">Today's Spend</div>
             <div class="stat-value" id="statSpend">$0</div>
@@ -1288,6 +1288,10 @@
           <div class="stat-card purple">
             <div class="stat-label">Top Performers</div>
             <div class="stat-value" id="statPerformers">0</div>
+          </div>
+          <div class="stat-card" style="border-left: 3px solid var(--teal);">
+            <div class="stat-label">🆕 New Stores</div>
+            <div class="stat-value" id="statNewStores" style="color: var(--teal);">0</div>
           </div>
           <div class="stat-card warning">
             <div class="stat-label">Needs Attention</div>
@@ -2368,10 +2372,19 @@ Or just card numbers:
       const performers = data.stores.filter(s => s.isPerformer).length;
       const needsAttention = accounts.filter(a => ['needs_verif', 'payment_issue'].includes(a.adsStatus)).length;
       const suspended = accounts.filter(a => a.adsStatus === 'suspended').length;
+      
+      // Count new stores (stores without any ad accounts)
+      const newStores = data.stores.filter(store => {
+        const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
+                           data.accounts.tiktok.some(a => a.storeId === store.id) ||
+                           data.accounts.facebook.some(a => a.storeId === store.id);
+        return !hasAccounts;
+      }).length;
 
       document.getElementById('statSpend').textContent = `$${totalSpend}`;
       document.getElementById('statActive').textContent = activeAds;
       document.getElementById('statPerformers').textContent = performers;
+      document.getElementById('statNewStores').textContent = newStores;
       document.getElementById('statWarning').textContent = needsAttention;
       document.getElementById('statSuspended').textContent = suspended;
 
