@@ -1268,6 +1268,19 @@
 
     <!-- Main Content -->
     <main class="main">
+      <!-- Global Search Bar -->
+      <div id="globalSearchContainer" style="margin-bottom: 1.5rem; position: relative;">
+        <div style="position: relative;">
+          <input type="text" id="globalSearch" 
+            placeholder="🔍 Search stores, accounts, VCCs, profiles..." 
+            style="width: 100%; padding: 0.9rem 1rem 0.9rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-family: inherit; font-size: 0.95rem; transition: all 0.2s;"
+            oninput="handleGlobalSearch(this.value)"
+            onfocus="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 0 0 3px var(--accent-glow)';"
+            onblur="setTimeout(() => { this.style.borderColor='var(--border)'; this.style.boxShadow='none'; hideSearchResults(); }, 200);">
+        </div>
+        <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; max-height: 400px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg);"></div>
+      </div>
+
       <!-- Dashboard Section -->
       <section class="section active" id="section-dashboard">
         <div class="header">
@@ -3710,15 +3723,36 @@ Or just card numbers:
     // ============================================
     // ACTIONS
     // ============================================
-    function handleAlertAction(accountId, vccId, storeId) {
+    async function handleAlertAction(accountId, vccId, storeId) {
       if (accountId) {
         const account = data.accounts[currentChannel].find(a => a.id == accountId);
-        if (account && currentUser === 'ara' && account.adsStatus === 'needs_verif') {
-          account.adsStatus = 'active';
-          showToast('Account verified!');
-        } else if (account && currentUser === 'elias' && account.storeStatus === 'inactive') {
-          account.storeStatus = 'active';
-          showToast('Store fixed!');
+        if (account) {
+          // Handle verification needed
+          if (account.adsStatus === 'needs_verif') {
+            account.adsStatus = 'active';
+            await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
+            showAutoSaveIndicator('✓ Verified');
+            showToast('Account verified! ✓');
+          }
+          // Handle payment issue
+          else if (account.adsStatus === 'payment_issue') {
+            account.adsStatus = 'active';
+            await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
+            showAutoSaveIndicator('✓ Fixed');
+            showToast('Payment issue fixed! ✓');
+          }
+          // Handle store inactive
+          else if (account.storeStatus === 'inactive') {
+            account.storeStatus = 'active';
+            await updateAdAccountInSupabase(accountId, { store_status: 'active' });
+            showAutoSaveIndicator('✓ Fixed');
+            showToast('Store fixed! ✓');
+          }
+          // Handle suspended - just navigate to review
+          else if (account.adsStatus === 'suspended') {
+            showSection('suspended');
+            return;
+          }
         }
       }
       if (vccId) {
@@ -3738,7 +3772,122 @@ Or just card numbers:
         }, 100);
       }
       renderSection(document.querySelector('.section.active').id.replace('section-', ''));
+      renderDashboard();
       updateBadges();
+    }
+
+    // ============================================
+    // GLOBAL SEARCH
+    // ============================================
+    function handleGlobalSearch(query) {
+      const resultsContainer = document.getElementById('searchResults');
+      
+      if (!query || query.trim().length < 2) {
+        resultsContainer.style.display = 'none';
+        return;
+      }
+      
+      const q = query.toLowerCase().trim();
+      let results = [];
+      
+      // Search Stores
+      data.stores.forEach(store => {
+        if (store.name.toLowerCase().includes(q) || (store.url && store.url.toLowerCase().includes(q))) {
+          results.push({
+            type: 'store',
+            icon: '🏪',
+            title: store.name,
+            subtitle: store.url || 'No URL',
+            badge: store.isPerformer ? '⭐ Top Performer' : '',
+            action: () => { showSection('stores'); hideSearchResults(); }
+          });
+        }
+      });
+      
+      // Search Ad Accounts (by store name or profile name)
+      ['google', 'tiktok', 'facebook'].forEach(channel => {
+        data.accounts[channel].forEach(account => {
+          const store = getStore(account.storeId);
+          const profile = getProfile(account.profileId);
+          const vcc = getVCC(account.vccId);
+          const searchStr = `${store?.name || ''} ${profile?.name || ''} ${vcc?.number || ''}`.toLowerCase();
+          
+          if (searchStr.includes(q)) {
+            results.push({
+              type: 'account',
+              icon: '📊',
+              title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
+              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • $${account.lifetimeSpend} lifetime`,
+              badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
+              action: () => { showSection('accounts'); hideSearchResults(); }
+            });
+          }
+        });
+      });
+      
+      // Search VCCs
+      ['google', 'tiktok', 'facebook'].forEach(channel => {
+        data.vccs[channel].forEach(vcc => {
+          if (vcc.number.includes(q) || vcc.number.slice(-4).includes(q)) {
+            const linkedAccount = data.accounts[channel].find(a => a.vccId === vcc.id);
+            const store = linkedAccount ? getStore(linkedAccount.storeId) : null;
+            results.push({
+              type: 'vcc',
+              icon: '💳',
+              title: `••••${vcc.number.slice(-4)}`,
+              subtitle: store ? `Linked to: ${store.name}` : `${vcc.status || 'Available'} • Exp: ${vcc.expiry}`,
+              badge: store ? '🔗 In Use' : '🆕 Available',
+              action: () => { showSection('vccs'); hideSearchResults(); }
+            });
+          }
+        });
+      });
+      
+      // Search Profiles
+      ['google', 'tiktok', 'facebook'].forEach(channel => {
+        data.profiles[channel].forEach(profile => {
+          if (profile.name.toLowerCase().includes(q)) {
+            const accountCount = data.accounts[channel].filter(a => a.profileId === profile.id).length;
+            results.push({
+              type: 'profile',
+              icon: '👤',
+              title: profile.name,
+              subtitle: `${accountCount} account${accountCount !== 1 ? 's' : ''} • ${channel.toUpperCase()}`,
+              badge: '',
+              action: () => { showSection('profiles'); hideSearchResults(); }
+            });
+          }
+        });
+      });
+      
+      // Render results
+      if (results.length === 0) {
+        resultsContainer.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: var(--text-muted);">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+            <div>No results found for "${query}"</div>
+          </div>
+        `;
+      } else {
+        resultsContainer.innerHTML = results.slice(0, 15).map(r => `
+          <div onclick="(${r.action.toString()})()" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: all 0.15s;"
+               onmouseover="this.style.background='var(--bg-tertiary)'"
+               onmouseout="this.style.background='transparent'">
+            <div style="font-size: 1.25rem; width: 32px; text-align: center;">${r.icon}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.title}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.subtitle}</div>
+            </div>
+            ${r.badge ? `<div style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--bg-tertiary); border-radius: 4px; white-space: nowrap;">${r.badge}</div>` : ''}
+          </div>
+        `).join('');
+      }
+      
+      resultsContainer.style.display = 'block';
+    }
+    
+    function hideSearchResults() {
+      document.getElementById('searchResults').style.display = 'none';
     }
 
     async function togglePerformer(storeId) {
