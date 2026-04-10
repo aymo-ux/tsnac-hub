@@ -3605,28 +3605,36 @@ Or just card numbers:
         accounts.filter(a => a.adsStatus === 'needs_verif').forEach(account => {
           const store = getStore(account.storeId);
           const profile = getProfile(account.profileId);
-          alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name}) needs verification`, action: 'Verify', accountId: account.id });
+          const vcc = getVCC(account.vccId);
+          const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
+          alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name})${vccInfo}`, action: 'Verify', accountId: account.id });
         });
       }
       
       if (perms.alertsFor.includes('payment_issue')) {
         accounts.filter(a => a.adsStatus === 'payment_issue').forEach(account => {
           const store = getStore(account.storeId);
-          alerts.push({ type: 'orange', icon: '💳', title: 'Payment issue', desc: `${store?.name} - card limit or payment failed`, action: 'Fix', accountId: account.id });
+          const vcc = getVCC(account.vccId);
+          const vccInfo = vcc ? `VCC ••••${vcc.number.slice(-4)}` : 'No VCC';
+          alerts.push({ type: 'orange', icon: '💳', title: 'Payment issue', desc: `${store?.name} - ${vccInfo} - card limit or payment failed`, action: 'Fix', accountId: account.id });
         });
       }
       
       if (perms.alertsFor.includes('suspended')) {
         accounts.filter(a => a.adsStatus === 'suspended').forEach(account => {
           const store = getStore(account.storeId);
-          alerts.push({ type: 'danger', icon: '🚫', title: 'Account suspended', desc: `${store?.name} has been suspended`, action: 'Review', accountId: account.id });
+          const vcc = getVCC(account.vccId);
+          const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
+          alerts.push({ type: 'danger', icon: '🚫', title: 'Account suspended', desc: `${store?.name} has been suspended${vccInfo}`, action: 'Review', accountId: account.id });
         });
       }
       
       if (perms.alertsFor.includes('store_inactive')) {
         accounts.filter(a => a.storeStatus === 'inactive').forEach(account => {
           const store = getStore(account.storeId);
-          alerts.push({ type: 'info', icon: '🏪', title: 'Store inactive', desc: `${store?.name} store is down`, action: 'Fix', accountId: account.id });
+          const vcc = getVCC(account.vccId);
+          const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
+          alerts.push({ type: 'info', icon: '🏪', title: 'Store inactive', desc: `${store?.name} store is down${vccInfo}`, action: 'Fix', accountId: account.id });
         });
       }
       
