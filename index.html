@@ -3814,11 +3814,12 @@ Or just card numbers:
           const searchStr = `${store?.name || ''} ${profile?.name || ''} ${vcc?.number || ''}`.toLowerCase();
           
           if (searchStr.includes(q)) {
+            const todaySpend = account.spend || 0;
             results.push({
               type: 'account',
               icon: '📊',
               title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
-              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • $${account.lifetimeSpend} lifetime`,
+              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • Today: $${todaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
               action: () => { showSection('tracking'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
