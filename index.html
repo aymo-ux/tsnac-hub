@@ -2515,7 +2515,7 @@ Or just card numbers:
       if (field === 'spend') {
         account.spend = parseFloat(value) || 0;
         // Also update daily spend history for today
-        const today = new Date().toISOString().split('T')[0];
+        const today = getThailandDate();
         dailySpendHistory[`${accountId}_${today}`] = account.spend;
       } else if (field === 'storeStatus') {
         account.storeStatus = value;
@@ -2535,7 +2535,7 @@ Or just card numbers:
         account.adsStatus = value;
         // If suspended, set suspendedAt and DELETE THE VCC
         if (value === 'suspended') {
-          account.suspendedAt = new Date().toISOString().split('T')[0];
+          account.suspendedAt = getThailandDate();
           // Delete the VCC immediately when account is suspended
           await handleAccountSuspended(accountId);
           // Notify EVERYONE about suspension
@@ -2721,10 +2721,32 @@ Or just card numbers:
       return `${Math.floor(seconds / 86400)} days ago`;
     }
 
+    // Get date in Thailand timezone (UTC+7) - used as standard for all users
+    function getThailandDate() {
+      const now = new Date();
+      // Create date string in Thailand timezone
+      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const year = thailandTime.getFullYear();
+      const month = String(thailandTime.getMonth() + 1).padStart(2, '0');
+      const day = String(thailandTime.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Get Thailand date parts
+    function getThailandDateParts() {
+      const now = new Date();
+      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      return {
+        year: thailandTime.getFullYear(),
+        month: thailandTime.getMonth(), // 0-11
+        day: thailandTime.getDate()
+      };
+    }
+
     // Daily spend history (stored locally, will sync to Supabase later)
     let dailySpendHistory = {};
-    let currentTrackingMonth = new Date().getMonth(); // 0-11
-    let currentTrackingYear = new Date().getFullYear();
+    let currentTrackingMonth = getThailandDateParts().month; // 0-11
+    let currentTrackingYear = getThailandDateParts().year;
 
     function toggleTrackingView() {
       const cardView = document.getElementById('trackingCardView');
@@ -2772,8 +2794,14 @@ Or just card numbers:
       const days = [];
       for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(currentTrackingYear, currentTrackingMonth, d);
+        // Format date consistently as YYYY-MM-DD
+        const year = currentTrackingYear;
+        const month = String(currentTrackingMonth + 1).padStart(2, '0');
+        const day = String(d).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
         days.push({
-          date: date.toISOString().split('T')[0],
+          date: dateStr,
           day: d,
           dayOfWeek: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 2)
         });
@@ -2793,7 +2821,7 @@ Or just card numbers:
       headerHtml += '<th style="position: sticky; left: 120px; background: var(--bg-card); z-index: 2; min-width: 80px;">Profile</th>';
       
       days.forEach(d => {
-        const isToday = d.date === new Date().toISOString().split('T')[0];
+        const isToday = d.date === getThailandDate();
         const isWeekend = new Date(d.date).getDay() === 0 || new Date(d.date).getDay() === 6;
         headerHtml += `<th style="min-width: 55px; text-align: center; padding: 0.5rem 0.25rem; ${isToday ? 'background: var(--accent); color: white; border-radius: 4px;' : ''} ${isWeekend ? 'color: var(--text-muted);' : ''}">
           <div style="font-size: 0.75rem; opacity: 0.7;">${d.dayOfWeek}</div>
@@ -2822,7 +2850,7 @@ Or just card numbers:
         
         days.forEach(d => {
           const key = `${account.id}_${d.date}`;
-          const isToday = d.date === new Date().toISOString().split('T')[0];
+          const isToday = d.date === getThailandDate();
           const spend = dailySpendHistory[key] !== undefined ? dailySpendHistory[key] : (isToday ? account.spend : 0);
           
           if (spend > 0) {
@@ -2885,7 +2913,7 @@ Or just card numbers:
       dailySpendHistory[key] = spend;
       
       // Update today's spend in account data if it's today
-      const today = new Date().toISOString().split('T')[0];
+      const today = getThailandDate();
       if (date === today) {
         const account = data.accounts[currentChannel].find(a => a.id == accountId);
         if (account) {
@@ -3856,7 +3884,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         profileId: account.profileId,
         vccId: null,
         lifetimeSpend: account.lifetimeSpend,
-        savedAt: new Date().toISOString().split('T')[0],
+        savedAt: getThailandDate(),
         savedBy: currentUser,
         reason: 'manual'
       });
@@ -3897,7 +3925,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         campaigns: ['search'],
         status: 'active',
         createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: getThailandDate()
       };
       
       data.accounts[currentChannel].push(newAccount);
@@ -3927,7 +3955,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
           
           // Track when account becomes suspended
           if (newAdsStatus === 'suspended' && oldAdsStatus !== 'suspended') {
-            account.suspendedAt = new Date().toISOString().split('T')[0];
+            account.suspendedAt = getThailandDate();
           } else if (newAdsStatus !== 'suspended') {
             account.suspendedAt = null;
           }
@@ -4020,7 +4048,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
           docLink: document.getElementById('storeDocLink').value
         },
         createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: getThailandDate()
       };
       
       // Save to Supabase
@@ -4102,7 +4130,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         status: 'unassigned',
         linkedAccount: null,
         createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: getThailandDate()
       };
       
       // Save to Supabase
@@ -4224,7 +4252,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
           status: 'unassigned',
           linkedAccount: null,
           createdBy: currentUser,
-          createdAt: new Date().toISOString().split('T')[0]
+          createdAt: getThailandDate()
         };
         
         // Save to Supabase
@@ -4265,7 +4293,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
       const newProfile = {
         name: name,
         createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: getThailandDate()
       };
       
       // Save to Supabase
@@ -4308,7 +4336,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         campaigns: campaigns,
         status: 'active',
         createdBy: currentUser,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: getThailandDate()
       };
       
       // Save to Supabase
