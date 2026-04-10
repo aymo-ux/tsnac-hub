@@ -2338,7 +2338,7 @@ Or just card numbers:
         btn.style.display = perms.channels.includes(channel) ? 'flex' : 'none';
       });
       
-      const unassignedCount = data.vccs[currentChannel].filter(v => v.status === 'unassigned').length;
+      const unassignedCount = data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').length;
       document.getElementById('vccBadge').style.display = (currentUser === 'ara' && unassignedCount > 0) ? 'inline' : 'none';
       document.getElementById('vccBadge').textContent = unassignedCount;
     }
@@ -2352,7 +2352,7 @@ Or just card numbers:
       if (perms.alertsFor.includes('suspended')) alertCount += accounts.filter(a => a.adsStatus === 'suspended').length;
       if (perms.alertsFor.includes('payment_issue')) alertCount += accounts.filter(a => a.adsStatus === 'payment_issue').length;
       if (perms.alertsFor.includes('store_inactive')) alertCount += accounts.filter(a => a.storeStatus === 'inactive').length;
-      if (perms.alertsFor.includes('unassigned_vcc')) alertCount += data.vccs[currentChannel].filter(v => v.status === 'unassigned').length;
+      if (perms.alertsFor.includes('unassigned_vcc')) alertCount += data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').length;
       
       document.getElementById('alertBadge').textContent = alertCount;
       document.getElementById('alertBadge').style.display = alertCount > 0 ? 'inline' : 'none';
@@ -3249,38 +3249,72 @@ Or just card numbers:
       const perms = permissions[currentUser];
       const vccs = data.vccs[currentChannel];
       
-      // Sort VCCs: available first, then in-use
-      const sortedVCCs = [...vccs].sort((a, b) => {
-        const aInUse = data.accounts[currentChannel].some(acc => acc.vccId === a.id);
-        const bInUse = data.accounts[currentChannel].some(acc => acc.vccId === b.id);
-        if (aInUse === bInUse) return 0;
-        return aInUse ? 1 : -1; // Available first
+      // Group VCCs by status
+      // Status workflow: available → warming → ready → in_use
+      const grouped = {
+        available: [],
+        warming: [],
+        ready: [],
+        in_use: []
+      };
+      
+      vccs.forEach(vcc => {
+        const isLinked = data.accounts[currentChannel].some(acc => acc.vccId === vcc.id);
+        if (isLinked) {
+          grouped.in_use.push(vcc);
+        } else {
+          // Use VCC's status field, default to 'available'
+          const status = vcc.status || 'available';
+          if (grouped[status]) {
+            grouped[status].push(vcc);
+          } else {
+            grouped.available.push(vcc);
+          }
+        }
       });
       
-      // Count available vs in-use
-      const availableCount = vccs.filter(v => !data.accounts[currentChannel].some(acc => acc.vccId === v.id)).length;
-      const inUseCount = vccs.length - availableCount;
-      
-      // Hide unassigned section (we're showing everything in one list now)
+      // Hide unassigned section
       document.getElementById('unassignedVCCs').style.display = 'none';
       
-      // Build VCC list
+      // Build VCC list with sections
       let html = '';
       
-      if (availableCount > 0) {
-        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--warning);">⏳ Available VCCs (${availableCount})</h3>`;
+      // Available VCCs (new, not used yet)
+      if (grouped.available.length > 0) {
+        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--info);">🆕 Available (${grouped.available.length})</h3>`;
         html += '<div style="display: grid; gap: 1rem; margin-bottom: 2rem;">';
-        sortedVCCs.filter(v => !data.accounts[currentChannel].some(acc => acc.vccId === v.id)).forEach(vcc => {
-          html += renderVCCCard(vcc, perms.canSeeVCCDetails, true);
+        grouped.available.forEach(vcc => {
+          html += renderVCCCard(vcc, perms.canSeeVCCDetails, 'available');
         });
         html += '</div>';
       }
       
-      if (inUseCount > 0) {
-        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--success);">✓ In Use (${inUseCount})</h3>`;
+      // Warming VCCs (account created, warming up)
+      if (grouped.warming.length > 0) {
+        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--warning);">🔥 Warming Up (${grouped.warming.length})</h3>`;
+        html += '<div style="display: grid; gap: 1rem; margin-bottom: 2rem;">';
+        grouped.warming.forEach(vcc => {
+          html += renderVCCCard(vcc, perms.canSeeVCCDetails, 'warming');
+        });
+        html += '</div>';
+      }
+      
+      // Ready VCCs (warm-up complete, ready to link)
+      if (grouped.ready.length > 0) {
+        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--success);">✅ Ready to Link (${grouped.ready.length})</h3>`;
+        html += '<div style="display: grid; gap: 1rem; margin-bottom: 2rem;">';
+        grouped.ready.forEach(vcc => {
+          html += renderVCCCard(vcc, perms.canSeeVCCDetails, 'ready');
+        });
+        html += '</div>';
+      }
+      
+      // In Use VCCs (linked to ad account)
+      if (grouped.in_use.length > 0) {
+        html += `<h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--purple);">🔗 In Use (${grouped.in_use.length})</h3>`;
         html += '<div style="display: grid; gap: 1rem;">';
-        sortedVCCs.filter(v => data.accounts[currentChannel].some(acc => acc.vccId === v.id)).forEach(vcc => {
-          html += renderVCCCard(vcc, perms.canSeeVCCDetails, false);
+        grouped.in_use.forEach(vcc => {
+          html += renderVCCCard(vcc, perms.canSeeVCCDetails, 'in_use');
         });
         html += '</div>';
       }
@@ -3292,7 +3326,7 @@ Or just card numbers:
       document.getElementById('vccsList').innerHTML = html;
     }
 
-    function renderVCCCard(vcc, showDetails, isUnassigned) {
+    function renderVCCCard(vcc, showDetails, status) {
       const accounts = data.accounts[currentChannel];
       const linkedAccount = accounts.find(a => a.vccId === vcc.id);
       const store = linkedAccount ? getStore(linkedAccount.storeId) : null;
@@ -3300,17 +3334,30 @@ Or just card numbers:
       const maskedNumber = showDetails ? cardNumber : '•••• •••• •••• ' + cardNumber.slice(-4);
       const cvv = showDetails ? vcc.cvv : '•••';
       
-      // Determine actual status - if linked to a store, it's in use
-      const actuallyInUse = !!store;
-      const statusBadge = actuallyInUse 
-        ? '<span class="status status-active">✓ In Use</span>' 
-        : '<span class="status status-unassigned">⏳ Available</span>';
+      // Status badges and colors
+      const statusConfig = {
+        available: { badge: '<span class="status status-unassigned">🆕 Available</span>', color: 'var(--info)', border: 'var(--info)' },
+        warming: { badge: '<span class="status status-verif">🔥 Warming</span>', color: 'var(--warning)', border: 'var(--warning)' },
+        ready: { badge: '<span class="status status-active">✅ Ready</span>', color: 'var(--success)', border: 'var(--success)' },
+        in_use: { badge: '<span class="status status-saved">🔗 In Use</span>', color: 'var(--purple)', border: 'var(--purple)' }
+      };
       
-      // Card style - yellow border only if truly available
-      const cardStyle = !actuallyInUse ? 'border: 2px solid var(--warning); background: var(--warning-bg);' : '';
+      const config = statusConfig[status] || statusConfig.available;
+      
+      // Card style based on status
+      const cardStyle = status !== 'in_use' ? `border: 2px solid ${config.border};` : '';
       
       // Get total spend from linked account
       const totalSpend = linkedAccount ? linkedAccount.lifetimeSpend || 0 : 0;
+      
+      // Status dropdown for non-linked VCCs
+      const statusDropdown = status !== 'in_use' ? `
+        <select onchange="updateVCCStatus('${vcc.id}', this.value)" style="padding: 0.4rem 0.6rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 0.8rem; cursor: pointer;">
+          <option value="available" ${status === 'available' ? 'selected' : ''}>🆕 Available</option>
+          <option value="warming" ${status === 'warming' ? 'selected' : ''}>🔥 Warming</option>
+          <option value="ready" ${status === 'ready' ? 'selected' : ''}>✅ Ready</option>
+        </select>
+      ` : config.badge;
       
       return `
         <div class="vcc-card" style="${cardStyle}">
@@ -3329,7 +3376,7 @@ Or just card numbers:
               </button>
             </div>
           </div>
-          <div class="vcc-details" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+          <div class="vcc-details" style="display: flex; gap: 2rem; margin-bottom: 1rem; flex-wrap: wrap;">
             <div onclick="copyToClipboard('${vcc.expiry}', 'Expiry')" style="cursor: pointer;" title="Click to copy">
               <div class="vcc-detail-label">Expiry</div>
               <div class="vcc-detail-value">${vcc.expiry} <span style="opacity: 0.5;">📋</span></div>
@@ -3340,7 +3387,7 @@ Or just card numbers:
             </div>
             <div>
               <div class="vcc-detail-label">Status</div>
-              <div>${statusBadge}</div>
+              <div>${statusDropdown}</div>
             </div>
           </div>
           ${store ? `<div class="vcc-linked" style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">Linked to: <strong>${store.name}</strong></div>` : ''}
@@ -3349,6 +3396,30 @@ Or just card numbers:
           </button>
         </div>
       `;
+    }
+    
+    // Update VCC status
+    async function updateVCCStatus(vccId, newStatus) {
+      const vcc = data.vccs[currentChannel].find(v => v.id === vccId || v.id == vccId);
+      if (!vcc) return;
+      
+      vcc.status = newStatus;
+      
+      // Save to Supabase
+      try {
+        const { error } = await supabaseClient
+          .from('vccs')
+          .update({ status: newStatus })
+          .eq('id', vccId);
+        
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Status updated');
+      } catch (error) {
+        console.error('Error updating VCC status:', error);
+        showAutoSaveIndicator('⚠ Update failed');
+      }
+      
+      renderVCCs();
     }
 
     // Copy to clipboard helper
@@ -3560,7 +3631,7 @@ Or just card numbers:
       }
       
       if (perms.alertsFor.includes('unassigned_vcc')) {
-        data.vccs[currentChannel].filter(v => v.status === 'unassigned').forEach(vcc => {
+        data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(vcc => {
           alerts.push({ type: 'purple', icon: '💳', title: 'New VCC available', desc: `Card ••••${vcc.number.slice(-4)} ($${vcc.balance}) ready to use`, action: 'Use', vccId: vcc.id });
         });
       }
@@ -4038,7 +4109,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         
         // Populate VCCs
         let vccOptions = '<option value="">Select VCC...</option>';
-        data.vccs[currentChannel].filter(v => v.status === 'unassigned').forEach(v => {
+        data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(v => {
           vccOptions += `<option value="${v.id}">••••${v.number.slice(-4)} ($${v.balance})</option>`;
         });
         document.getElementById('accountVCC').innerHTML = vccOptions;
@@ -4165,7 +4236,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         expiry: expiry,
         cvv: cvv,
         balance: balance,
-        status: 'unassigned',
+        status: 'available',
         linkedAccount: null,
         createdBy: currentUser,
         createdAt: getThailandDate()
@@ -4287,7 +4358,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
           expiry: parsed.expiry,
           cvv: parsed.cvv,
           balance: defaultBalance,
-          status: 'unassigned',
+          status: 'available',
           linkedAccount: null,
           createdBy: currentUser,
           createdAt: getThailandDate()
