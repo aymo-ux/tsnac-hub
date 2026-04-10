@@ -4159,20 +4159,46 @@ Balance: $${vcc.balance.toFixed(2)}`;
         return html;
       }
       
-      // Helper for callouts (newline or comma separated)
+      // Helper for callouts (smart split)
       function createCopyableCallouts(callouts) {
         if (!callouts || callouts === '-') return `<div style="color: var(--text-muted);">No callouts added</div>`;
         
-        // Split by newline first, then by comma if no newlines
         let items = [];
+        
+        // Try different separators in order
         if (callouts.includes('\n')) {
           items = callouts.split('\n').filter(i => i.trim());
-        } else if (callouts.includes(',')) {
-          items = callouts.split(',').filter(i => i.trim());
         } else if (callouts.includes('|')) {
           items = callouts.split('|').filter(i => i.trim());
+        } else if (callouts.includes(',')) {
+          items = callouts.split(',').filter(i => i.trim());
+        } else if (callouts.includes('  ')) {
+          // Double space separator
+          items = callouts.split(/\s{2,}/).filter(i => i.trim());
         } else {
-          items = [callouts.trim()];
+          // Smart split: detect common callout boundary patterns
+          // Look for patterns like "word Word" (lowercase followed by uppercase)
+          // or common callout starters
+          const smartSplit = callouts
+            .replace(/(\w)(No\s)/g, '$1|||No ')
+            .replace(/(\w)(Free\s)/g, '$1|||Free ')
+            .replace(/(\w)(30-day)/g, '$1|||30-day')
+            .replace(/(\w)(24\/7)/g, '$1|||24/7')
+            .replace(/(\w)(100%)/g, '$1|||100%')
+            .replace(/(returns)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(support)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(shipping)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(warranty)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(backed)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(tested)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(drugs)(\s*[A-Z])/g, '$1|||$2')
+            .replace(/(surgery)(\s*[A-Z])/g, '$1|||$2');
+          
+          if (smartSplit.includes('|||')) {
+            items = smartSplit.split('|||').filter(i => i.trim());
+          } else {
+            items = [callouts.trim()];
+          }
         }
         
         if (items.length === 0) return `<div style="color: var(--text-muted);">No callouts added</div>`;
