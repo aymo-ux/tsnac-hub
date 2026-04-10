@@ -525,6 +525,7 @@
     .alert-item.orange { border-color: var(--orange); background: var(--orange-bg); }
     .alert-item.info { border-color: var(--info); background: var(--info-bg); }
     .alert-item.purple { border-color: var(--purple); background: var(--purple-bg); }
+    .alert-item.teal { border-color: var(--teal); background: var(--teal-bg); }
 
     .alert-icon { font-size: 1.5rem; }
     .alert-content { flex: 1; }
@@ -3639,6 +3640,16 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel];
       let alerts = [];
       
+      // New stores waiting for campaign launch - SHOW FIRST
+      data.stores.forEach(store => {
+        const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
+                           data.accounts.tiktok.some(a => a.storeId === store.id) ||
+                           data.accounts.facebook.some(a => a.storeId === store.id);
+        if (!hasAccounts) {
+          alerts.push({ type: 'teal', icon: '🆕', title: 'New store - needs campaign', desc: `${store.name} is waiting for campaign launch`, action: 'Launch', storeId: store.id });
+        }
+      });
+      
       if (perms.alertsFor.includes('needs_verif')) {
         accounts.filter(a => a.adsStatus === 'needs_verif').forEach(account => {
           const store = getStore(account.storeId);
@@ -3675,16 +3686,6 @@ Or just card numbers:
           alerts.push({ type: 'info', icon: '🏪', title: 'Store inactive', desc: `${store?.name} store is down${vccInfo}`, action: 'Fix', accountId: account.id });
         });
       }
-      
-      // New stores waiting for campaign launch
-      data.stores.forEach(store => {
-        const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
-                           data.accounts.tiktok.some(a => a.storeId === store.id) ||
-                           data.accounts.facebook.some(a => a.storeId === store.id);
-        if (!hasAccounts) {
-          alerts.push({ type: 'info', icon: '🆕', title: 'New store - needs campaign', desc: `${store.name} is waiting for campaign launch`, action: 'Launch', storeId: store.id });
-        }
-      });
       
       if (perms.alertsFor.includes('unassigned_vcc')) {
         data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(vcc => {
