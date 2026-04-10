@@ -2914,13 +2914,22 @@ Or just card numbers:
       
       // Update today's spend in account data if it's today
       const today = getThailandDate();
-      if (date === today) {
-        const account = data.accounts[currentChannel].find(a => a.id == accountId);
-        if (account) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      
+      if (account) {
+        if (date === today) {
           account.spend = spend;
-          // Save to Supabase
-          await updateAdAccountInSupabase(accountId, { spend: spend });
         }
+        
+        // Calculate lifetime spend from all daily history for this account
+        const lifetimeSpend = calculateLifetimeSpend(accountId);
+        account.lifetimeSpend = lifetimeSpend;
+        
+        // Save to Supabase
+        await updateAdAccountInSupabase(accountId, { 
+          spend: date === today ? spend : account.spend,
+          lifetime_spend: lifetimeSpend 
+        });
       }
       
       // TODO: Save historical daily spend to a daily_spend table in Supabase
@@ -2931,8 +2940,22 @@ Or just card numbers:
         console.log('Could not save to localStorage');
       }
       
+      // Update today's total box
+      updateTodayTotal();
+      
       // Recalculate totals (re-render the whole calendar)
       renderTrackingCalendar();
+    }
+    
+    // Calculate lifetime spend from all daily history entries for an account
+    function calculateLifetimeSpend(accountId) {
+      let total = 0;
+      for (const key in dailySpendHistory) {
+        if (key.startsWith(`${accountId}_`)) {
+          total += parseFloat(dailySpendHistory[key]) || 0;
+        }
+      }
+      return total;
     }
 
     // Load daily spend history from localStorage on init
@@ -2941,10 +2964,25 @@ Or just card numbers:
         const saved = localStorage.getItem('dailySpendHistory');
         if (saved) {
           dailySpendHistory = JSON.parse(saved);
+          
+          // Recalculate lifetime spend for all accounts based on daily history
+          recalculateAllLifetimeSpends();
         }
       } catch (e) {
         console.log('Could not load from localStorage');
       }
+    }
+    
+    // Recalculate lifetime spend for all accounts from daily history
+    function recalculateAllLifetimeSpends() {
+      ['google', 'tiktok', 'facebook'].forEach(channel => {
+        data.accounts[channel].forEach(account => {
+          const lifetimeSpend = calculateLifetimeSpend(account.id);
+          if (lifetimeSpend > 0) {
+            account.lifetimeSpend = lifetimeSpend;
+          }
+        });
+      });
     }
 
     function renderProfiles() {
