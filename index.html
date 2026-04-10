@@ -3799,7 +3799,8 @@ Or just card numbers:
             title: store.name,
             subtitle: store.url || 'No URL',
             badge: store.isPerformer ? '⭐ Top Performer' : '',
-            action: () => { showSection('stores'); hideSearchResults(); }
+            id: store.id,
+            action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); }
           });
         }
       });
@@ -3819,7 +3820,8 @@ Or just card numbers:
               title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
               subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • $${account.lifetimeSpend} lifetime`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
-              action: () => { showSection('accounts'); hideSearchResults(); }
+              id: account.id,
+              action: () => { showSection('tracking'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
             });
           }
         });
@@ -3837,7 +3839,8 @@ Or just card numbers:
               title: `••••${vcc.number.slice(-4)}`,
               subtitle: store ? `Linked to: ${store.name}` : `${vcc.status || 'Available'} • Exp: ${vcc.expiry}`,
               badge: store ? '🔗 In Use' : '🆕 Available',
-              action: () => { showSection('vccs'); hideSearchResults(); }
+              id: vcc.id,
+              action: () => { showSection('vccs'); hideSearchResults(); highlightItem('vcc', vcc.id, vcc.number.slice(-4)); }
             });
           }
         });
@@ -3854,7 +3857,8 @@ Or just card numbers:
               title: profile.name,
               subtitle: `${accountCount} account${accountCount !== 1 ? 's' : ''} • ${channel.toUpperCase()}`,
               badge: '',
-              action: () => { showSection('profiles'); hideSearchResults(); }
+              id: profile.id,
+              action: () => { showSection('profiles'); hideSearchResults(); highlightItem('profile', profile.id, profile.name); }
             });
           }
         });
@@ -3888,6 +3892,59 @@ Or just card numbers:
     
     function hideSearchResults() {
       document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('globalSearch').value = '';
+    }
+    
+    function highlightItem(type, id, name) {
+      // Wait for section to render
+      setTimeout(() => {
+        let element = null;
+        
+        if (type === 'account') {
+          // Find tracking card by account id
+          element = document.querySelector(`.tracking-card[data-account-id="${id}"]`);
+        } else if (type === 'store') {
+          // Find store card by store name
+          const storeCards = document.querySelectorAll('.store-card');
+          storeCards.forEach(card => {
+            if (card.querySelector('.store-name')?.textContent.includes(name)) {
+              element = card;
+            }
+          });
+        } else if (type === 'vcc') {
+          // Find VCC card by last 4 digits
+          const vccCards = document.querySelectorAll('.vcc-card');
+          vccCards.forEach(card => {
+            if (card.textContent.includes(name)) {
+              element = card;
+            }
+          });
+        } else if (type === 'profile') {
+          // Find profile card by name
+          const profileCards = document.querySelectorAll('.profile-card');
+          profileCards.forEach(card => {
+            if (card.querySelector('.profile-name')?.textContent.includes(name)) {
+              element = card;
+            }
+          });
+        }
+        
+        if (element) {
+          // Scroll to element
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Add highlight effect
+          element.style.transition = 'all 0.3s ease';
+          element.style.boxShadow = '0 0 0 3px var(--accent), 0 0 20px var(--accent-glow)';
+          element.style.transform = 'scale(1.02)';
+          
+          // Remove highlight after 2 seconds
+          setTimeout(() => {
+            element.style.boxShadow = '';
+            element.style.transform = '';
+          }, 2000);
+        }
+      }, 200);
     }
 
     async function togglePerformer(storeId) {
