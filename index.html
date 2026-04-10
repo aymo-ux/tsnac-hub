@@ -4221,7 +4221,12 @@ Balance: $${vcc.balance.toFixed(2)}`;
       
       document.getElementById('viewAssetsTitle').textContent = `${store.name} - Ad Assets`;
       document.getElementById('viewAssetsBody').innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;" id="assetsViewMode">
+          
+          <!-- Edit Button -->
+          <div style="display: flex; justify-content: flex-end;">
+            <button class="btn btn-primary" onclick="switchToEditAssets('${store.id}')">✏️ Edit Assets</button>
+          </div>
           
           <!-- Final URL -->
           <div>
@@ -4296,6 +4301,103 @@ Balance: $${vcc.balance.toFixed(2)}`;
         </div>
       `;
       openModal('viewAssets');
+    }
+    
+    // Switch to edit mode for assets
+    function switchToEditAssets(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (!store) return;
+      
+      const assets = store.assets || {};
+      
+      document.getElementById('viewAssetsBody').innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          
+          <div class="form-group">
+            <label class="form-label">🔗 Final URL</label>
+            <input type="text" class="form-input" id="editUrl" value="${store.url || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">🔑 Keywords (one per line)</label>
+            <textarea class="form-textarea" id="editKeywords" style="min-height: 80px;">${assets.keywords || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">📰 Headlines (one per line)</label>
+            <textarea class="form-textarea" id="editHeadlines" style="min-height: 100px;">${assets.headlines || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">📝 Descriptions (one per line)</label>
+            <textarea class="form-textarea" id="editDescriptions" style="min-height: 80px;">${assets.descriptions || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">💬 Callouts (one per line)</label>
+            <textarea class="form-textarea" id="editCallouts" style="min-height: 80px;">${assets.callouts || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">🔗 Sitelinks (one per line: Title | URL)</label>
+            <textarea class="form-textarea" id="editSitelinks" style="min-height: 80px;">${assets.sitelinks || ''}</textarea>
+          </div>
+          
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">🖼️ Logo URL</label>
+              <input type="text" class="form-input" id="editLogo" value="${assets.logo || ''}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">📄 Google Doc Link</label>
+              <input type="text" class="form-input" id="editDocLink" value="${assets.docLink || ''}">
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+            <button class="btn btn-secondary" onclick="viewAssets('${storeId}')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveEditedAssets('${storeId}')">💾 Save Changes</button>
+          </div>
+          
+        </div>
+      `;
+    }
+    
+    // Save edited assets
+    async function saveEditedAssets(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (!store) return;
+      
+      // Update store URL
+      store.url = document.getElementById('editUrl').value;
+      
+      // Update assets
+      store.assets = {
+        keywords: document.getElementById('editKeywords').value,
+        headlines: document.getElementById('editHeadlines').value,
+        descriptions: document.getElementById('editDescriptions').value,
+        callouts: document.getElementById('editCallouts').value,
+        sitelinks: document.getElementById('editSitelinks').value,
+        logo: document.getElementById('editLogo').value,
+        docLink: document.getElementById('editDocLink').value
+      };
+      
+      // Save to Supabase
+      try {
+        await updateStoreInSupabase(storeId, {
+          url: store.url,
+          assets: store.assets
+        });
+        showAutoSaveIndicator('✓ Assets saved');
+        showToast('Assets updated! ✓');
+        
+        // Refresh the view
+        viewAssets(storeId);
+        renderStores();
+      } catch (error) {
+        console.error('Failed to save assets:', error);
+        showToast('Failed to save. Try again.');
+      }
     }
 
     function saveAccount(accountId) {
