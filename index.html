@@ -1668,6 +1668,40 @@ Or just card numbers:
 
   <!-- Add Account Modal -->
   <div class="modal-overlay" id="modal-addAccount">
+
+  <!-- Edit VCC Modal -->
+  <div class="modal-overlay" id="modal-editVCC">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <span class="modal-title">Change VCC</span>
+        <button class="modal-close" onclick="closeModal('editVCC')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="editVCCAccountInfo" style="padding: 1rem; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 1.5rem;">
+          <!-- Account info will be inserted here -->
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Select New VCC</label>
+          <select class="form-select" id="editVCCSelect" style="font-family: 'JetBrains Mono', monospace;">
+            <!-- Available VCCs will be populated here -->
+          </select>
+        </div>
+        
+        <div style="margin-top: 1rem; padding: 1rem; background: var(--warning-bg); border-radius: 10px; border-left: 3px solid var(--warning);">
+          <div style="font-size: 0.85rem; color: var(--warning);">
+            ⚠️ The old VCC will be released and become available again.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('editVCC')">Cancel</button>
+        <button class="btn btn-primary" onclick="updateAccountVCC()">Update VCC</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-addAccount">
     <div class="modal">
       <div class="modal-header">
         <span class="modal-title">Add Ad Account</span>
@@ -2974,11 +3008,14 @@ Or just card numbers:
           <tr>
             <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐</span>' : ''}</td>
             <td>${profile?.name || 'N/A'}</td>
-            <td style="font-family: 'JetBrains Mono', monospace;">${vccDisplay}</td>
+            <td style="font-family: 'JetBrains Mono', monospace; cursor: pointer;" onclick="openEditVCCModal('${account.id}')" title="Click to change VCC">
+              ${vccDisplay} <span style="color: var(--accent); font-size: 0.75rem;">✏️</span>
+            </td>
             <td>${getCampaignTags(account.campaigns, store)}</td>
             <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
             <td class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="font-family: 'JetBrains Mono', monospace;">$${account.lifetimeSpend}</td>
             <td style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
               ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button class="btn btn-sm btn-secondary" onclick="saveAccount('${account.id}')">💾</button>` : ''}
               <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteAdAccount('${account.id}')">🗑️</button>
             </td>
@@ -3035,6 +3072,104 @@ Or just card numbers:
       } catch (error) {
         console.error('Error deleting ad account:', error);
         showAutoSaveIndicator('⚠ Delete failed');
+      }
+    }
+
+    // Store the account being edited
+    let editingAccountId = null;
+
+    // Open Edit VCC Modal
+    function openEditVCCModal(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      
+      editingAccountId = accountId;
+      
+      const store = getStore(account.storeId);
+      const profile = getProfile(account.profileId);
+      const currentVCC = getVCC(account.vccId);
+      
+      // Show current account info
+      document.getElementById('editVCCAccountInfo').innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; font-size: 1rem;">${store?.name || 'Unknown Store'}</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">Profile: ${profile?.name || 'N/A'}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Current VCC</div>
+            <div style="font-family: 'JetBrains Mono', monospace; color: var(--warning);">
+              ${currentVCC ? `••••${currentVCC.number.slice(-4)}` : 'None'}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Populate available VCCs dropdown
+      const availableVCCs = data.vccs[currentChannel].filter(v => {
+        // Include VCCs that are not linked to any account, OR the current VCC
+        const isLinked = data.accounts[currentChannel].some(acc => acc.vccId === v.id || acc.vccId == v.id);
+        return !isLinked || v.id === account.vccId || v.id == account.vccId;
+      });
+      
+      let optionsHtml = '<option value="">-- Select a VCC --</option>';
+      availableVCCs.forEach(vcc => {
+        const isCurrent = vcc.id === account.vccId || vcc.id == account.vccId;
+        optionsHtml += `
+          <option value="${vcc.id}" ${isCurrent ? 'selected' : ''}>
+            ${vcc.number} (${vcc.expiry}) - $${vcc.balance} ${isCurrent ? '← Current' : ''}
+          </option>
+        `;
+      });
+      
+      document.getElementById('editVCCSelect').innerHTML = optionsHtml;
+      
+      openModal('editVCC');
+    }
+
+    // Update Account VCC
+    async function updateAccountVCC() {
+      if (!editingAccountId) return;
+      
+      const newVCCId = document.getElementById('editVCCSelect').value;
+      if (!newVCCId) {
+        alert('Please select a VCC');
+        return;
+      }
+      
+      const account = data.accounts[currentChannel].find(a => a.id === editingAccountId || a.id == editingAccountId);
+      if (!account) return;
+      
+      // Check if it's the same VCC
+      if (newVCCId == account.vccId) {
+        closeModal('editVCC');
+        return;
+      }
+      
+      try {
+        // Update in Supabase
+        const { error } = await supabaseClient
+          .from('ad_accounts')
+          .update({ vcc_id: newVCCId })
+          .eq('id', editingAccountId);
+        
+        if (error) throw error;
+        
+        // Update local data
+        account.vccId = newVCCId;
+        
+        closeModal('editVCC');
+        editingAccountId = null;
+        
+        showAutoSaveIndicator('✓ VCC updated');
+        showToast('VCC changed successfully!');
+        renderAccounts();
+        renderVCCs();
+        renderDashboard();
+      } catch (error) {
+        console.error('Error updating VCC:', error);
+        showAutoSaveIndicator('⚠ Update failed');
+        alert('Failed to update VCC: ' + error.message);
       }
     }
 
