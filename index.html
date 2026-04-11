@@ -3128,15 +3128,34 @@ Or just card numbers:
         const lifetimeSpend = calculateLifetimeSpend(accountId);
         account.lifetimeSpend = lifetimeSpend;
         
-        // Save to Supabase
+        // Save to Supabase ad_accounts
         await updateAdAccountInSupabase(accountId, { 
           spend: date === today ? spend : account.spend,
           lifetime_spend: lifetimeSpend 
         });
       }
       
-      // TODO: Save historical daily spend to a daily_spend table in Supabase
-      // For now, just update local storage
+      // Save to Supabase daily_spend table
+      try {
+        const { error } = await supabaseClient
+          .from('daily_spend')
+          .upsert({
+            account_id: String(accountId),
+            date: date,
+            spend: spend,
+            entered_by: currentUser
+          }, { onConflict: 'account_id,date' });
+        
+        if (error) {
+          console.error('daily_spend save error:', error);
+        } else {
+          console.log('✓ Saved to daily_spend:', accountId, date, spend);
+        }
+      } catch (e) {
+        console.error('daily_spend exception:', e);
+      }
+      
+      // Also save to localStorage as backup
       try {
         localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
       } catch (e) {
