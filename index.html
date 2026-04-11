@@ -2744,7 +2744,7 @@ Or just card numbers:
       
       // Save to Supabase daily_spend table
       try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('daily_spend')
           .upsert({
             account_id: String(accountId),
@@ -3176,7 +3176,7 @@ Or just card numbers:
       
       // Then try to load from Supabase (if table exists)
       try {
-        const { data: spendData, error } = await supabase
+        const { data: spendData, error } = await supabaseClient
           .from('daily_spend')
           .select('*');
         
@@ -3211,7 +3211,7 @@ Or just card numbers:
         const [accountId, date] = key.split('_');
         if (accountId && date && spend > 0) {
           try {
-            await supabase
+            await supabaseClient
               .from('daily_spend')
               .upsert({
                 account_id: accountId,
