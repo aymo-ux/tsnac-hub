@@ -1377,11 +1377,19 @@
           </div>
         </div>
 
+        <!-- Date Selector -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
+          <button class="btn btn-secondary" onclick="changeTrackingDay(-1)" style="padding: 0.5rem 0.75rem;">◀ Yesterday</button>
+          <button class="btn btn-primary" id="todayBtn" onclick="goToToday()" style="padding: 0.5rem 1rem;">📅 Today</button>
+          <button class="btn btn-secondary" onclick="changeTrackingDay(1)" style="padding: 0.5rem 0.75rem;" id="tomorrowBtn">Tomorrow ▶</button>
+          <span style="margin-left: 1rem; color: var(--text-secondary); font-size: 0.9rem;" id="selectedDateLabel"></span>
+        </div>
+
         <!-- Today's Total Spend Box -->
         <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);">
           <div class="card-body" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;">
             <div>
-              <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">Today's Total Spend</div>
+              <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;" id="spendBoxLabel">Today's Total Spend</div>
               <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 0.25rem;" id="todayDateDisplay"></div>
             </div>
             <div style="text-align: right;">
@@ -2496,32 +2504,42 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       let html = '';
       
-      // Get today's date key
+      // Use selected date (could be today or a past day)
+      const dateKey = selectedTrackingDate;
       const todayKey = getThailandDate();
+      const isToday = dateKey === todayKey;
       
-      // Calculate today's total spend from daily history
-      let todayTotal = 0;
+      // Calculate total spend for selected date from daily history
+      let dayTotal = 0;
       accounts.forEach(account => {
-        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
-        todayTotal += parseFloat(todaySpend) || 0;
+        const daySpend = dailySpendHistory[`${account.id}_${dateKey}`] ?? 0;
+        dayTotal += parseFloat(daySpend) || 0;
       });
       
       // Update the total spend box
-      document.getElementById('todayTotalSpend').textContent = '$' + todayTotal.toFixed(0);
+      document.getElementById('todayTotalSpend').textContent = '$' + dayTotal.toFixed(0);
       document.getElementById('todayAccountCount').textContent = accounts.length + ' account' + (accounts.length !== 1 ? 's' : '');
       
-      // Show today's date in Thailand timezone
-      const thailandNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-      const dateStr = thailandNow.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      // Show selected date
+      const selectedDate = new Date(dateKey + 'T12:00:00');
+      const dateStr = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       document.getElementById('todayDateDisplay').textContent = dateStr;
+      
+      // Update label based on whether it's today or past
+      document.getElementById('spendBoxLabel').textContent = isToday ? "Today's Total Spend" : "Total Spend";
+      
+      // Update date selector buttons
+      document.getElementById('todayBtn').style.background = isToday ? 'var(--accent)' : 'var(--bg-tertiary)';
+      document.getElementById('tomorrowBtn').style.display = isToday ? 'none' : 'inline-block';
+      document.getElementById('selectedDateLabel').textContent = isToday ? '' : `Viewing: ${dateStr}`;
       
       accounts.forEach(account => {
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
         const hasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
         
-        // Get today's spend from daily history, default to 0 for new day
-        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
+        // Get spend for selected date from daily history, default to 0
+        const daySpend = dailySpendHistory[`${account.id}_${dateKey}`] ?? 0;
         
         html += `
           <div class="tracking-card ${hasIssue ? 'has-issue' : ''} ${store?.isPerformer ? 'performer' : ''}" data-account-id="${account.id}">
@@ -2534,10 +2552,11 @@ Or just card numbers:
                 <div class="tracking-profile">Profile: ${profile?.name || 'N/A'} • Lifetime: $${account.lifetimeSpend}</div>
               </div>
               <div class="tracking-spend">
-                <div class="tracking-spend-label">Today's Spend</div>
-                <input type="number" class="tracking-spend-input" value="${todaySpend}" 
+                <div class="tracking-spend-label">${isToday ? "Today's Spend" : "Spend"}</div>
+                <input type="number" class="tracking-spend-input" value="${daySpend}" 
                   data-field="spend" 
-                  onchange="autoSaveTracking('${account.id}', 'spend', this.value); updateTodayTotal();">
+                  data-date="${dateKey}"
+                  onchange="autoSaveTrackingForDate('${account.id}', this.value, '${dateKey}'); updateDayTotal();">
               </div>
             </div>
             <div class="tracking-statuses">
@@ -2686,15 +2705,57 @@ Or just card numbers:
 
     // Update today's total spend (called when spend input changes)
     function updateTodayTotal() {
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
-      let todayTotal = 0;
+      updateDayTotal();
+    }
+    
+    function updateDayTotal() {
+      let dayTotal = 0;
       
       // Get values from input fields for real-time update
       document.querySelectorAll('.tracking-spend-input').forEach(input => {
-        todayTotal += parseFloat(input.value) || 0;
+        dayTotal += parseFloat(input.value) || 0;
       });
       
-      document.getElementById('todayTotalSpend').textContent = '$' + todayTotal.toFixed(0);
+      document.getElementById('todayTotalSpend').textContent = '$' + dayTotal.toFixed(0);
+    }
+    
+    // Save tracking spend for a specific date
+    async function autoSaveTrackingForDate(accountId, value, dateKey) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      if (!account) return;
+      
+      const spendValue = parseFloat(value) || 0;
+      
+      // Update daily spend history for the specific date
+      dailySpendHistory[`${accountId}_${dateKey}`] = spendValue;
+      
+      // Save daily history to localStorage
+      try {
+        localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
+      } catch (e) {
+        console.log('Could not save to localStorage');
+      }
+      
+      // Recalculate lifetime spend from all daily history
+      const lifetimeSpend = calculateLifetimeSpend(accountId);
+      account.lifetimeSpend = lifetimeSpend;
+      
+      // Only update Supabase spend field if it's today
+      const todayKey = getThailandDate();
+      if (dateKey === todayKey) {
+        account.spend = spendValue;
+        await updateAdAccountInSupabase(accountId, { 
+          spend: spendValue,
+          lifetime_spend: lifetimeSpend 
+        });
+      } else {
+        // For past dates, just update lifetime
+        await updateAdAccountInSupabase(accountId, { 
+          lifetime_spend: lifetimeSpend 
+        });
+      }
+      
+      showAutoSaveIndicator('✓ Saved');
     }
 
     // Add notification
@@ -2837,6 +2898,33 @@ Or just card numbers:
     let dailySpendHistory = {};
     let currentTrackingMonth = getThailandDateParts().month; // 0-11
     let currentTrackingYear = getThailandDateParts().year;
+    
+    // Currently selected date for tracking (default: today)
+    let selectedTrackingDate = getThailandDate();
+    
+    // Change tracking day (offset: -1 for yesterday, +1 for tomorrow)
+    function changeTrackingDay(offset) {
+      const currentDate = new Date(selectedTrackingDate + 'T12:00:00');
+      currentDate.setDate(currentDate.getDate() + offset);
+      
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      selectedTrackingDate = `${year}-${month}-${day}`;
+      
+      // Don't allow future dates
+      if (selectedTrackingDate > getThailandDate()) {
+        selectedTrackingDate = getThailandDate();
+      }
+      
+      renderTracking();
+    }
+    
+    // Go back to today
+    function goToToday() {
+      selectedTrackingDate = getThailandDate();
+      renderTracking();
+    }
 
     function toggleTrackingView() {
       const cardView = document.getElementById('trackingCardView');
