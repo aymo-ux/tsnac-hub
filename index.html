@@ -2515,9 +2515,6 @@ Or just card numbers:
       const dateStr = thailandNow.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       document.getElementById('todayDateDisplay').textContent = dateStr;
       
-      // Get today's date key for spend lookup
-      const todayKey = getThailandDate();
-      
       accounts.forEach(account => {
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
