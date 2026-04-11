@@ -1370,7 +1370,10 @@
             <h1 class="page-title">Daily Tracking</h1>
             <p class="page-subtitle">Track daily spend for each account • <span style="color: var(--success);">Auto-saves ✓</span></p>
           </div>
-          <div class="header-actions">
+          <div class="header-actions" style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="forceReimportSpend()" title="Re-import data from Supabase">
+              🔄 Fix Data
+            </button>
             <button class="btn btn-secondary" onclick="toggleTrackingView()">
               📊 Toggle View
             </button>
@@ -3160,18 +3163,15 @@ Or just card numbers:
     
     // Import current spend from Supabase as yesterday's data (one-time migration)
     function importSpendAsYesterday() {
-      const today = getThailandDate();
-      // Calculate yesterday's date
-      const todayDate = new Date(today + 'T12:00:00');
-      todayDate.setDate(todayDate.getDate() - 1);
-      const yesterday = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      // Use April 10, 2026 specifically since that's when the data was entered
+      const importDate = '2026-04-10';
       
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.accounts[channel].forEach(account => {
           if (account.spend && account.spend > 0) {
-            // Save current spend as yesterday's spend
-            dailySpendHistory[`${account.id}_${yesterday}`] = account.spend;
-            console.log(`Imported ${account.spend} for account ${account.id} as ${yesterday}`);
+            // Save current spend as April 10's spend
+            dailySpendHistory[`${account.id}_${importDate}`] = account.spend;
+            console.log(`Imported ${account.spend} for account ${account.id} as ${importDate}`);
           }
         });
       });
@@ -3179,9 +3179,20 @@ Or just card numbers:
       // Save to localStorage
       try {
         localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
-        showToast('📥 Imported yesterday\'s data from Supabase');
+        showToast('📥 Imported April 10 data from Supabase');
       } catch (e) {
         console.log('Could not save to localStorage');
+      }
+    }
+    
+    // Force re-import (clear history and re-import from Supabase)
+    function forceReimportSpend() {
+      if (confirm('This will clear all daily history and re-import from Supabase. Continue?')) {
+        dailySpendHistory = {};
+        localStorage.removeItem('dailySpendHistory');
+        importSpendAsYesterday();
+        renderTracking();
+        showToast('✓ Data re-imported');
       }
     }
     
