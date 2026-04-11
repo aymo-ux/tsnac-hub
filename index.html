@@ -3164,32 +3164,43 @@ Or just card numbers:
     async function loadDailySpendHistory() {
       try {
         // Load from Supabase daily_spend table
+        console.log('Loading daily spend from Supabase...');
         const { data: spendData, error } = await supabase
           .from('daily_spend')
           .select('*');
         
         if (error) {
           console.error('Error loading daily spend:', error);
+          // Check if table doesn't exist
+          if (error.code === '42P01' || error.message.includes('does not exist')) {
+            showToast('⚠️ Please create daily_spend table in Supabase');
+          }
           // Fallback to localStorage
           const saved = localStorage.getItem('dailySpendHistory');
           if (saved) {
             dailySpendHistory = JSON.parse(saved);
+            console.log('Loaded from localStorage instead');
           }
         } else if (spendData && spendData.length > 0) {
           // Convert Supabase data to our format
           dailySpendHistory = {};
           spendData.forEach(row => {
-            dailySpendHistory[`${row.account_id}_${row.date}`] = parseFloat(row.spend) || 0;
+            // Handle date format (might be YYYY-MM-DD or with time)
+            const dateStr = row.date ? row.date.split('T')[0] : row.date;
+            dailySpendHistory[`${row.account_id}_${dateStr}`] = parseFloat(row.spend) || 0;
           });
           console.log(`Loaded ${spendData.length} daily spend records from Supabase`);
+          showToast(`☁️ Loaded ${spendData.length} records`);
           
           // Also update localStorage as cache
           localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
         } else {
+          console.log('No data in Supabase daily_spend table');
           // No data in Supabase, check localStorage
           const saved = localStorage.getItem('dailySpendHistory');
           if (saved) {
             dailySpendHistory = JSON.parse(saved);
+            console.log('Using localStorage data, will migrate to Supabase');
             // Migrate localStorage data to Supabase
             await migrateLocalStorageToSupabase();
           }
@@ -3198,6 +3209,8 @@ Or just card numbers:
         // Recalculate lifetime spend for all accounts based on daily history
         recalculateAllLifetimeSpends();
       } catch (e) {
+        console.error('Failed to load daily spend:', e);
+        showToast('⚠️ Error loading spend data');
         console.log('Could not load daily spend history:', e);
       }
     }
