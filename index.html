@@ -3142,12 +3142,46 @@ Or just card numbers:
         const saved = localStorage.getItem('dailySpendHistory');
         if (saved) {
           dailySpendHistory = JSON.parse(saved);
-          
-          // Recalculate lifetime spend for all accounts based on daily history
-          recalculateAllLifetimeSpends();
         }
+        
+        // MIGRATION: If no history exists, import current spend from Supabase as yesterday's data
+        const hasAnyHistory = Object.keys(dailySpendHistory).length > 0;
+        if (!hasAnyHistory) {
+          console.log('No daily history found, importing from Supabase...');
+          importSpendAsYesterday();
+        }
+        
+        // Recalculate lifetime spend for all accounts based on daily history
+        recalculateAllLifetimeSpends();
       } catch (e) {
         console.log('Could not load from localStorage');
+      }
+    }
+    
+    // Import current spend from Supabase as yesterday's data (one-time migration)
+    function importSpendAsYesterday() {
+      const today = getThailandDate();
+      // Calculate yesterday's date
+      const todayDate = new Date(today + 'T12:00:00');
+      todayDate.setDate(todayDate.getDate() - 1);
+      const yesterday = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      
+      ['google', 'tiktok', 'facebook'].forEach(channel => {
+        data.accounts[channel].forEach(account => {
+          if (account.spend && account.spend > 0) {
+            // Save current spend as yesterday's spend
+            dailySpendHistory[`${account.id}_${yesterday}`] = account.spend;
+            console.log(`Imported ${account.spend} for account ${account.id} as ${yesterday}`);
+          }
+        });
+      });
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
+        showToast('📥 Imported yesterday\'s data from Supabase');
+      } catch (e) {
+        console.log('Could not save to localStorage');
       }
     }
     
