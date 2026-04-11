@@ -2742,20 +2742,24 @@ Or just card numbers:
         console.log('Could not save to localStorage');
       }
       
-      // Try to save to Supabase daily_spend table (if it exists)
+      // Save to Supabase daily_spend table
       try {
-        await supabase
+        const { error } = await supabase
           .from('daily_spend')
           .upsert({
-            account_id: accountId,
+            account_id: String(accountId),
             date: dateKey,
             spend: spendValue,
-            entered_by: currentUser,
-            updated_at: new Date().toISOString()
+            entered_by: currentUser
           }, { onConflict: 'account_id,date' });
+        
+        if (error) {
+          console.error('daily_spend save error:', error);
+        } else {
+          console.log('✓ Saved to daily_spend:', accountId, dateKey, spendValue);
+        }
       } catch (e) {
-        // Table might not exist - that's OK
-        console.log('Could not save to Supabase daily_spend');
+        console.error('daily_spend exception:', e);
       }
       
       // Recalculate lifetime spend from all daily history
