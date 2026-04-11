@@ -2725,7 +2725,7 @@ Or just card numbers:
       document.getElementById('todayTotalSpend').textContent = '$' + dayTotal.toFixed(0);
     }
     
-    // Save tracking spend for a specific date - NOW SAVES TO SUPABASE
+    // Save tracking spend for a specific date
     async function autoSaveTrackingForDate(accountId, value, dateKey) {
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
       if (!account) return;
@@ -2735,9 +2735,16 @@ Or just card numbers:
       // Update local cache
       dailySpendHistory[`${accountId}_${dateKey}`] = spendValue;
       
-      // Save to Supabase daily_spend table
+      // Always save to localStorage (this always works)
       try {
-        const { data: result, error } = await supabase
+        localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
+      } catch (e) {
+        console.log('Could not save to localStorage');
+      }
+      
+      // Try to save to Supabase daily_spend table (if it exists)
+      try {
+        await supabase
           .from('daily_spend')
           .upsert({
             account_id: accountId,
@@ -2746,19 +2753,9 @@ Or just card numbers:
             entered_by: currentUser,
             updated_at: new Date().toISOString()
           }, { onConflict: 'account_id,date' });
-        
-        if (error) {
-          console.error('Error saving daily spend:', error);
-        }
       } catch (e) {
-        console.error('Failed to save to Supabase:', e);
-      }
-      
-      // Also save to localStorage as backup
-      try {
-        localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
-      } catch (e) {
-        console.log('Could not save to localStorage');
+        // Table might not exist - that's OK
+        console.log('Could not save to Supabase daily_spend');
       }
       
       // Recalculate lifetime spend from all daily history
@@ -3160,57 +3157,44 @@ Or just card numbers:
       return total;
     }
 
-    // Load daily spend history from localStorage on init
+    // Load daily spend history - works with or without Supabase table
     async function loadDailySpendHistory() {
+      // First, always load from localStorage (this always works)
       try {
-        // Load from Supabase daily_spend table
-        console.log('Loading daily spend from Supabase...');
+        const saved = localStorage.getItem('dailySpendHistory');
+        if (saved) {
+          dailySpendHistory = JSON.parse(saved);
+          console.log('Loaded daily spend from localStorage');
+        }
+      } catch (e) {
+        console.log('Could not load from localStorage');
+      }
+      
+      // Then try to load from Supabase (if table exists)
+      try {
         const { data: spendData, error } = await supabase
           .from('daily_spend')
           .select('*');
         
-        if (error) {
-          console.error('Error loading daily spend:', error);
-          // Check if table doesn't exist
-          if (error.code === '42P01' || error.message.includes('does not exist')) {
-            showToast('⚠️ Please create daily_spend table in Supabase');
-          }
-          // Fallback to localStorage
-          const saved = localStorage.getItem('dailySpendHistory');
-          if (saved) {
-            dailySpendHistory = JSON.parse(saved);
-            console.log('Loaded from localStorage instead');
-          }
-        } else if (spendData && spendData.length > 0) {
-          // Convert Supabase data to our format
-          dailySpendHistory = {};
+        if (!error && spendData && spendData.length > 0) {
+          // Merge Supabase data with localStorage (Supabase wins)
           spendData.forEach(row => {
-            // Handle date format (might be YYYY-MM-DD or with time)
             const dateStr = row.date ? row.date.split('T')[0] : row.date;
             dailySpendHistory[`${row.account_id}_${dateStr}`] = parseFloat(row.spend) || 0;
           });
-          console.log(`Loaded ${spendData.length} daily spend records from Supabase`);
-          showToast(`☁️ Loaded ${spendData.length} records`);
+          console.log(`Merged ${spendData.length} records from Supabase`);
           
-          // Also update localStorage as cache
+          // Update localStorage with merged data
           localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
-        } else {
-          console.log('No data in Supabase daily_spend table');
-          // No data in Supabase, check localStorage
-          const saved = localStorage.getItem('dailySpendHistory');
-          if (saved) {
-            dailySpendHistory = JSON.parse(saved);
-            console.log('Using localStorage data, will migrate to Supabase');
-            // Migrate localStorage data to Supabase
-            await migrateLocalStorageToSupabase();
-          }
         }
-        
-        // Recalculate lifetime spend for all accounts based on daily history
-        recalculateAllLifetimeSpends();
       } catch (e) {
-        console.error('Failed to load daily spend:', e);
-        showToast('⚠️ Error loading spend data');
+        // Supabase table might not exist - that's OK, use localStorage
+        console.log('Supabase daily_spend not available, using localStorage only');
+      }
+      
+      // Recalculate lifetime spend for all accounts
+      recalculateAllLifetimeSpends();
+    }
         console.log('Could not load daily spend history:', e);
       }
     }
