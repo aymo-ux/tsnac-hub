@@ -2381,7 +2381,14 @@ Or just card numbers:
     // ============================================
     function renderDashboard() {
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
-      const totalSpend = accounts.reduce((sum, a) => sum + a.spend, 0);
+      const todayKey = getThailandDate();
+      
+      // Calculate today's total spend from daily history
+      const totalSpend = accounts.reduce((sum, a) => {
+        const todaySpend = dailySpendHistory[`${a.id}_${todayKey}`] ?? 0;
+        return sum + (parseFloat(todaySpend) || 0);
+      }, 0);
+      
       const activeAds = accounts.filter(a => a.adsStatus === 'active').length;
       const performers = data.stores.filter(s => s.isPerformer).length;
       const needsAttention = accounts.filter(a => ['needs_verif', 'payment_issue'].includes(a.adsStatus)).length;
@@ -2408,6 +2415,7 @@ Or just card numbers:
       accounts.forEach(account => {
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
+        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
         tableHtml += `
           <tr>
             <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}</td>
@@ -2415,7 +2423,7 @@ Or just card numbers:
             <td>${getCampaignTags(account.campaigns, store)}</td>
             <td>${getStatusBadge(account.storeStatus, 'store')}</td>
             <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
-            <td style="font-family: 'JetBrains Mono', monospace;">$${account.spend} <span class="lifetime-spend ${account.lifetimeSpend < 300 ? 'low' : ''}">/ $${account.lifetimeSpend}</span></td>
+            <td style="font-family: 'JetBrains Mono', monospace;">$${todaySpend} <span class="lifetime-spend ${account.lifetimeSpend < 300 ? 'low' : ''}">/ $${account.lifetimeSpend}</span></td>
           </tr>
         `;
       });
@@ -2488,25 +2496,35 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       let html = '';
       
-      // Calculate today's total spend
+      // Get today's date key
+      const todayKey = getThailandDate();
+      
+      // Calculate today's total spend from daily history
       let todayTotal = 0;
       accounts.forEach(account => {
-        todayTotal += parseFloat(account.spend) || 0;
+        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
+        todayTotal += parseFloat(todaySpend) || 0;
       });
       
       // Update the total spend box
       document.getElementById('todayTotalSpend').textContent = '$' + todayTotal.toFixed(0);
       document.getElementById('todayAccountCount').textContent = accounts.length + ' account' + (accounts.length !== 1 ? 's' : '');
       
-      // Show today's date
-      const today = new Date();
-      const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      // Show today's date in Thailand timezone
+      const thailandNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const dateStr = thailandNow.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       document.getElementById('todayDateDisplay').textContent = dateStr;
+      
+      // Get today's date key for spend lookup
+      const todayKey = getThailandDate();
       
       accounts.forEach(account => {
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
         const hasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
+        
+        // Get today's spend from daily history, default to 0 for new day
+        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
         
         html += `
           <div class="tracking-card ${hasIssue ? 'has-issue' : ''} ${store?.isPerformer ? 'performer' : ''}" data-account-id="${account.id}">
@@ -2520,7 +2538,7 @@ Or just card numbers:
               </div>
               <div class="tracking-spend">
                 <div class="tracking-spend-label">Today's Spend</div>
-                <input type="number" class="tracking-spend-input" value="${account.spend}" 
+                <input type="number" class="tracking-spend-input" value="${todaySpend}" 
                   data-field="spend" 
                   onchange="autoSaveTracking('${account.id}', 'spend', this.value); updateTodayTotal();">
               </div>
@@ -2565,10 +2583,31 @@ Or just card numbers:
       
       // Update local data
       if (field === 'spend') {
-        account.spend = parseFloat(value) || 0;
-        // Also update daily spend history for today
+        const spendValue = parseFloat(value) || 0;
+        // Update daily spend history for today
         const today = getThailandDate();
-        dailySpendHistory[`${accountId}_${today}`] = account.spend;
+        dailySpendHistory[`${accountId}_${today}`] = spendValue;
+        
+        // Save daily history to localStorage
+        try {
+          localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
+        } catch (e) {
+          console.log('Could not save to localStorage');
+        }
+        
+        // Recalculate lifetime spend from all daily history
+        const lifetimeSpend = calculateLifetimeSpend(accountId);
+        account.lifetimeSpend = lifetimeSpend;
+        account.spend = spendValue;
+        
+        // Save both spend and lifetime_spend to Supabase
+        await updateAdAccountInSupabase(accountId, { 
+          spend: spendValue,
+          lifetime_spend: lifetimeSpend 
+        });
+        
+        showAutoSaveIndicator('✓ Saved');
+        return; // Already saved, skip the save below
       } else if (field === 'storeStatus') {
         account.storeStatus = value;
         // Add notification if store becomes Inactive - notify EVERYONE
@@ -2629,16 +2668,18 @@ Or just card numbers:
         }
       }
       
-      // Save to Supabase
+      // Save to Supabase (skip spend as it's already saved above with lifetime)
       const updates = {};
-      if (field === 'spend') updates.spend = account.spend;
       if (field === 'storeStatus') updates.store_status = value;
       if (field === 'adsStatus') {
         updates.ads_status = value;
         updates.suspended_at = account.suspendedAt;
       }
       
-      await updateAdAccountInSupabase(accountId, updates);
+      if (Object.keys(updates).length > 0) {
+        await updateAdAccountInSupabase(accountId, updates);
+        showAutoSaveIndicator('✓ Saved');
+      }
       
       // Update badges and re-render
       updateBadges();
