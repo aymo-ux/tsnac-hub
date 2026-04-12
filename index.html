@@ -1292,7 +1292,7 @@
 
         <div class="stats-grid" style="grid-template-columns: repeat(6, 1fr);">
           <div class="stat-card info">
-            <div class="stat-label">Today's Spend</div>
+            <div class="stat-label">Yesterday's Spend</div>
             <div class="stat-value" id="statSpend">$0</div>
           </div>
           <div class="stat-card success">
@@ -2397,10 +2397,15 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       const todayKey = getThailandDate();
       
-      // Calculate today's total spend from daily history
+      // Calculate yesterday's date
+      const todayDate = new Date(todayKey + 'T12:00:00');
+      todayDate.setDate(todayDate.getDate() - 1);
+      const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      
+      // Calculate yesterday's total spend from daily history
       const totalSpend = accounts.reduce((sum, a) => {
-        const todaySpend = dailySpendHistory[`${a.id}_${todayKey}`] ?? 0;
-        return sum + (parseFloat(todaySpend) || 0);
+        const yesterdaySpend = dailySpendHistory[`${a.id}_${yesterdayKey}`] ?? 0;
+        return sum + (parseFloat(yesterdaySpend) || 0);
       }, 0);
       
       const activeAds = accounts.filter(a => a.adsStatus === 'active').length;
