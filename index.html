@@ -1730,6 +1730,32 @@ Or just card numbers:
     </div>
   </div>
 
+  <!-- Edit Profile Modal -->
+  <div class="modal-overlay" id="modal-editProfile">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <span class="modal-title">Change Profile</span>
+        <button class="modal-close" onclick="closeModal('editProfile')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="editProfileAccountInfo" style="padding: 1rem; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 1.5rem;">
+          <!-- Account info will be inserted here -->
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Select New Profile</label>
+          <select class="form-select" id="editProfileSelect">
+            <!-- Profiles will be populated here -->
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('editProfile')">Cancel</button>
+        <button class="btn btn-primary" onclick="updateAccountProfile()">Update Profile</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Add Account Modal -->
   <div class="modal-overlay" id="modal-addAccount">
     <div class="modal">
@@ -3394,7 +3420,15 @@ Or just card numbers:
         html += `
           <tr>
             <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐</span>' : ''}</td>
-            <td>${profile?.name || 'N/A'}</td>
+            <td>
+              <span style="cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s;" 
+                    onclick="openEditProfile('${account.id}')" 
+                    onmouseover="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-glow)';"
+                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--bg-tertiary)';"
+                    title="Click to change Profile">
+                ${profile?.name || 'N/A'} ✏️
+              </span>
+            </td>
             <td>
               <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s;" 
                     onclick="openEditVCCModal('${account.id}')" 
@@ -3565,6 +3599,82 @@ Or just card numbers:
         console.error('Error updating VCC:', error);
         showAutoSaveIndicator('⚠ Update failed');
         alert('Failed to update VCC: ' + error.message);
+      }
+    }
+
+    // Open Edit Profile Modal
+    function openEditProfile(accountId) {
+      editingAccountId = accountId;
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      
+      const store = getStore(account.storeId);
+      const currentProfile = getProfile(account.profileId);
+      
+      // Show current account info
+      document.getElementById('editProfileAccountInfo').innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">${store?.name || 'Unknown Store'}</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+          Current Profile: <strong>${currentProfile?.name || 'None'}</strong>
+        </div>
+      `;
+      
+      // Populate profile dropdown
+      const profiles = data.profiles[currentChannel];
+      let optionsHtml = '<option value="">Select a profile...</option>';
+      
+      profiles.forEach(profile => {
+        const isCurrent = profile.id === account.profileId;
+        optionsHtml += `<option value="${profile.id}" ${isCurrent ? 'selected' : ''}>${profile.name}</option>`;
+      });
+      
+      document.getElementById('editProfileSelect').innerHTML = optionsHtml;
+      
+      openModal('editProfile');
+    }
+
+    // Update Account Profile
+    async function updateAccountProfile() {
+      if (!editingAccountId) return;
+      
+      const newProfileId = document.getElementById('editProfileSelect').value;
+      if (!newProfileId) {
+        alert('Please select a Profile');
+        return;
+      }
+      
+      const account = data.accounts[currentChannel].find(a => a.id === editingAccountId || a.id == editingAccountId);
+      if (!account) return;
+      
+      // Check if it's the same Profile
+      if (newProfileId == account.profileId) {
+        closeModal('editProfile');
+        return;
+      }
+      
+      try {
+        // Update in Supabase
+        const { error } = await supabaseClient
+          .from('ad_accounts')
+          .update({ profile_id: newProfileId })
+          .eq('id', editingAccountId);
+        
+        if (error) throw error;
+        
+        // Update local data
+        account.profileId = newProfileId;
+        
+        closeModal('editProfile');
+        editingAccountId = null;
+        
+        showAutoSaveIndicator('✓ Profile updated');
+        showToast('Profile changed successfully!');
+        renderAccounts();
+        renderDashboard();
+      } catch (error) {
+        console.error('Error updating Profile:', error);
+        showAutoSaveIndicator('⚠ Update failed');
+        alert('Failed to update Profile: ' + error.message);
       }
     }
 
