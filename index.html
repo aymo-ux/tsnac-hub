@@ -4109,8 +4109,16 @@ Or just card numbers:
         accounts.filter(a => a.storeStatus === 'inactive').forEach(account => {
           const store = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
-          const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
-          alerts.push({ type: 'warning', icon: '⏸️', title: 'Pause Campaign', desc: `${store?.name} store is down${vccInfo} - Pause campaign now!`, action: 'Fix', accountId: account.id });
+          const vccInfo = vcc ? `VCC ••••${vcc.number.slice(-4)}` : '';
+          
+          // Get yesterday's spend
+          const todayKey = getThailandDate();
+          const todayDate = new Date(todayKey + 'T12:00:00');
+          todayDate.setDate(todayDate.getDate() - 1);
+          const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+          const yesterdaySpend = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
+          
+          alerts.push({ type: 'warning', icon: '⏸️', title: `${store?.name} is DOWN`, desc: `${vccInfo} • Yesterday: $${yesterdaySpend} - Pause campaign now!`, action: 'Fix', accountId: account.id });
         });
       }
       
