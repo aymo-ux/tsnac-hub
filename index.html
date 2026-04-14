@@ -4092,7 +4092,14 @@ Or just card numbers:
           const store = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
-          alerts.push({ type: 'danger', icon: '🚫', title: 'Account suspended', desc: `${store?.name} has been suspended${vccInfo}`, action: 'Review', accountId: account.id });
+          
+          if (store?.hasTracking) {
+            // Store HAS tracking - show "Fix Tracking" alert
+            alerts.push({ type: 'danger', icon: '🚫', title: 'Suspended - Fix Tracking', desc: `${store?.name} suspended${vccInfo} • 📊 Has Tracking`, action: 'Fix Tr', accountId: account.id, storeId: account.storeId });
+          } else {
+            // Store has NO tracking - normal suspended alert
+            alerts.push({ type: 'danger', icon: '🚫', title: 'Account suspended', desc: `${store?.name} suspended${vccInfo}`, action: 'Review', accountId: account.id });
+          }
         });
       }
       
@@ -4153,10 +4160,22 @@ Or just card numbers:
             showAutoSaveIndicator('✓ Fixed');
             showToast('Store fixed! ✓');
           }
-          // Handle suspended - just navigate to review
+          // Handle suspended
           else if (account.adsStatus === 'suspended') {
-            showSection('suspended');
-            return;
+            const store = getStore(account.storeId);
+            if (store?.hasTracking) {
+              // Store has tracking - remove tracking (it's been fixed)
+              store.hasTracking = false;
+              const assets = store.assets || {};
+              assets.hasTracking = false;
+              await updateStoreInSupabase(store.id, { assets: assets });
+              showAutoSaveIndicator('✓ Tracking fixed');
+              showToast(`📊 Tracking removed from ${store.name} - Fixed!`);
+            } else {
+              // No tracking - just go to suspended section
+              showSection('suspended');
+              return;
+            }
           }
         }
       }
@@ -4219,12 +4238,18 @@ Or just card numbers:
           const searchStr = `${store?.name || ''} ${profile?.name || ''} ${vcc?.number || ''}`.toLowerCase();
           
           if (searchStr.includes(q)) {
-            const todaySpend = account.spend || 0;
+            // Calculate yesterday's date
+            const todayKey = getThailandDate();
+            const todayDate = new Date(todayKey + 'T12:00:00');
+            todayDate.setDate(todayDate.getDate() - 1);
+            const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+            const yesterdaySpend = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
+            
             results.push({
               type: 'account',
               icon: '📊',
               title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
-              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • Today: $${todaySpend} • Lifetime: $${account.lifetimeSpend}`,
+              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
               action: () => { showSection('tracking'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
