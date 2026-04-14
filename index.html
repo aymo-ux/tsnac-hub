@@ -2691,8 +2691,8 @@ Or just card numbers:
         if (value === 'inactive') {
           addNotification({
             type: 'store_inactive',
-            title: '🏪 Store Inactive',
-            message: `${store?.name || 'Unknown Store'} has been marked as Inactive`,
+            title: '⏸️ Pause Campaign',
+            message: `${store?.name || 'Unknown Store'} is down - Pause campaign now!`,
             forRoles: ['admin', 'account_creator', 'tracker', 'designer'],
             accountId: accountId,
             storeId: account.storeId,
@@ -4108,7 +4108,7 @@ Or just card numbers:
           const store = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
-          alerts.push({ type: 'info', icon: '🏪', title: 'Store inactive', desc: `${store?.name} store is down${vccInfo}`, action: 'Fix', accountId: account.id });
+          alerts.push({ type: 'warning', icon: '⏸️', title: 'Pause Campaign', desc: `${store?.name} store is down${vccInfo} - Pause campaign now!`, action: 'Fix', accountId: account.id });
         });
       }
       
