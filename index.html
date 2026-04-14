@@ -428,6 +428,7 @@
     .status-inactive { background: var(--bg-tertiary); color: var(--text-muted); }
     .status-verif { background: var(--warning-bg); color: var(--warning); }
     .status-payment { background: var(--orange-bg); color: var(--orange); }
+    .status-paused { background: #f0f9ff; color: #0284c7; }
     .status-suspended { background: var(--danger-bg); color: var(--danger); }
     .status-unassigned { background: var(--info-bg); color: var(--info); }
     .status-saved { background: var(--purple-bg); color: var(--purple); }
@@ -2307,7 +2308,7 @@ Or just card numbers:
     function getStatusBadge(status, type) {
       const badges = {
         store: { active: '<span class="status status-active">✓ Active</span>', inactive: '<span class="status status-inactive">✗ Inactive</span>' },
-        ads: { active: '<span class="status status-active">✓ Active</span>', needs_verif: '<span class="status status-verif">⚠ Needs Verif</span>', payment_issue: '<span class="status status-payment">💳 Payment</span>', suspended: '<span class="status status-suspended">🚫 Suspended</span>' },
+        ads: { active: '<span class="status status-active">✓ Active</span>', paused: '<span class="status status-paused">⏸️ Paused</span>', needs_verif: '<span class="status status-verif">⚠ Needs Verif</span>', payment_issue: '<span class="status status-payment">💳 Payment</span>', suspended: '<span class="status status-suspended">🚫 Suspended</span>' },
         vcc: { unassigned: '<span class="status status-unassigned">⏳ Unassigned</span>', in_use: '<span class="status status-active">✓ In Use</span>' }
       };
       return badges[type]?.[status] || status;
@@ -2632,6 +2633,7 @@ Or just card numbers:
                 <label>Ads Status</label>
                 <select data-field="adsStatus" onchange="autoSaveTracking('${account.id}', 'adsStatus', this.value)">
                   <option value="active" ${account.adsStatus === 'active' ? 'selected' : ''}>✅ Active</option>
+                  <option value="paused" ${account.adsStatus === 'paused' ? 'selected' : ''}>⏸️ Paused</option>
                   <option value="needs_verif" ${account.adsStatus === 'needs_verif' ? 'selected' : ''}>⚠️ Needs Verif</option>
                   <option value="payment_issue" ${account.adsStatus === 'payment_issue' ? 'selected' : ''}>💳 Payment Issue</option>
                   <option value="suspended" ${account.adsStatus === 'suspended' ? 'selected' : ''}>🚫 Suspended</option>
