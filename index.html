@@ -1794,7 +1794,11 @@ Or just card numbers:
         </div>
         <div class="form-group">
           <label class="form-label">VCC</label>
-          <select class="form-select" id="accountVCC"></select>
+          <select class="form-select" id="accountVCC" onchange="toggleManualVCC()"></select>
+          <div id="manualVCCInput" style="display: none; margin-top: 0.5rem;">
+            <input type="text" class="form-input" id="manualVCCLast4" placeholder="Enter last 4 digits" maxlength="4" pattern="[0-9]{4}" style="font-family: 'JetBrains Mono', monospace;">
+            <div style="font-size: 0.75rem; color: var(--warning); margin-top: 0.25rem;">⚠️ VCC will need to be added later</div>
+          </div>
         </div>
         <div class="form-group" id="campaignTypesGroup">
           <label class="form-label">Campaign Types</label>
@@ -2058,6 +2062,7 @@ Or just card numbers:
                 storeId: a.store_id,
                 profileId: a.profile_id,
                 vccId: a.vcc_id,
+                pendingVCC: a.pending_vcc,
                 storeStatus: a.store_status || 'active',
                 adsStatus: a.ads_status || 'active',
                 spend: parseFloat(a.spend) || 0,
@@ -2194,21 +2199,24 @@ Or just card numbers:
     // Save ad account to Supabase
     async function saveAdAccountToSupabase(account, channel) {
       try {
+        const insertData = {
+          store_id: account.storeId,
+          profile_id: account.profileId,
+          vcc_id: account.vccId || null,
+          pending_vcc: account.pendingVCC || null,
+          channel: channel,
+          store_status: 'active',
+          ads_status: 'active',
+          spend: 0,
+          lifetime_spend: 0,
+          campaigns: account.campaigns || ['search'],
+          status: 'active',
+          created_by: dbUser?.id
+        };
+        
         const { data: newAccount, error } = await supabaseClient
           .from('ad_accounts')
-          .insert({
-            store_id: account.storeId,
-            profile_id: account.profileId,
-            vcc_id: account.vccId,
-            channel: channel,
-            store_status: 'active',
-            ads_status: 'active',
-            spend: 0,
-            lifetime_spend: 0,
-            campaigns: account.campaigns || ['search'],
-            status: 'active',
-            created_by: dbUser?.id
-          })
+          .insert(insertData)
           .select()
           .single();
         
@@ -3442,7 +3450,18 @@ Or just card numbers:
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
         const vcc = getVCC(account.vccId);
-        const vccDisplay = perms.canSeeVCCDetails && vcc ? `••••${vcc.number.slice(-4)}` : '••••••••';
+        
+        // Show pending VCC with warning badge if no real VCC
+        let vccDisplay;
+        let vccStyle = '';
+        if (vcc) {
+          vccDisplay = perms.canSeeVCCDetails ? `••••${vcc.number.slice(-4)}` : '••••••••';
+        } else if (account.pendingVCC) {
+          vccDisplay = `••••${account.pendingVCC} ⚠️`;
+          vccStyle = 'color: var(--warning);';
+        } else {
+          vccDisplay = '••••••••';
+        }
         
         html += `
           <tr>
@@ -3457,11 +3476,11 @@ Or just card numbers:
               </span>
             </td>
             <td>
-              <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s;" 
+              <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s; ${vccStyle}" 
                     onclick="openEditVCCModal('${account.id}')" 
                     onmouseover="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-glow)';"
                     onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--bg-tertiary)';"
-                    title="Click to change VCC">
+                    title="${account.pendingVCC ? 'Pending VCC - Click to link real VCC' : 'Click to change VCC'}">
                 ${vccDisplay} ✏️
               </span>
             </td>
@@ -3603,22 +3622,23 @@ Or just card numbers:
       }
       
       try {
-        // Update in Supabase
+        // Update in Supabase - clear pending_vcc when linking real VCC
         const { error } = await supabaseClient
           .from('ad_accounts')
-          .update({ vcc_id: newVCCId })
+          .update({ vcc_id: newVCCId, pending_vcc: null })
           .eq('id', editingAccountId);
         
         if (error) throw error;
         
         // Update local data
         account.vccId = newVCCId;
+        account.pendingVCC = null;
         
         closeModal('editVCC');
         editingAccountId = null;
         
         showAutoSaveIndicator('✓ VCC updated');
-        showToast('VCC changed successfully!');
+        showToast('VCC linked successfully!');
         renderAccounts();
         renderVCCs();
         renderDashboard();
@@ -4960,6 +4980,19 @@ Balance: $${vcc.balance.toFixed(2)}`;
       document.getElementById('suspendedBadge').style.display = suspendedCount > 0 ? 'inline' : 'none';
     }
 
+    // Toggle manual VCC input
+    function toggleManualVCC() {
+      const vccSelect = document.getElementById('accountVCC');
+      const manualInput = document.getElementById('manualVCCInput');
+      
+      if (vccSelect.value === 'manual') {
+        manualInput.style.display = 'block';
+      } else {
+        manualInput.style.display = 'none';
+        document.getElementById('manualVCCLast4').value = '';
+      }
+    }
+
     // ============================================
     // MODALS
     // ============================================
@@ -4986,7 +5019,10 @@ Balance: $${vcc.balance.toFixed(2)}`;
         data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(v => {
           vccOptions += `<option value="${v.id}">••••${v.number.slice(-4)} ($${v.balance})</option>`;
         });
+        vccOptions += '<option value="manual">✏️ Enter last 4 digits manually...</option>';
         document.getElementById('accountVCC').innerHTML = vccOptions;
+        document.getElementById('manualVCCInput').style.display = 'none';
+        document.getElementById('manualVCCLast4').value = '';
         
         // Campaign types visibility
         document.getElementById('campaignTypesGroup').style.display = currentChannel === 'google' ? 'block' : 'none';
@@ -5298,9 +5334,15 @@ Balance: $${vcc.balance.toFixed(2)}`;
     async function addAccount() {
       const storeId = document.getElementById('accountStore').value;
       const profileId = document.getElementById('accountProfile').value;
-      const vccId = document.getElementById('accountVCC').value;
+      const vccSelect = document.getElementById('accountVCC').value;
+      const manualVCCLast4 = document.getElementById('manualVCCLast4').value.trim();
       
-      if (!storeId || !profileId || !vccId) { alert('Please fill all fields'); return; }
+      // Check if manual VCC entry
+      const isManualVCC = vccSelect === 'manual';
+      
+      if (!storeId || !profileId) { alert('Please fill all fields'); return; }
+      if (!isManualVCC && !vccSelect) { alert('Please select a VCC'); return; }
+      if (isManualVCC && (!manualVCCLast4 || manualVCCLast4.length !== 4)) { alert('Please enter 4 digits for VCC'); return; }
       
       const store = getStore(storeId);
       const campaigns = ['search'];
@@ -5311,7 +5353,8 @@ Balance: $${vcc.balance.toFixed(2)}`;
       const newAccount = {
         storeId: storeId,
         profileId: profileId,
-        vccId: vccId,
+        vccId: isManualVCC ? null : vccSelect,
+        pendingVCC: isManualVCC ? manualVCCLast4 : null,
         storeStatus: 'active',
         adsStatus: 'active',
         spend: 0,
@@ -5326,23 +5369,27 @@ Balance: $${vcc.balance.toFixed(2)}`;
       const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
       if (savedAccount) {
         newAccount.id = savedAccount.id;
-        // Update VCC in Supabase
-        await updateVCCInSupabase(vccId, { status: 'in_use', linked_account: savedAccount.id });
+        // Update VCC in Supabase only if real VCC selected
+        if (!isManualVCC && vccSelect) {
+          await updateVCCInSupabase(vccSelect, { status: 'in_use', linked_account: savedAccount.id });
+        }
       } else {
         newAccount.id = Date.now();
       }
       
       data.accounts[currentChannel].push(newAccount);
       
-      // Update VCC
-      const vcc = data.vccs[currentChannel].find(v => v.id === vccId);
-      if (vcc) {
-        vcc.status = 'in_use';
-        vcc.linkedAccount = storeId;
+      // Update VCC only if real VCC selected
+      if (!isManualVCC) {
+        const vcc = data.vccs[currentChannel].find(v => v.id === vccSelect);
+        if (vcc) {
+          vcc.status = 'in_use';
+          vcc.linkedAccount = storeId;
+        }
       }
       
       closeModal('addAccount');
-      showToast('Account created!');
+      showToast(isManualVCC ? 'Account created with pending VCC ⚠️' : 'Account created!');
       renderAccounts();
       renderVCCs();
       updateBadges();
