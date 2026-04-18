@@ -464,6 +464,67 @@
       box-shadow: var(--shadow-sm);
     }
 
+    .account-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .account-type-badge.principal { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+    .account-type-badge.warming { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+    .account-type-badge.ready { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+
+    /* Store Group Card */
+    .store-group {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .store-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      background: var(--bg-tertiary);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .store-group-header:hover {
+      background: var(--bg-hover);
+    }
+    .store-group-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .store-group-stats {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .store-group-body {
+      padding: 0;
+    }
+    .store-group-account {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .store-group-account:hover {
+      background: var(--bg-hover);
+    }
+
     /* VCC Card */
     .vcc-card {
       background: linear-gradient(145deg, rgba(30, 30, 40, 0.9) 0%, rgba(45, 45, 60, 0.9) 100%);
@@ -1346,22 +1407,10 @@
 
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Accounts Overview</span>
+            <span class="card-title">Store Groups Overview</span>
           </div>
-          <div class="card-body" style="padding: 0;">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Store</th>
-                  <th>Profile</th>
-                  <th>Campaigns</th>
-                  <th>Store Status</th>
-                  <th>Ads Status</th>
-                  <th>Today / Lifetime</th>
-                </tr>
-              </thead>
-              <tbody id="dashboardTable"></tbody>
-            </table>
+          <div class="card-body" style="padding: 1rem;" id="dashboardStoreGroups">
+            <!-- Store groups will be rendered here -->
           </div>
         </div>
       </section>
@@ -1487,23 +1536,8 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-body" style="padding: 0;">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Store</th>
-                  <th>Profile</th>
-                  <th>VCC</th>
-                  <th>Campaigns</th>
-                  <th>Status</th>
-                  <th>Lifetime Spend</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="accountsTable"></tbody>
-            </table>
-          </div>
+        <div id="accountsGroupedView" style="padding: 0;">
+          <!-- Store groups will be rendered here -->
         </div>
       </section>
 
@@ -1776,6 +1810,34 @@ Or just card numbers:
     </div>
   </div>
 
+  <!-- Edit Account Type Modal -->
+  <div class="modal-overlay" id="modal-editAccountType">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <span class="modal-title">Change Account Type</span>
+        <button class="modal-close" onclick="closeModal('editAccountType')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="editAccountTypeInfo" style="padding: 1rem; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 1.5rem;">
+          <!-- Account info will be inserted here -->
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Select Account Type</label>
+          <select class="form-select" id="editAccountTypeSelect">
+            <option value="principal">👑 Principal (Main Account)</option>
+            <option value="warming">🔥 Backup (Warming Up)</option>
+            <option value="ready">✅ Backup (Ready)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('editAccountType')">Cancel</button>
+        <button class="btn btn-primary" onclick="updateAccountType()">Update Type</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Add Account Modal -->
   <div class="modal-overlay" id="modal-addAccount">
     <div class="modal">
@@ -1799,6 +1861,14 @@ Or just card numbers:
             <input type="text" class="form-input" id="manualVCCLast4" placeholder="Enter last 4 digits" maxlength="4" pattern="[0-9]{4}" style="font-family: 'JetBrains Mono', monospace;">
             <div style="font-size: 0.75rem; color: var(--warning); margin-top: 0.25rem;">⚠️ VCC will need to be added later</div>
           </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Account Type</label>
+          <select class="form-select" id="accountType">
+            <option value="principal">👑 Principal (Main Account)</option>
+            <option value="warming">🔥 Backup (Warming Up)</option>
+            <option value="ready">✅ Backup (Ready)</option>
+          </select>
         </div>
         <div class="form-group" id="campaignTypesGroup">
           <label class="form-label">Campaign Types</label>
@@ -2063,6 +2133,7 @@ Or just card numbers:
                 profileId: a.profile_id,
                 vccId: a.vcc_id,
                 pendingVCC: a.pending_vcc,
+                accountType: a.account_type || 'principal',
                 storeStatus: a.store_status || 'active',
                 adsStatus: a.ads_status || 'active',
                 spend: parseFloat(a.spend) || 0,
@@ -2204,6 +2275,7 @@ Or just card numbers:
           profile_id: account.profileId,
           vcc_id: account.vccId || null,
           pending_vcc: account.pendingVCC || null,
+          account_type: account.accountType || 'principal',
           channel: channel,
           store_status: 'active',
           ads_status: 'active',
@@ -2321,6 +2393,15 @@ Or just card numbers:
         vcc: { unassigned: '<span class="status status-unassigned">⏳ Unassigned</span>', in_use: '<span class="status status-active">✓ In Use</span>' }
       };
       return badges[type]?.[status] || status;
+    }
+
+    function getAccountTypeBadge(type) {
+      const badges = {
+        principal: '<span class="account-type-badge principal">👑 Principal</span>',
+        warming: '<span class="account-type-badge warming">🔥 Warming</span>',
+        ready: '<span class="account-type-badge ready">✅ Ready</span>'
+      };
+      return badges[type] || badges.principal;
     }
 
     function formatDate(dateStr) {
@@ -2488,23 +2569,78 @@ Or just card numbers:
 
       document.getElementById('dashboardAlerts').innerHTML = generateAlertsHtml(10) || '<div class="empty-state"><p>No alerts</p></div>';
 
-      let tableHtml = '';
+      // Group accounts by store for dashboard
+      const storeGroups = {};
       accounts.forEach(account => {
-        const store = getStore(account.storeId);
-        const profile = getProfile(account.profileId);
-        const todaySpend = dailySpendHistory[`${account.id}_${todayKey}`] ?? 0;
-        tableHtml += `
-          <tr>
-            <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}</td>
-            <td>${profile?.name || 'N/A'}</td>
-            <td>${getCampaignTags(account.campaigns, store)}</td>
-            <td>${getStatusBadge(account.storeStatus, 'store')}</td>
-            <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
-            <td style="font-family: 'JetBrains Mono', monospace;">$${todaySpend} <span class="lifetime-spend ${account.lifetimeSpend < 300 ? 'low' : ''}">/ $${account.lifetimeSpend}</span></td>
-          </tr>
-        `;
+        const storeId = account.storeId;
+        if (!storeGroups[storeId]) {
+          storeGroups[storeId] = [];
+        }
+        storeGroups[storeId].push(account);
       });
-      document.getElementById('dashboardTable').innerHTML = tableHtml;
+      
+      // Sort accounts within each group: principal first, then warming, then ready
+      const typeOrder = { principal: 0, warming: 1, ready: 2 };
+      Object.values(storeGroups).forEach(group => {
+        group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
+      });
+      
+      let groupsHtml = '';
+      Object.entries(storeGroups).forEach(([storeId, storeAccounts]) => {
+        const store = getStore(storeId);
+        const storeName = store?.name || 'Unknown Store';
+        const isPerformer = store?.isPerformer;
+        const hasTracking = store?.hasTracking;
+        
+        // Calculate store yesterday spend
+        let storeYesterdaySpend = 0;
+        let storeTodaySpend = 0;
+        storeAccounts.forEach(acc => {
+          storeYesterdaySpend += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
+          storeTodaySpend += parseFloat(dailySpendHistory[`${acc.id}_${todayKey}`]) || 0;
+        });
+        
+        // Check if any account has issues
+        const hasIssue = storeAccounts.some(acc => acc.adsStatus !== 'active' || acc.storeStatus !== 'active');
+        
+        groupsHtml += `
+          <div class="store-group" style="margin-bottom: 0.75rem; ${hasIssue ? 'border-color: var(--warning);' : ''}">
+            <div class="store-group-header" style="padding: 0.75rem 1rem;">
+              <div class="store-group-title">
+                <span style="font-size: 0.95rem;">📦 ${storeName}</span>
+                ${isPerformer ? '<span class="performer-badge" style="font-size: 0.6rem;">⭐ TOP</span>' : ''}
+                ${hasTracking ? '<span class="tracking-badge" style="font-size: 0.6rem;">📊 Tr</span>' : ''}
+              </div>
+              <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.85rem;">
+                <span style="color: var(--text-secondary);">${storeAccounts.length} acc</span>
+                <span style="color: var(--text-secondary);">Yday: <strong style="color: var(--success);">$${storeYesterdaySpend.toFixed(0)}</strong></span>
+                <span style="color: var(--text-secondary);">Today: <strong style="color: var(--accent);">$${storeTodaySpend.toFixed(0)}</strong></span>
+              </div>
+            </div>
+            <div style="padding: 0.5rem 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">`;
+        
+        storeAccounts.forEach(account => {
+          const profile = getProfile(account.profileId);
+          const vcc = getVCC(account.vccId);
+          let vccLast4 = vcc ? vcc.number.slice(-4) : (account.pendingVCC || '????');
+          const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
+          
+          groupsHtml += `
+              <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg-tertiary); border-radius: 6px; font-size: 0.8rem;">
+                <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                <span>${profile?.name || 'N/A'}</span>
+                <span style="color: var(--text-muted);">••••${vccLast4}</span>
+                ${getStatusBadge(account.adsStatus, 'ads')}
+                <span style="font-family: 'JetBrains Mono', monospace; color: var(--success);">$${accYesterday}</span>
+              </div>`;
+        });
+        
+        groupsHtml += `
+            </div>
+          </div>`;
+      });
+      
+      document.getElementById('dashboardStoreGroups').innerHTML = groupsHtml || '<div class="empty-state"><p>No accounts yet</p></div>';
     }
 
     function renderStores() {
@@ -2604,62 +2740,125 @@ Or just card numbers:
       document.getElementById('tomorrowBtn').style.display = isToday ? 'none' : 'inline-block';
       document.getElementById('selectedDateLabel').textContent = isToday ? '' : `Viewing: ${dateStr}`;
       
+      // Group accounts by store
+      const storeGroups = {};
       accounts.forEach(account => {
-        const store = getStore(account.storeId);
-        const profile = getProfile(account.profileId);
-        const hasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
+        const storeId = account.storeId;
+        if (!storeGroups[storeId]) {
+          storeGroups[storeId] = [];
+        }
+        storeGroups[storeId].push(account);
+      });
+      
+      // Sort accounts within each group: principal first, then warming, then ready
+      const typeOrder = { principal: 0, warming: 1, ready: 2 };
+      Object.values(storeGroups).forEach(group => {
+        group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
+      });
+      
+      // Render grouped view
+      Object.entries(storeGroups).forEach(([storeId, storeAccounts]) => {
+        const store = getStore(storeId);
+        const storeName = store?.name || 'Unknown Store';
+        const isPerformer = store?.isPerformer;
+        const hasTracking = store?.hasTracking;
         
-        // Get spend for selected date from daily history, default to 0
-        const daySpend = dailySpendHistory[`${account.id}_${dateKey}`] ?? 0;
+        // Calculate store total spend
+        let storeTotal = 0;
+        storeAccounts.forEach(acc => {
+          storeTotal += parseFloat(dailySpendHistory[`${acc.id}_${dateKey}`]) || 0;
+        });
+        
+        // Check if any account has issues
+        const hasIssue = storeAccounts.some(acc => acc.adsStatus !== 'active' || acc.storeStatus !== 'active');
         
         html += `
-          <div class="tracking-card ${hasIssue ? 'has-issue' : ''} ${store?.isPerformer ? 'performer' : ''}" data-account-id="${account.id}">
-            <div class="tracking-header">
-              <div>
-                <div class="tracking-store">
-                  ${store?.name || 'N/A'}
-                  ${store?.isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
-                </div>
-                <div class="tracking-profile">Profile: ${profile?.name || 'N/A'} • Lifetime: $${account.lifetimeSpend}</div>
+          <div class="store-group ${hasIssue ? 'has-issue' : ''}" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
+            <div class="store-group-header" onclick="toggleStoreGroup('${storeId}')">
+              <div class="store-group-title">
+                <span>📦 ${storeName}</span>
+                ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
+                ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">(${storeAccounts.length} account${storeAccounts.length > 1 ? 's' : ''})</span>
               </div>
-              <div class="tracking-spend">
-                <div class="tracking-spend-label">${isToday ? "Today's Spend" : "Spend"}</div>
-                <input type="number" class="tracking-spend-input" value="${daySpend}" 
-                  data-field="spend" 
-                  data-date="${dateKey}"
-                  onchange="autoSaveTrackingForDate('${account.id}', this.value, '${dateKey}'); updateDayTotal();">
+              <div class="store-group-stats">
+                <span style="font-weight: 600; color: var(--success);">$${storeTotal.toFixed(0)}</span>
+                <span style="font-size: 1.2rem;" id="storeGroupArrow_${storeId}">▼</span>
               </div>
             </div>
-            <div class="tracking-statuses">
-              <div class="tracking-status-group">
-                <label>Store Status</label>
-                <select data-field="storeStatus" onchange="autoSaveTracking('${account.id}', 'storeStatus', this.value)">
-                  <option value="active" ${account.storeStatus === 'active' ? 'selected' : ''}>✅ Active</option>
-                  <option value="inactive" ${account.storeStatus === 'inactive' ? 'selected' : ''}>❌ Inactive</option>
-                </select>
-              </div>
-              <div class="tracking-status-group">
-                <label>Ads Status</label>
-                <select data-field="adsStatus" onchange="autoSaveTracking('${account.id}', 'adsStatus', this.value)">
-                  <option value="active" ${account.adsStatus === 'active' ? 'selected' : ''}>✅ Active</option>
-                  <option value="paused" ${account.adsStatus === 'paused' ? 'selected' : ''}>⏸️ Paused</option>
-                  <option value="needs_verif" ${account.adsStatus === 'needs_verif' ? 'selected' : ''}>⚠️ Needs Verif</option>
-                  <option value="payment_issue" ${account.adsStatus === 'payment_issue' ? 'selected' : ''}>💳 Payment Issue</option>
-                  <option value="suspended" ${account.adsStatus === 'suspended' ? 'selected' : ''}>🚫 Suspended</option>
-                </select>
-              </div>
-              <div class="tracking-status-group">
-                <label>Campaigns</label>
-                <div style="display: flex; gap: 0.5rem; padding-top: 0.5rem;">
-                  ${getCampaignTags(account.campaigns, store)}
+            <div class="store-group-body" id="storeGroupBody_${storeId}">`;
+        
+        storeAccounts.forEach(account => {
+          const profile = getProfile(account.profileId);
+          const vcc = getVCC(account.vccId);
+          const daySpend = dailySpendHistory[`${account.id}_${dateKey}`] ?? 0;
+          const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
+          
+          let vccDisplay;
+          if (vcc) {
+            vccDisplay = `••••${vcc.number.slice(-4)}`;
+          } else if (account.pendingVCC) {
+            vccDisplay = `••••${account.pendingVCC} ⚠️`;
+          } else {
+            vccDisplay = '••••••••';
+          }
+          
+          html += `
+              <div class="store-group-account ${accHasIssue ? 'has-issue' : ''}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+                  <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                  <div>
+                    <div style="font-weight: 500;">${profile?.name || 'N/A'}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                      ${vccDisplay} • Lifetime: $${account.lifetimeSpend}
+                    </div>
+                  </div>
                 </div>
-              </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                  <div style="display: flex; gap: 0.5rem;">
+                    <select style="padding: 0.3rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary);" 
+                            onchange="autoSaveTracking('${account.id}', 'storeStatus', this.value)">
+                      <option value="active" ${account.storeStatus === 'active' ? 'selected' : ''}>✅ Store</option>
+                      <option value="inactive" ${account.storeStatus === 'inactive' ? 'selected' : ''}>❌ Store</option>
+                    </select>
+                    <select style="padding: 0.3rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary);" 
+                            onchange="autoSaveTracking('${account.id}', 'adsStatus', this.value)">
+                      <option value="active" ${account.adsStatus === 'active' ? 'selected' : ''}>✅ Ads</option>
+                      <option value="paused" ${account.adsStatus === 'paused' ? 'selected' : ''}>⏸️ Paused</option>
+                      <option value="needs_verif" ${account.adsStatus === 'needs_verif' ? 'selected' : ''}>⚠️ Verif</option>
+                      <option value="payment_issue" ${account.adsStatus === 'payment_issue' ? 'selected' : ''}>💳 Pay</option>
+                      <option value="suspended" ${account.adsStatus === 'suspended' ? 'selected' : ''}>🚫 Susp</option>
+                    </select>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${isToday ? "Today" : "Spend"}</div>
+                    <input type="number" style="width: 80px; padding: 0.4rem; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);" 
+                      value="${daySpend}" 
+                      onchange="autoSaveTrackingForDate('${account.id}', this.value, '${dateKey}'); updateDayTotal();">
+                  </div>
+                </div>
+              </div>`;
+        });
+        
+        html += `
             </div>
-          </div>
-        `;
+          </div>`;
       });
       
       document.getElementById('trackingList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts to track</p></div>';
+    }
+    
+    // Toggle store group expand/collapse
+    function toggleStoreGroup(storeId) {
+      const body = document.getElementById(`storeGroupBody_${storeId}`);
+      const arrow = document.getElementById(`storeGroupArrow_${storeId}`);
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▼';
+      } else {
+        body.style.display = 'none';
+        arrow.textContent = '▶';
+      }
     }
 
     // Auto-save tracking changes
@@ -3444,61 +3643,139 @@ Or just card numbers:
     function renderAccounts() {
       const perms = permissions[currentUser];
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
-      let html = '';
+      const todayKey = getThailandDate();
       
+      // Calculate yesterday
+      const todayDate = new Date(todayKey + 'T12:00:00');
+      todayDate.setDate(todayDate.getDate() - 1);
+      const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      
+      // Group accounts by store
+      const storeGroups = {};
       accounts.forEach(account => {
-        const store = getStore(account.storeId);
-        const profile = getProfile(account.profileId);
-        const vcc = getVCC(account.vccId);
-        
-        // Show pending VCC with warning badge if no real VCC
-        let vccDisplay;
-        let vccStyle = '';
-        if (vcc) {
-          vccDisplay = perms.canSeeVCCDetails ? `••••${vcc.number.slice(-4)}` : '••••••••';
-        } else if (account.pendingVCC) {
-          vccDisplay = `••••${account.pendingVCC} ⚠️`;
-          vccStyle = 'color: var(--warning);';
-        } else {
-          vccDisplay = '••••••••';
+        const storeId = account.storeId;
+        if (!storeGroups[storeId]) {
+          storeGroups[storeId] = [];
         }
-        
-        html += `
-          <tr>
-            <td><strong>${store?.name || 'N/A'}</strong> ${store?.isPerformer ? '<span class="performer-badge">⭐</span>' : ''}</td>
-            <td>
-              <span style="cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s;" 
-                    onclick="openEditProfile('${account.id}')" 
-                    onmouseover="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-glow)';"
-                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--bg-tertiary)';"
-                    title="Click to change Profile">
-                ${profile?.name || 'N/A'} ✏️
-              </span>
-            </td>
-            <td>
-              <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); transition: all 0.2s; ${vccStyle}" 
-                    onclick="openEditVCCModal('${account.id}')" 
-                    onmouseover="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-glow)';"
-                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--bg-tertiary)';"
-                    title="${account.pendingVCC ? 'Pending VCC - Click to link real VCC' : 'Click to change VCC'}">
-                ${vccDisplay} ✏️
-              </span>
-            </td>
-            <td>${getCampaignTags(account.campaigns, store)}</td>
-            <td>${getStatusBadge(account.adsStatus, 'ads')}</td>
-            <td class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="font-family: 'JetBrains Mono', monospace;">$${account.lifetimeSpend}</td>
-            <td>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button type="button" class="btn btn-sm" style="background: var(--accent); color: white; padding: 0.4rem 0.6rem;" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
-                ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 0.4rem 0.6rem;" onclick="saveAccount('${account.id}')" title="Save Account">💾</button>` : ''}
-                <button type="button" class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.4rem 0.6rem;" onclick="deleteAdAccount('${account.id}')" title="Delete Account">🗑️</button>
-              </div>
-            </td>
-          </tr>
-        `;
+        storeGroups[storeId].push(account);
       });
       
-      document.getElementById('accountsTable').innerHTML = html || '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No ad accounts yet</td></tr>';
+      // Sort accounts within each group: principal first, then warming, then ready
+      const typeOrder = { principal: 0, warming: 1, ready: 2 };
+      Object.values(storeGroups).forEach(group => {
+        group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
+      });
+      
+      let html = '';
+      
+      Object.entries(storeGroups).forEach(([storeId, storeAccounts]) => {
+        const store = getStore(storeId);
+        const storeName = store?.name || 'Unknown Store';
+        const isPerformer = store?.isPerformer;
+        const hasTracking = store?.hasTracking;
+        
+        // Calculate store totals
+        let storeLifetime = 0;
+        let storeYesterday = 0;
+        storeAccounts.forEach(acc => {
+          storeLifetime += acc.lifetimeSpend || 0;
+          storeYesterday += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
+        });
+        
+        // Check if any account has issues
+        const hasIssue = storeAccounts.some(acc => acc.adsStatus !== 'active' || acc.storeStatus !== 'active');
+        
+        html += `
+          <div class="store-group" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
+            <div class="store-group-header" onclick="toggleStoreGroupAccounts('${storeId}')">
+              <div class="store-group-title">
+                <span>📦 ${storeName}</span>
+                ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
+                ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">(${storeAccounts.length} account${storeAccounts.length > 1 ? 's' : ''})</span>
+              </div>
+              <div class="store-group-stats">
+                <span>Yday: <strong style="color: var(--success);">$${storeYesterday.toFixed(0)}</strong></span>
+                <span>Lifetime: <strong>$${storeLifetime}</strong></span>
+                <span style="font-size: 1.2rem;" id="storeGroupAccArrow_${storeId}">▼</span>
+              </div>
+            </div>
+            <div class="store-group-body" id="storeGroupAccBody_${storeId}">`;
+        
+        storeAccounts.forEach(account => {
+          const profile = getProfile(account.profileId);
+          const vcc = getVCC(account.vccId);
+          
+          // VCC display
+          let vccDisplay;
+          let vccStyle = '';
+          if (vcc) {
+            vccDisplay = perms.canSeeVCCDetails ? `••••${vcc.number.slice(-4)}` : '••••••••';
+          } else if (account.pendingVCC) {
+            vccDisplay = `••••${account.pendingVCC} ⚠️`;
+            vccStyle = 'color: var(--warning);';
+          } else {
+            vccDisplay = '••••••••';
+          }
+          
+          const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
+          const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
+          
+          html += `
+              <div class="store-group-account" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+                  <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                  <div>
+                    <span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" 
+                          onclick="openEditProfile('${account.id}')" title="Click to change Profile">
+                      ${profile?.name || 'N/A'} ✏️
+                    </span>
+                  </div>
+                  <div>
+                    <span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" 
+                          onclick="openEditVCCModal('${account.id}')" title="${account.pendingVCC ? 'Pending VCC - Click to link' : 'Click to change VCC'}">
+                      ${vccDisplay} ✏️
+                    </span>
+                  </div>
+                  <div>${getCampaignTags(account.campaigns, store)}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                  ${getStatusBadge(account.adsStatus, 'ads')}
+                  <div style="text-align: right; min-width: 100px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Yday / Lifetime</div>
+                    <div style="font-family: 'JetBrains Mono', monospace;">
+                      <span style="color: var(--success);">$${accYesterday}</span> 
+                      <span class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="color: var(--text-secondary);">/ $${account.lifetimeSpend}</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 0.3rem;">
+                    <button type="button" class="btn btn-sm" style="background: var(--accent); color: white; padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
+                    ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="saveAccount('${account.id}')" title="Save Account">💾</button>` : ''}
+                    <button type="button" class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="deleteAdAccount('${account.id}')" title="Delete Account">🗑️</button>
+                  </div>
+                </div>
+              </div>`;
+        });
+        
+        html += `
+            </div>
+          </div>`;
+      });
+      
+      document.getElementById('accountsGroupedView').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No ad accounts yet</p></div>';
+    }
+    
+    // Toggle store group in Accounts tab
+    function toggleStoreGroupAccounts(storeId) {
+      const body = document.getElementById(`storeGroupAccBody_${storeId}`);
+      const arrow = document.getElementById(`storeGroupAccArrow_${storeId}`);
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▼';
+      } else {
+        body.style.display = 'none';
+        arrow.textContent = '▶';
+      }
     }
 
     // Delete Ad Account
@@ -3722,6 +3999,80 @@ Or just card numbers:
         console.error('Error updating Profile:', error);
         showAutoSaveIndicator('⚠ Update failed');
         alert('Failed to update Profile: ' + error.message);
+      }
+    }
+
+    // Open Edit Account Type Modal
+    function openEditAccountType(accountId) {
+      editingAccountId = accountId;
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      
+      const store = getStore(account.storeId);
+      const profile = getProfile(account.profileId);
+      
+      // Show current account info
+      document.getElementById('editAccountTypeInfo').innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; font-size: 1.1rem;">📦 ${store?.name || 'Unknown Store'}</div>
+            <div style="color: var(--text-secondary); margin-top: 0.25rem;">Profile: ${profile?.name || 'N/A'}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">Current Type</div>
+            ${getAccountTypeBadge(account.accountType)}
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('editAccountTypeSelect').value = account.accountType || 'principal';
+      
+      openModal('editAccountType');
+    }
+    
+    // Update Account Type
+    async function updateAccountType() {
+      if (!editingAccountId) return;
+      
+      const newType = document.getElementById('editAccountTypeSelect').value;
+      if (!newType) {
+        alert('Please select an account type');
+        return;
+      }
+      
+      const account = data.accounts[currentChannel].find(a => a.id === editingAccountId || a.id == editingAccountId);
+      if (!account) return;
+      
+      // Check if it's the same type
+      if (newType === account.accountType) {
+        closeModal('editAccountType');
+        return;
+      }
+      
+      try {
+        // Update in Supabase
+        const { error } = await supabaseClient
+          .from('ad_accounts')
+          .update({ account_type: newType })
+          .eq('id', editingAccountId);
+        
+        if (error) throw error;
+        
+        // Update local data
+        account.accountType = newType;
+        
+        closeModal('editAccountType');
+        editingAccountId = null;
+        
+        showAutoSaveIndicator('✓ Account type updated');
+        showToast('Account type changed!');
+        renderAccounts();
+        renderTracking();
+        renderDashboard();
+      } catch (error) {
+        console.error('Error updating account type:', error);
+        showAutoSaveIndicator('⚠ Update failed');
+        alert('Failed to update account type: ' + error.message);
       }
     }
 
@@ -5336,6 +5687,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
       const profileId = document.getElementById('accountProfile').value;
       const vccSelect = document.getElementById('accountVCC').value;
       const manualVCCLast4 = document.getElementById('manualVCCLast4').value.trim();
+      const accountType = document.getElementById('accountType').value;
       
       // Check if manual VCC entry
       const isManualVCC = vccSelect === 'manual';
@@ -5355,6 +5707,7 @@ Balance: $${vcc.balance.toFixed(2)}`;
         profileId: profileId,
         vccId: isManualVCC ? null : vccSelect,
         pendingVCC: isManualVCC ? manualVCCLast4 : null,
+        accountType: accountType,
         storeStatus: 'active',
         adsStatus: 'active',
         spend: 0,
