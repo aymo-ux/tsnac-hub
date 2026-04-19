@@ -3373,33 +3373,84 @@ Or just card numbers:
       if (!query || query.trim().length < 2) { resultsContainer.style.display = 'none'; return; }
       const q = query.toLowerCase().trim();
       let results = [];
+      
+      // Calculate yesterday's date (used for all spend lookups)
+      const todayKey = getThailandDate();
+      const todayDate = new Date(todayKey + 'T12:00:00');
+      todayDate.setDate(todayDate.getDate() - 1);
+      const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      
+      // Search STORES - with full info about linked accounts, VCCs, spend
       data.stores.forEach(store => {
         if (store.name.toLowerCase().includes(q) || (store.url && store.url.toLowerCase().includes(q))) {
+          // Collect all accounts linked to this store across channels
+          const allAccounts = [
+            ...data.accounts.google.filter(a => a.storeId === store.id),
+            ...data.accounts.tiktok.filter(a => a.storeId === store.id),
+            ...data.accounts.facebook.filter(a => a.storeId === store.id)
+          ];
+          
+          // Calculate store totals
+          let storeYesterdaySpend = 0;
+          let storeLifetimeSpend = 0;
+          const vccList = [];
+          const profileList = [];
+          
+          allAccounts.forEach(acc => {
+            storeYesterdaySpend += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
+            storeLifetimeSpend += acc.lifetimeSpend || 0;
+            const vcc = getVCC(acc.vccId);
+            const profile = getProfile(acc.profileId);
+            if (vcc) vccList.push(`••••${vcc.number.slice(-4)}`);
+            else if (acc.pendingVCC) vccList.push(`••••${acc.pendingVCC}⚠️`);
+            if (profile && !profileList.includes(profile.name)) profileList.push(profile.name);
+          });
+          
+          // Build rich subtitle with all info
+          let subtitle = '';
+          if (allAccounts.length > 0) {
+            subtitle = `📊 ${allAccounts.length} account${allAccounts.length > 1 ? 's' : ''}`;
+            if (profileList.length > 0) subtitle += ` • 👤 ${profileList.join(', ')}`;
+            if (vccList.length > 0) subtitle += ` • 💳 ${vccList.join(', ')}`;
+            subtitle += ` • Yesterday: $${storeYesterdaySpend.toFixed(0)} • Lifetime: $${storeLifetimeSpend}`;
+          } else {
+            subtitle = store.url || 'No accounts yet - 🆕 New store';
+          }
+          
+          // Build badges
+          let badge = '';
+          if (store.isPerformer) badge += '⭐ TOP';
+          if (store.hasTracking) badge += (badge ? ' ' : '') + '📊 Tr';
+          if (allAccounts.length === 0) badge = '🆕 NEW';
+          
           results.push({
             type: 'store', icon: '🏪', title: store.name,
-            subtitle: store.url || 'No URL',
-            badge: store.isPerformer ? '⭐ Top Performer' : '',
+            subtitle: subtitle,
+            badge: badge,
             id: store.id,
             action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); }
           });
         }
       });
+      
+      // Search AD ACCOUNTS (by profile name, VCC number, etc.)
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.accounts[channel].forEach(account => {
           const store = getStore(account.storeId);
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
           const searchStr = `${store?.name || ''} ${profile?.name || ''} ${vcc?.number || ''}`.toLowerCase();
-          if (searchStr.includes(q)) {
-            const todayKey = getThailandDate();
-            const todayDate = new Date(todayKey + 'T12:00:00');
-            todayDate.setDate(todayDate.getDate() - 1);
-            const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+          
+          // Only add if profile/vcc match (store matches already handled above)
+          const profileMatch = profile?.name?.toLowerCase().includes(q);
+          const vccMatch = vcc?.number?.includes(q) || (account.pendingVCC && account.pendingVCC.includes(q));
+          
+          if (profileMatch || vccMatch) {
             const yesterdaySpend = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
             results.push({
               type: 'account', icon: '📊',
               title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
-              subtitle: `${channel.toUpperCase()} • VCC ••••${vcc?.number?.slice(-4) || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
+              subtitle: `${channel.toUpperCase()} • 💳 VCC ••••${vcc?.number?.slice(-4) || account.pendingVCC || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
               action: () => { showSection('tracking'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
@@ -3407,15 +3458,27 @@ Or just card numbers:
           }
         });
       });
+      
+      // Search VCCs (by number)
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.vccs[channel].forEach(vcc => {
           if (vcc.number.includes(q) || vcc.number.slice(-4).includes(q)) {
             const linkedAccount = data.accounts[channel].find(a => a.vccId === vcc.id);
             const store = linkedAccount ? getStore(linkedAccount.storeId) : null;
+            const lifetimeSpend = linkedAccount ? linkedAccount.lifetimeSpend || 0 : 0;
+            const yesterdaySpend = linkedAccount ? (dailySpendHistory[`${linkedAccount.id}_${yesterdayKey}`] ?? 0) : 0;
+            
+            let subtitle;
+            if (store) {
+              subtitle = `🏪 Linked to: ${store.name} • Yesterday: $${yesterdaySpend} • Lifetime: $${lifetimeSpend} • Exp: ${vcc.expiry}`;
+            } else {
+              subtitle = `Status: ${vcc.status || 'Available'} • Balance: $${vcc.balance} • Exp: ${vcc.expiry}`;
+            }
+            
             results.push({
               type: 'vcc', icon: '💳',
               title: `••••${vcc.number.slice(-4)}`,
-              subtitle: store ? `Linked to: ${store.name}` : `${vcc.status || 'Available'} • Exp: ${vcc.expiry}`,
+              subtitle: subtitle,
               badge: store ? '🔗 In Use' : '🆕 Available',
               id: vcc.id,
               action: () => { showSection('vccs'); hideSearchResults(); highlightItem('vcc', vcc.id, vcc.number.slice(-4)); }
@@ -3423,19 +3486,39 @@ Or just card numbers:
           }
         });
       });
+      
+      // Search PROFILES (by name)
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.profiles[channel].forEach(profile => {
           if (profile.name.toLowerCase().includes(q)) {
-            const accountCount = data.accounts[channel].filter(a => a.profileId === profile.id).length;
+            const linkedAccounts = data.accounts[channel].filter(a => a.profileId === profile.id);
+            const accountCount = linkedAccounts.length;
+            
+            // Calculate totals for this profile
+            let profileYesterday = 0;
+            let profileLifetime = 0;
+            const storeNames = [];
+            linkedAccounts.forEach(acc => {
+              profileYesterday += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
+              profileLifetime += acc.lifetimeSpend || 0;
+              const store = getStore(acc.storeId);
+              if (store && !storeNames.includes(store.name)) storeNames.push(store.name);
+            });
+            
+            let subtitle = `${channel.toUpperCase()} • 📊 ${accountCount} account${accountCount !== 1 ? 's' : ''}`;
+            if (storeNames.length > 0) subtitle += ` • 🏪 ${storeNames.join(', ')}`;
+            if (accountCount > 0) subtitle += ` • Yesterday: $${profileYesterday.toFixed(0)} • Lifetime: $${profileLifetime}`;
+            
             results.push({
               type: 'profile', icon: '👤', title: profile.name,
-              subtitle: `${accountCount} account${accountCount !== 1 ? 's' : ''} • ${channel.toUpperCase()}`,
+              subtitle: subtitle,
               badge: '', id: profile.id,
               action: () => { showSection('profiles'); hideSearchResults(); highlightItem('profile', profile.id, profile.name); }
             });
           }
         });
       });
+      
       if (results.length === 0) {
         resultsContainer.innerHTML = `
           <div style="padding: 1.5rem; text-align: center; color: var(--text-muted);">
