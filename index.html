@@ -3156,16 +3156,70 @@ Or just card numbers:
       }).catch(err => { console.error('Copy failed:', err); });
     }
     async function deleteVCC(vccId) {
-      if (!confirm('Delete this VCC?')) return;
+      // Check if VCC is linked to an ad account
+      const vcc = data.vccs[currentChannel].find(v => v.id === vccId || v.id == vccId);
+      if (!vcc) { alert('VCC not found'); return; }
+      
+      const linkedAccount = data.accounts[currentChannel].find(a => a.vccId === vccId || a.vccId == vccId);
+      
+      let confirmMsg = `Delete VCC ending in ${vcc.number.slice(-4)}?`;
+      if (linkedAccount) {
+        const store = getStore(linkedAccount.storeId);
+        confirmMsg = `⚠️ WARNING: This VCC is linked to an ad account!\n\nStore: ${store?.name || 'Unknown'}\n\nDeleting the VCC will break the link. The ad account will show "No VCC" after deletion.\n\nContinue?`;
+      }
+      
+      if (!confirm(confirmMsg)) return;
+      
       try {
-        const { error } = await supabaseClient.from('vccs').delete().eq('id', vccId);
-        if (error) throw error;
-        data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vccId);
+        // If linked to an account, unlink first (set vcc_id to null)
+        if (linkedAccount) {
+          console.log('Unlinking VCC from account:', linkedAccount.id);
+          const { error: unlinkError } = await supabaseClient
+            .from('ad_accounts')
+            .update({ vcc_id: null })
+            .eq('id', linkedAccount.id);
+          
+          if (unlinkError) {
+            console.error('Unlink error:', unlinkError);
+            alert('Failed to unlink VCC from account: ' + unlinkError.message);
+            return;
+          }
+          linkedAccount.vccId = null;
+        }
+        
+        // Now delete the VCC
+        console.log('Deleting VCC from Supabase:', vccId);
+        const { data: deleted, error } = await supabaseClient
+          .from('vccs')
+          .delete()
+          .eq('id', vccId)
+          .select();
+        
+        if (error) {
+          console.error('Delete error:', error);
+          console.error('Details:', error.message, error.details, error.hint);
+          alert('❌ Failed to delete VCC!\n\nError: ' + error.message + '\n\nThis is likely a Supabase Row Level Security (RLS) issue. Check Supabase dashboard → vccs table → RLS policies.');
+          return;
+        }
+        
+        console.log('Deleted VCC:', deleted);
+        
+        if (!deleted || deleted.length === 0) {
+          alert('⚠️ No rows deleted. This means Supabase RLS is blocking the delete.\n\nGo to Supabase Dashboard → Authentication → Policies → vccs table → Add DELETE policy for authenticated users.');
+          return;
+        }
+        
+        // Remove from local data
+        data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vccId && v.id != vccId);
+        
         showAutoSaveIndicator('✓ VCC deleted');
+        showToast(`VCC ••••${vcc.number.slice(-4)} deleted`);
         renderVCCs();
+        renderAccounts();
         updateBadges();
       } catch (error) {
         console.error('Error deleting VCC:', error);
+        alert('Delete failed: ' + error.message);
         showAutoSaveIndicator('⚠ Delete failed');
       }
     }
