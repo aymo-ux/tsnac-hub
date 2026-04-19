@@ -2205,10 +2205,10 @@ Or just card numbers:
               </div>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
-                <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="Toggle Tracking">${store.hasTracking ? '📊 Tracking' : '📊 Add Tr'}</button>
-                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')">${store.isPerformer ? '⭐ Top Performer' : 'Set as Top'}</button>` : ''}
-                <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')">📋 Assets</button>
-                ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteStore('${store.id}')">🗑️ Delete</button>` : ''}
+                <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">📊</button>
+                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">⭐</button>` : ''}
+                <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View Assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">📋</button>
+                ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.45rem 0.6rem; min-width: 38px;" onclick="deleteStore('${store.id}')" title="Delete Store">🗑️</button>` : ''}
               </div>
             </div>
           </div>
