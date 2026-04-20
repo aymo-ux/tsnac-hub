@@ -2069,7 +2069,17 @@ Or just card numbers:
       const perms = permissions[currentUser];
       let alertCount = 0;
       const accounts = data.accounts[currentChannel];
-      if (perms.alertsFor.includes('needs_verif')) alertCount += accounts.filter(a => a.adsStatus === 'needs_verif').length;
+      if (perms.alertsFor.includes('needs_verif')) {
+        alertCount += accounts.filter(a => a.adsStatus === 'needs_verif').length;
+        // Add under_review accounts that are 2+ days old
+        const now = new Date();
+        alertCount += accounts.filter(a => {
+          if (a.adsStatus !== 'under_review' || !a.suspendedAt) return false;
+          const reviewDate = new Date(a.suspendedAt + 'T12:00:00');
+          const daysSinceReview = Math.floor((now - reviewDate) / (1000 * 60 * 60 * 24));
+          return daysSinceReview >= 2;
+        }).length;
+      }
       if (perms.alertsFor.includes('suspended')) alertCount += accounts.filter(a => a.adsStatus === 'suspended').length;
       if (perms.alertsFor.includes('payment_issue')) alertCount += accounts.filter(a => a.adsStatus === 'payment_issue').length;
       if (perms.alertsFor.includes('store_inactive')) alertCount += accounts.filter(a => a.storeStatus === 'inactive').length;
@@ -2373,7 +2383,11 @@ Or just card numbers:
             accountId: accountId, storeId: account.storeId,
             createdAt: new Date().toISOString()
           });
-        } else if (value !== 'suspended') {
+        } else if (value === 'under_review') {
+          // Track when review started - reuses suspendedAt column
+          account.suspendedAt = getThailandDate();
+          showToast(`🔍 ${store?.name || 'Account'} under review - hidden from alerts for 2 days`);
+        } else {
           account.suspendedAt = null;
         }
         if (value === 'payment_issue') {
@@ -3334,6 +3348,31 @@ Or just card numbers:
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
           alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name})${vccInfo}`, action: 'Sent ✓', accountId: account.id });
         });
+        
+        // Under Review accounts - only show alert after 2 days have passed
+        accounts.filter(a => a.adsStatus === 'under_review').forEach(account => {
+          if (!account.suspendedAt) return; // No timestamp = just marked, skip
+          
+          const reviewDate = new Date(account.suspendedAt + 'T12:00:00');
+          const now = new Date();
+          const daysSinceReview = Math.floor((now - reviewDate) / (1000 * 60 * 60 * 24));
+          
+          // Only show if 2+ days have passed
+          if (daysSinceReview >= 2) {
+            const store = getStore(account.storeId);
+            const profile = getProfile(account.profileId);
+            const vcc = getVCC(account.vccId);
+            const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
+            alerts.push({ 
+              type: 'info', 
+              icon: '🔍', 
+              title: `Check Google review (${daysSinceReview} days)`, 
+              desc: `${store?.name} (${profile?.name})${vccInfo} - Has Google verified yet?`, 
+              action: 'Check', 
+              accountId: account.id 
+            });
+          }
+        });
       }
       if (perms.alertsFor.includes('payment_issue')) {
         accounts.filter(a => a.adsStatus === 'payment_issue').forEach(account => {
@@ -3391,9 +3430,26 @@ Or just card numbers:
         if (account) {
           if (account.adsStatus === 'needs_verif') {
             account.adsStatus = 'under_review';
-            await updateAdAccountInSupabase(accountId, { ads_status: 'under_review' });
+            account.suspendedAt = getThailandDate();
+            await updateAdAccountInSupabase(accountId, { ads_status: 'under_review', suspended_at: account.suspendedAt });
             showAutoSaveIndicator('✓ Sent for review');
-            showToast('🔍 Marked as Under Review - waiting for Google');
+            showToast('🔍 Marked as Under Review - hidden for 2 days');
+          } else if (account.adsStatus === 'under_review') {
+            const store = getStore(account.storeId);
+            const choice = confirm(`Has Google approved ${store?.name || 'this account'}?\n\nClick OK → Set to ✅ Active\nClick Cancel → Keep waiting (reset 2-day timer)`);
+            if (choice) {
+              account.adsStatus = 'active';
+              account.suspendedAt = null;
+              await updateAdAccountInSupabase(accountId, { ads_status: 'active', suspended_at: null });
+              showAutoSaveIndicator('✓ Active');
+              showToast('✅ Account active!');
+            } else {
+              // Reset timer - hide for another 2 days
+              account.suspendedAt = getThailandDate();
+              await updateAdAccountInSupabase(accountId, { suspended_at: account.suspendedAt });
+              showAutoSaveIndicator('✓ Timer reset');
+              showToast('🔍 Timer reset - hidden for 2 more days');
+            }
           } else if (account.adsStatus === 'payment_issue') {
             account.adsStatus = 'active';
             await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
