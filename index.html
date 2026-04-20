@@ -3674,18 +3674,79 @@ Or just card numbers:
         showAutoSaveIndicator('⚠ Delete failed');
       }
     }
-    function deleteSuspendedAccount(accountId) {
-      const account = data.accounts[currentChannel].find(a => a.id === accountId);
-      if (!account) return;
+    async function deleteSuspendedAccount(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) { alert('Account not found'); return; }
+      
       const store = getStore(account.storeId);
-      if (!confirm(`Delete suspended account for "${store?.name || 'Unknown'}"?\n\nMake sure you've copied the VCC details!`)) return;
       const vcc = getVCC(account.vccId);
-      if (vcc) { vcc.status = 'unassigned'; vcc.linkedAccount = null; }
-      data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId);
-      showToast('Suspended account deleted!');
-      renderSuspendedAccounts();
-      renderDashboard();
-      updateBadges();
+      
+      let confirmMsg = `Delete suspended account for "${store?.name || 'Unknown'}"?`;
+      if (vcc) {
+        confirmMsg += `\n\n⚠️ WARNING: The VCC ••••${vcc.number.slice(-4)} will ALSO be deleted (burned card).`;
+      }
+      confirmMsg += `\n\nMake sure you've copied the VCC details if needed!`;
+      
+      if (!confirm(confirmMsg)) return;
+      
+      try {
+        // Step 1: Delete the ad account from Supabase
+        console.log('Deleting suspended account:', accountId);
+        const { data: deletedAccount, error: accountError } = await supabaseClient
+          .from('ad_accounts')
+          .delete()
+          .eq('id', accountId)
+          .select();
+        
+        if (accountError) {
+          console.error('Account delete error:', accountError);
+          alert('Failed to delete account: ' + accountError.message);
+          return;
+        }
+        
+        if (!deletedAccount || deletedAccount.length === 0) {
+          alert('⚠️ Failed to delete account. Check Supabase RLS policies for ad_accounts table.');
+          return;
+        }
+        
+        console.log('Account deleted:', deletedAccount);
+        
+        // Step 2: Delete the linked VCC (burned card)
+        if (vcc) {
+          console.log('Deleting burned VCC:', vcc.id);
+          const { data: deletedVCC, error: vccError } = await supabaseClient
+            .from('vccs')
+            .delete()
+            .eq('id', vcc.id)
+            .select();
+          
+          if (vccError) {
+            console.error('VCC delete error:', vccError);
+            // Account already deleted, so just warn about VCC
+            alert('Account deleted but VCC delete failed: ' + vccError.message + '\n\nCheck Supabase RLS policies for vccs table.');
+          } else {
+            console.log('VCC deleted:', deletedVCC);
+            // Remove from local data
+            data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
+          }
+        }
+        
+        // Step 3: Remove account from local data
+        data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId && a.id != accountId);
+        
+        showAutoSaveIndicator('✓ Account & VCC deleted');
+        showToast(vcc ? `🔥 Account & VCC ••••${vcc.number.slice(-4)} deleted (burned)` : 'Suspended account deleted');
+        
+        // Re-render everything
+        renderSuspendedAccounts();
+        renderVCCs();
+        renderAccounts();
+        renderDashboard();
+        updateBadges();
+      } catch (error) {
+        console.error('Error deleting suspended account:', error);
+        alert('Delete failed: ' + error.message);
+      }
     }
     async function autoDeleteSuspendedAccount(accountId) {
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
