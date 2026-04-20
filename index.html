@@ -1141,7 +1141,7 @@
         <div class="header">
           <div>
             <h1 class="page-title" id="dashboardTitle">Google Ads Dashboard</h1>
-            <p class="page-subtitle">Overview for April 7, 2026</p>
+            <p class="page-subtitle" id="dashboardSubtitle">Overview</p>
           </div>
         </div>
         <div class="stats-grid" style="grid-template-columns: repeat(7, 1fr);">
@@ -2081,6 +2081,12 @@ Or just card numbers:
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       const todayKey = getThailandDate();
       const todayDate = new Date(todayKey + 'T12:00:00');
+      
+      // Update dashboard subtitle with today's actual date
+      const todayFormatted = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const subtitleEl = document.getElementById('dashboardSubtitle');
+      if (subtitleEl) subtitleEl.textContent = `Overview for ${todayFormatted}`;
+      
       todayDate.setDate(todayDate.getDate() - 1);
       const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
       const totalSpend = accounts.reduce((sum, a) => {
