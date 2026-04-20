@@ -387,6 +387,7 @@
     .status-active { background: var(--success-bg); color: var(--success); }
     .status-inactive { background: var(--bg-tertiary); color: var(--text-muted); }
     .status-verif { background: var(--warning-bg); color: var(--warning); }
+    .status-review { background: var(--info-bg); color: var(--info); }
     .status-payment { background: var(--orange-bg); color: var(--orange); }
     .status-paused { background: var(--info-bg); color: var(--info); }
     .status-suspended { background: var(--danger-bg); color: var(--danger); }
@@ -1972,7 +1973,7 @@ Or just card numbers:
     function getStatusBadge(status, type) {
       const badges = {
         store: { active: '<span class="status status-active">✓ Active</span>', inactive: '<span class="status status-inactive">✗ Inactive</span>' },
-        ads: { active: '<span class="status status-active">✓ Active</span>', paused: '<span class="status status-paused">⏸️ Paused</span>', needs_verif: '<span class="status status-verif">⚠ Needs Verif</span>', payment_issue: '<span class="status status-payment">💳 Payment</span>', suspended: '<span class="status status-suspended">🚫 Suspended</span>' },
+        ads: { active: '<span class="status status-active">✓ Active</span>', paused: '<span class="status status-paused">⏸️ Paused</span>', needs_verif: '<span class="status status-verif">⚠ Needs Verif</span>', under_review: '<span class="status status-review">🔍 Under Review</span>', payment_issue: '<span class="status status-payment">💳 Payment</span>', suspended: '<span class="status status-suspended">🚫 Suspended</span>' },
         vcc: { unassigned: '<span class="status status-unassigned">⏳ Unassigned</span>', in_use: '<span class="status status-active">✓ In Use</span>' }
       };
       return badges[type]?.[status] || status;
@@ -2301,6 +2302,7 @@ Or just card numbers:
                       <option value="active" ${account.adsStatus === 'active' ? 'selected' : ''}>✅ Ads</option>
                       <option value="paused" ${account.adsStatus === 'paused' ? 'selected' : ''}>⏸️ Paused</option>
                       <option value="needs_verif" ${account.adsStatus === 'needs_verif' ? 'selected' : ''}>⚠️ Verif</option>
+                      <option value="under_review" ${account.adsStatus === 'under_review' ? 'selected' : ''}>🔍 Review</option>
                       <option value="payment_issue" ${account.adsStatus === 'payment_issue' ? 'selected' : ''}>💳 Pay</option>
                       <option value="suspended" ${account.adsStatus === 'suspended' ? 'selected' : ''}>🚫 Susp</option>
                     </select>
@@ -3324,7 +3326,7 @@ Or just card numbers:
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
-          alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name})${vccInfo}`, action: 'Verify', accountId: account.id });
+          alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name})${vccInfo}`, action: 'Sent ✓', accountId: account.id });
         });
       }
       if (perms.alertsFor.includes('payment_issue')) {
@@ -3382,10 +3384,10 @@ Or just card numbers:
         const account = data.accounts[currentChannel].find(a => a.id == accountId);
         if (account) {
           if (account.adsStatus === 'needs_verif') {
-            account.adsStatus = 'active';
-            await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
-            showAutoSaveIndicator('✓ Verified');
-            showToast('Account verified! ✓');
+            account.adsStatus = 'under_review';
+            await updateAdAccountInSupabase(accountId, { ads_status: 'under_review' });
+            showAutoSaveIndicator('✓ Sent for review');
+            showToast('🔍 Marked as Under Review - waiting for Google');
           } else if (account.adsStatus === 'payment_issue') {
             account.adsStatus = 'active';
             await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
