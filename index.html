@@ -2685,15 +2685,44 @@ Or just card numbers:
         if (saved) { dailySpendHistory = JSON.parse(saved); }
       } catch (e) {}
       try {
-        const { data: spendData, error } = await supabaseClient.from('daily_spend').select('*');
-        if (!error && spendData && spendData.length > 0) {
-          spendData.forEach(row => {
+        // Supabase has a default 1000 row limit. We need to paginate to get ALL records.
+        let allSpendData = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: page, error } = await supabaseClient
+            .from('daily_spend')
+            .select('*')
+            .range(from, from + pageSize - 1);
+          
+          if (error) {
+            console.error('Error loading daily_spend page:', error);
+            break;
+          }
+          
+          if (page && page.length > 0) {
+            allSpendData = allSpendData.concat(page);
+            from += pageSize;
+            hasMore = page.length === pageSize; // continue if we got a full page
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        console.log(`✓ Loaded ${allSpendData.length} daily_spend records from cloud`);
+        
+        if (allSpendData.length > 0) {
+          allSpendData.forEach(row => {
             const dateStr = row.date ? row.date.split('T')[0] : row.date;
             dailySpendHistory[`${row.account_id}_${dateStr}`] = parseFloat(row.spend) || 0;
           });
           localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory));
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Failed to load daily_spend:', e);
+      }
       recalculateAllLifetimeSpends();
     }
     async function migrateLocalStorageToSupabase() {
