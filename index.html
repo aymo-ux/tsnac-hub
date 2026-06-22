@@ -1657,6 +1657,12 @@ Or just card numbers:
             <option value="ready">✅ Backup (Ready)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">🔗 Shared Ad Account <span style="font-weight: 400; color: var(--text-muted);">(optional)</span></label>
+          <input type="text" class="form-input" id="accountGroup" placeholder="e.g. rosabella.health" list="accountGroupOptions">
+          <datalist id="accountGroupOptions"></datalist>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Give two products the <strong>same</strong> name to mark them as sharing one Google account. Each still keeps its own daily spend.</div>
+        </div>
         <div class="form-group" id="campaignTypesGroup">
           <label class="form-label">Campaign Types</label>
           <div class="campaign-types">
@@ -1859,6 +1865,7 @@ Or just card numbers:
                 id: a.id, storeId: a.store_id, profileId: a.profile_id,
                 vccId: a.vcc_id, pendingVCC: a.pending_vcc,
                 accountType: a.account_type || 'principal',
+                accountGroup: a.account_group || null,
                 storeStatus: a.store_status || 'active',
                 adsStatus: a.ads_status || 'active',
                 spend: parseFloat(a.spend) || 0,
@@ -1958,7 +1965,14 @@ Or just card numbers:
           campaigns: account.campaigns || ['search'],
           status: 'active', created_by: dbUser?.id
         };
-        const { data: newAccount, error } = await supabaseClient.from('ad_accounts').insert(insertData).select().single();
+        if (account.accountGroup) insertData.account_group = account.accountGroup;
+        let { data: newAccount, error } = await supabaseClient.from('ad_accounts').insert(insertData).select().single();
+        // If the optional account_group column doesn't exist yet, retry without it so account creation still works
+        if (error && /account_group/i.test((error.message || '') + (error.details || ''))) {
+          delete insertData.account_group;
+          ({ data: newAccount, error } = await supabaseClient.from('ad_accounts').insert(insertData).select().single());
+          if (!error) showToast('⚠ Account made, but run the SQL to save the shared-account link');
+        }
         if (error) throw error;
         showAutoSaveIndicator('✓ Account saved');
         return newAccount;
@@ -1967,6 +1981,28 @@ Or just card numbers:
         showAutoSaveIndicator('⚠ Save failed');
         return null;
       }
+    }
+    async function persistAccountGroup(accountId, group) {
+      try {
+        const { error } = await supabaseClient.from('ad_accounts').update({ account_group: group }).eq('id', accountId);
+        if (error) throw error;
+        showAutoSaveIndicator('✓ Saved');
+        return true;
+      } catch (e) {
+        console.warn('account_group not persisted:', e.message);
+        showToast('⚠ Linked locally — run the one-line SQL to save it to the cloud');
+        return false;
+      }
+    }
+    async function openEditAccountGroup(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      if (!account) return;
+      const val = prompt('Shared ad account name (e.g. rosabella.health).\n\nGive two products the SAME name to link them to one Google account.\nLeave blank to unlink.', account.accountGroup || '');
+      if (val === null) return;
+      account.accountGroup = val.trim() || null;
+      await persistAccountGroup(accountId, account.accountGroup);
+      renderAccounts();
+      renderDashboard();
     }
     async function updateAdAccountInSupabase(accountId, updates) {
       try {
@@ -2427,7 +2463,7 @@ Or just card numbers:
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   <div>
-                    <div style="font-weight: 500;">${profile?.name || 'N/A'}</div>
+                    <div style="font-weight: 500;">${profile?.name || 'N/A'}${account.accountGroup ? ` <span title="Shares Google account: ${account.accountGroup}" style="color: var(--accent); font-size: 0.75rem; cursor: help;">🔗 ${account.accountGroup}</span>` : ''}</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">
                       ${vccDisplay} • Lifetime: $${account.lifetimeSpend}
                     </div>
@@ -3247,12 +3283,23 @@ Or just card numbers:
           else vccDisplay = '••••••••';
           const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
           const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
+          let sharedWith = '';
+          if (account.accountGroup) {
+            const names = [...new Set(data.accounts[currentChannel]
+              .filter(x => x.id != account.id && x.accountGroup && x.accountGroup === account.accountGroup)
+              .map(x => getStore(x.storeId)?.name).filter(Boolean))];
+            if (names.length) sharedWith = ' · with ' + names.join(', ');
+          }
+          const groupChip = account.accountGroup
+            ? `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--accent-soft); border:1px solid var(--accent); color:var(--accent); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Shared Google account — click to edit">🔗 ${account.accountGroup}${sharedWith}</span>`
+            : `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px dashed var(--border-light); color:var(--text-muted); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Link this account to a shared Google account">🔗 link</span>`;
           html += `
               <div class="store-group-account" data-account-id="${account.id}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
-                <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${profile?.name || 'N/A'} ✏️</span></div>
                   <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="openEditVCCModal('${account.id}')" title="${account.pendingVCC ? 'Pending VCC - Click to link' : 'Click to change VCC'}">${vccDisplay} ✏️</span></div>
+                  <div>${groupChip}</div>
                   <div>${getCampaignTags(account.campaigns, store)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
@@ -3967,13 +4014,14 @@ Or just card numbers:
           // Only add if profile/vcc match (store matches already handled above)
           const profileMatch = profile?.name?.toLowerCase().includes(q);
           const vccMatch = vcc?.number?.includes(q) || (account.pendingVCC && account.pendingVCC.includes(q));
+          const groupMatch = account.accountGroup && account.accountGroup.toLowerCase().includes(q);
           
-          if (profileMatch || vccMatch) {
+          if (profileMatch || vccMatch || groupMatch) {
             const yesterdaySpend = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
             results.push({
               type: 'account', icon: '📊',
               title: `${store?.name || 'Unknown'} - ${profile?.name || 'N/A'}`,
-              subtitle: `${channel.toUpperCase()} • 💳 VCC ••••${vcc?.number?.slice(-4) || account.pendingVCC || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
+              subtitle: `${channel.toUpperCase()}${account.accountGroup ? ' • 🔗 ' + account.accountGroup : ''} • 💳 VCC ••••${vcc?.number?.slice(-4) || account.pendingVCC || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
               action: () => { showSection('accounts'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
@@ -4580,6 +4628,14 @@ Or just card numbers:
         document.getElementById('manualVCCInput').style.display = 'none';
         document.getElementById('manualVCCLast4').value = '';
         document.getElementById('campaignTypesGroup').style.display = currentChannel === 'google' ? 'block' : 'none';
+        // shared-account: reset field + suggest existing group names
+        const groupInput = document.getElementById('accountGroup');
+        if (groupInput) groupInput.value = '';
+        const existingGroups = [...new Set(
+          ['google','tiktok','facebook'].flatMap(ch => data.accounts[ch].map(a => a.accountGroup).filter(Boolean))
+        )];
+        const dl = document.getElementById('accountGroupOptions');
+        if (dl) dl.innerHTML = existingGroups.map(g => `<option value="${g}">`).join('');
         document.getElementById('accountStore').onchange = function() {
           const option = this.options[this.selectedIndex];
           const isPerformer = option.dataset.performer === 'true';
@@ -4745,6 +4801,7 @@ Or just card numbers:
       const vccSelect = document.getElementById('accountVCC').value;
       const manualVCCLast4 = document.getElementById('manualVCCLast4').value.trim();
       const accountType = document.getElementById('accountType').value;
+      const accountGroup = (document.getElementById('accountGroup')?.value || '').trim() || null;
       const isManualVCC = vccSelect === 'manual';
       if (!storeId || !profileId) { alert('Please fill all fields'); return; }
       if (!isManualVCC && !vccSelect) { alert('Please select a VCC'); return; }
@@ -4759,6 +4816,7 @@ Or just card numbers:
         vccId: isManualVCC ? null : vccSelect,
         pendingVCC: isManualVCC ? manualVCCLast4 : null,
         accountType: accountType,
+        accountGroup: accountGroup,
         storeStatus: 'active', adsStatus: 'active',
         spend: 0, lifetimeSpend: 0, campaigns: campaigns,
         status: 'active', createdBy: currentUser, createdAt: getThailandDate()
