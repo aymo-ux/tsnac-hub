@@ -1241,6 +1241,7 @@
           <button class="btn btn-secondary" onclick="changeTrackingDay(-1)" style="padding: 0.5rem 0.75rem;">◀ Yesterday</button>
           <button class="btn btn-primary" id="todayBtn" onclick="goToToday()" style="padding: 0.5rem 1rem;">📅 Today</button>
           <button class="btn btn-secondary" onclick="changeTrackingDay(1)" style="padding: 0.5rem 0.75rem;" id="tomorrowBtn">Tomorrow ▶</button>
+          <button class="btn btn-secondary" id="rankSpendBtn" onclick="toggleSpendRanking()" style="padding: 0.5rem 0.85rem;" title="Sort accounts by spend, highest first — for optimization">🔽 Rank by Spend</button>
           <span style="margin-left: 1rem; color: var(--text-secondary); font-size: 0.9rem;" id="selectedDateLabel"></span>
         </div>
         <!-- Today's Total Spend Box -->
@@ -2320,7 +2321,7 @@ Or just card numbers:
         const totalAccounts = googleAccounts.length + tiktokAccounts.length + fbAccounts.length;
         const isNew = totalAccounts === 0;
         html += `
-          <div class="store-card ${store.isPerformer ? 'performer' : ''}" style="${isNew ? 'border: 1px solid var(--info); background: var(--info-bg);' : ''}">
+          <div class="store-card ${store.isPerformer ? "performer" : ""}" data-store-id="${store.id}" style="${isNew ? 'border: 1px solid var(--info); background: var(--info-bg);' : ''}">
             <div class="store-header">
               <div>
                 <div class="store-name">
@@ -2377,10 +2378,17 @@ Or just card numbers:
         storeGroups[storeId].push(account);
       });
       const typeOrder = { principal: 0, warming: 1, ready: 2 };
+      const daySpendOf = acc => parseFloat(dailySpendHistory[`${acc.id}_${dateKey}`]) || 0;
       Object.values(storeGroups).forEach(group => {
-        group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
+        if (trackingSortBySpend) group.sort((a, b) => daySpendOf(b) - daySpendOf(a));
+        else group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
       });
-      Object.entries(storeGroups).forEach(([storeId, storeAccounts]) => {
+      let trackingEntries = Object.entries(storeGroups);
+      if (trackingSortBySpend) {
+        trackingEntries.sort((A, B) =>
+          B[1].reduce((s, a) => s + daySpendOf(a), 0) - A[1].reduce((s, a) => s + daySpendOf(a), 0));
+      }
+      trackingEntries.forEach(([storeId, storeAccounts]) => {
         const store = getStore(storeId);
         const storeName = store?.name || 'Unknown Store';
         const isPerformer = store?.isPerformer;
@@ -2665,6 +2673,7 @@ Or just card numbers:
     let currentTrackingYear = getThailandDateParts().year;
     let selectedTrackingDate = getThailandDate();
     let trackingViewMode = 'card';
+    let trackingSortBySpend = false;
     function changeTrackingDay(offset) {
       const currentDate = new Date(selectedTrackingDate + 'T12:00:00');
       currentDate.setDate(currentDate.getDate() + offset);
@@ -2718,6 +2727,18 @@ Or just card numbers:
       document.getElementById('trackingCardView').style.display = 'block';
       renderTracking();
     }
+    function toggleSpendRanking() {
+      trackingSortBySpend = !trackingSortBySpend;
+      const btn = document.getElementById('rankSpendBtn');
+      if (btn) {
+        btn.textContent = trackingSortBySpend ? '🔽 Ranked by Spend ✓' : '🔽 Rank by Spend';
+        btn.classList.toggle('btn-primary', trackingSortBySpend);
+        btn.classList.toggle('btn-secondary', !trackingSortBySpend);
+      }
+      if (trackingViewMode === 'calendar') renderTrackingCalendar();
+      else if (trackingViewMode === 'quick') renderQuickEntry();
+      else renderTracking();
+    }
     function renderQuickEntry() {
       const listEl = document.getElementById('quickEntryList');
       if (!listEl) return;
@@ -2727,11 +2748,20 @@ Or just card numbers:
       const storeGroups = {};
       accounts.forEach(a => { (storeGroups[a.storeId] = storeGroups[a.storeId] || []).push(a); });
       const typeOrder = { principal: 0, warming: 1, ready: 2 };
-      Object.values(storeGroups).forEach(g => g.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0)));
+      const qDaySpend = acc => parseFloat(dailySpendHistory[`${acc.id}_${dateKey}`]) || 0;
+      Object.values(storeGroups).forEach(g => {
+        if (trackingSortBySpend) g.sort((a, b) => qDaySpend(b) - qDaySpend(a));
+        else g.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
+      });
 
       let html = '';
       let idx = 0;
-      Object.entries(storeGroups).forEach(([storeId, accs]) => {
+      let quickEntries = Object.entries(storeGroups);
+      if (trackingSortBySpend) {
+        quickEntries.sort((A, B) =>
+          B[1].reduce((s, a) => s + qDaySpend(a), 0) - A[1].reduce((s, a) => s + qDaySpend(a), 0));
+      }
+      quickEntries.forEach(([storeId, accs]) => {
         const store = getStore(storeId);
         html += `<div class="quick-store-block" style="margin-bottom: 0.5rem;">
           <div class="quick-store-label" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 0.5rem 0.25rem 0.35rem;">📦 ${store?.name || 'Unknown Store'}</div>`;
@@ -2892,6 +2922,13 @@ Or just card numbers:
       const dayTotals = {};
       days.forEach(d => dayTotals[d.date] = 0);
       let grandTotal = 0;
+      if (trackingSortBySpend) {
+        const monthTotal = acc => days.reduce((s, d) => {
+          const v = dailySpendHistory[`${acc.id}_${d.date}`];
+          return s + (v !== undefined ? (parseFloat(v) || 0) : 0);
+        }, 0);
+        accounts.sort((a, b) => monthTotal(b) - monthTotal(a));
+      }
       accounts.forEach(account => {
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
@@ -3109,7 +3146,7 @@ Or just card numbers:
         const accountCount = accounts.filter(a => a.profileId === profile.id).length;
         const initials = profile.name.substring(0, 2).toUpperCase();
         html += `
-          <div class="profile-item" style="display: flex; align-items: center; justify-content: space-between;">
+          <div class="profile-item" data-profile-id="${profile.id}" style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
               <div class="profile-avatar">${initials}</div>
               <div class="profile-info">
@@ -3137,14 +3174,23 @@ Or just card numbers:
       if (linkedAccounts.length > 0) confirmMsg += `\n\n⚠️ Warning: This profile has ${linkedAccounts.length} linked account(s).`;
       if (!confirm(confirmMsg)) return;
       try {
-        const { error } = await supabaseClient.from('profiles').delete().eq('id', profileId);
+        const { data: deleted, error } = await supabaseClient
+          .from('profiles').delete().eq('id', profileId).select();
         if (error) throw error;
+        if (!deleted || deleted.length === 0) {
+          alert('⚠️ The profile was NOT deleted from the database.\n\nThis means Supabase Row Level Security (RLS) is blocking deletes on the "profiles" table.\n\nFix: Supabase Dashboard → Authentication → Policies → profiles → add a DELETE policy for authenticated users. (SQL is in the notes I gave you.)');
+          renderProfiles(); // restore the row in the UI — it was never really gone
+          return;
+        }
         data.profiles[currentChannel] = data.profiles[currentChannel].filter(p => p.id !== profileId && p.id != profileId);
         showAutoSaveIndicator('✓ Profile deleted');
+        showToast(`Profile "${profile.name}" deleted`);
         renderProfiles();
       } catch (error) {
         console.error('Error deleting profile:', error);
+        alert('Delete failed: ' + (error.message || error));
         showAutoSaveIndicator('⚠ Delete failed');
+        renderProfiles();
       }
     }
     function renderAccounts() {
@@ -3202,7 +3248,7 @@ Or just card numbers:
           const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
           const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
           html += `
-              <div class="store-group-account" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
+              <div class="store-group-account" data-account-id="${account.id}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${profile?.name || 'N/A'} ✏️</span></div>
@@ -3247,8 +3293,14 @@ Or just card numbers:
           const { error: vccError } = await supabaseClient.from('vccs').delete().eq('id', vcc.id);
           if (!vccError) data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
         }
-        const { error } = await supabaseClient.from('ad_accounts').delete().eq('id', accountId);
+        const { data: deletedAcc, error } = await supabaseClient
+          .from('ad_accounts').delete().eq('id', accountId).select();
         if (error) throw error;
+        if (!deletedAcc || deletedAcc.length === 0) {
+          alert('⚠️ The account was NOT deleted from the database.\n\nSupabase Row Level Security (RLS) is blocking deletes on the "ad_accounts" table.\n\nFix: Supabase Dashboard → Authentication → Policies → ad_accounts → add a DELETE policy.');
+          renderAccounts();
+          return;
+        }
         data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId && a.id != accountId);
         showAutoSaveIndicator('✓ Account deleted');
         renderAccounts();
@@ -3257,7 +3309,9 @@ Or just card numbers:
         updateBadges();
       } catch (error) {
         console.error('Error deleting ad account:', error);
+        alert('Delete failed: ' + (error.message || error));
         showAutoSaveIndicator('⚠ Delete failed');
+        renderAccounts();
       }
     }
     let editingAccountId = null;
@@ -3470,7 +3524,7 @@ Or just card numbers:
         </select>
       ` : config.badge;
       return `
-        <div class="vcc-card" style="${cardStyle}">
+        <div class="vcc-card" data-vcc-id="${vcc.id}" style="${cardStyle}">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="vcc-number" style="cursor: pointer; flex: 1;" onclick="copyToClipboard('${cardNumber}', 'Card number')" title="Click to copy full number">
               ${maskedNumber}
@@ -3922,7 +3976,7 @@ Or just card numbers:
               subtitle: `${channel.toUpperCase()} • 💳 VCC ••••${vcc?.number?.slice(-4) || account.pendingVCC || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
-              action: () => { showSection('tracking'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
+              action: () => { showSection('accounts'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
             });
           }
         });
@@ -4016,25 +4070,40 @@ Or just card numbers:
     function highlightItem(type, id, name) {
       setTimeout(() => {
         let element = null;
-        if (type === 'account') element = document.querySelector(`.tracking-card[data-account-id="${id}"]`);
-        else if (type === 'store') {
-          const storeCards = document.querySelectorAll('.store-card');
-          storeCards.forEach(card => { if (card.querySelector('.store-name')?.textContent.includes(name)) element = card; });
+        if (type === 'account') {
+          element = document.querySelector(`#section-accounts [data-account-id="${id}"]`);
+          // the account sits inside a collapsible store group — open it so it's visible
+          if (element) {
+            const body = element.closest('.store-group-body');
+            if (body && body.style.display === 'none') {
+              body.style.display = 'block';
+              const grp = body.id.replace('storeGroupAccBody_', '');
+              const arrow = document.getElementById('storeGroupAccArrow_' + grp);
+              if (arrow) arrow.textContent = '▼';
+            }
+          }
+        } else if (type === 'store') {
+          element = document.querySelector(`#section-stores [data-store-id="${id}"]`);
         } else if (type === 'vcc') {
-          const vccCards = document.querySelectorAll('.vcc-card');
-          vccCards.forEach(card => { if (card.textContent.includes(name)) element = card; });
+          element = document.querySelector(`#section-vccs [data-vcc-id="${id}"]`);
         } else if (type === 'profile') {
-          const profileCards = document.querySelectorAll('.profile-card');
-          profileCards.forEach(card => { if (card.querySelector('.profile-name')?.textContent.includes(name)) element = card; });
+          element = document.querySelector(`#section-profiles [data-profile-id="${id}"]`);
+        }
+        // fallback to the old name-based matching if an id lookup misses
+        if (!element && name) {
+          const sel = { store: '.store-card .store-name', profile: '.profile-item .profile-name', vcc: '.vcc-card', account: '.store-group-account' }[type];
+          if (sel) document.querySelectorAll(sel).forEach(el => {
+            if (el.textContent.includes(name)) element = el.closest('.store-card, .profile-item, .vcc-card, .store-group-account') || el;
+          });
         }
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           element.style.transition = 'all 0.3s ease';
           element.style.boxShadow = '0 0 0 3px var(--accent), 0 0 20px var(--accent-glow)';
           element.style.transform = 'scale(1.02)';
-          setTimeout(() => { element.style.boxShadow = ''; element.style.transform = ''; }, 2000);
+          setTimeout(() => { element.style.boxShadow = ''; element.style.transform = ''; }, 2200);
         }
-      }, 200);
+      }, 220);
     }
     async function togglePerformer(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
@@ -4068,8 +4137,14 @@ Or just card numbers:
       if (totalLinked > 0) confirmMsg += `\n\nWarning: This store has ${totalLinked} linked ad account(s). They will be unlinked.`;
       if (!confirm(confirmMsg)) return;
       try {
-        const { error } = await supabaseClient.from('stores').delete().eq('id', storeId);
+        const { data: deletedStore, error } = await supabaseClient
+          .from('stores').delete().eq('id', storeId).select();
         if (error) throw error;
+        if (!deletedStore || deletedStore.length === 0) {
+          alert('⚠️ The store was NOT deleted from the database.\n\nSupabase Row Level Security (RLS) is blocking deletes on the "stores" table.\n\nFix: Supabase Dashboard → Authentication → Policies → stores → add a DELETE policy.');
+          renderStores();
+          return;
+        }
         data.stores = data.stores.filter(s => s.id !== storeId && s.id != storeId);
         ['google', 'tiktok', 'facebook'].forEach(channel => {
           data.accounts[channel].forEach(async (account) => {
@@ -4086,7 +4161,9 @@ Or just card numbers:
         updateBadges();
       } catch (error) {
         console.error('Error deleting store:', error);
+        alert('Delete failed: ' + (error.message || error));
         showAutoSaveIndicator('⚠ Delete failed');
+        renderStores();
       }
     }
     async function deleteSuspendedAccount(accountId) {
