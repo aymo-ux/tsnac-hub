@@ -1634,8 +1634,11 @@ Or just card numbers:
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Store</label>
-          <select class="form-select" id="accountStore"></select>
+          <label class="form-label">Stores this account runs <span style="font-weight:400; color:var(--text-muted);">(pick 1 or more)</span></label>
+          <input type="text" class="form-input" id="accountStoreFilter" placeholder="🔎 Filter stores..." oninput="filterAccountStores(this.value)" style="margin-bottom:0.4rem;">
+          <div id="accountStoreList" style="max-height:190px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:0.25rem;"></div>
+          <div id="accountStoreSelectedCount" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">No stores selected</div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.2rem;">Pick more than one when the same Google account runs several products — each store still gets its own daily spend.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Profile</label>
@@ -1658,10 +1661,10 @@ Or just card numbers:
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">🔗 Shared Ad Account <span style="font-weight: 400; color: var(--text-muted);">(optional)</span></label>
+          <label class="form-label">🔗 Shared account name <span style="font-weight: 400; color: var(--text-muted);">(auto-filled when you pick 2+ stores)</span></label>
           <input type="text" class="form-input" id="accountGroup" placeholder="e.g. rosabella.health" list="accountGroupOptions">
           <datalist id="accountGroupOptions"></datalist>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Give two products the <strong>same</strong> name to mark them as sharing one Google account. Each still keeps its own daily spend.</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">This label links the products to one Google account. Leave as-is or rename it.</div>
         </div>
         <div class="form-group" id="campaignTypesGroup">
           <label class="form-label">Campaign Types</label>
@@ -3930,8 +3933,8 @@ Or just card numbers:
         showSection('accounts');
         openModal('addAccount');
         setTimeout(() => {
-          const storeSelect = document.getElementById('accountStore');
-          if (storeSelect) storeSelect.value = storeId;
+          const cb = document.querySelector(`.account-store-cb[value="${storeId}"]`);
+          if (cb) { cb.checked = true; onAccountStoresChange(); cb.closest('.account-store-opt')?.scrollIntoView({ block: 'nearest' }); }
         }, 100);
       }
       renderSection(document.querySelector('.section.active').id.replace('section-', ''));
@@ -4613,9 +4616,14 @@ Or just card numbers:
     function openModal(modalId) {
       document.getElementById(`modal-${modalId}`).classList.add('active');
       if (modalId === 'addAccount') {
-        let storeOptions = '<option value="">Select store...</option>';
-        data.stores.forEach(s => { storeOptions += `<option value="${s.id}" data-performer="${s.isPerformer}">${s.name} ${s.isPerformer ? '⭐' : ''}</option>`; });
-        document.getElementById('accountStore').innerHTML = storeOptions;
+        const storeListEl = document.getElementById('accountStoreList');
+        storeListEl.innerHTML = data.stores.length ? data.stores.map(s => `
+          <label class="account-store-opt" data-name="${(s.name || '').toLowerCase()}" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.5rem; cursor:pointer; border-radius:6px;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" class="account-store-cb" value="${s.id}" data-performer="${s.isPerformer}" data-url="${s.url || ''}" onchange="onAccountStoresChange()" style="width:16px; height:16px; cursor:pointer;">
+            <span>${s.name} ${s.isPerformer ? '⭐' : ''}</span>
+          </label>`).join('') : '<div style="padding:0.6rem; color:var(--text-muted);">No stores yet — add a store first.</div>';
+        const filterEl = document.getElementById('accountStoreFilter');
+        if (filterEl) filterEl.value = '';
         let profileOptions = '<option value="">Select profile...</option>';
         data.profiles[currentChannel].forEach(p => { profileOptions += `<option value="${p.id}">${p.name}</option>`; });
         document.getElementById('accountProfile').innerHTML = profileOptions;
@@ -4628,7 +4636,6 @@ Or just card numbers:
         document.getElementById('manualVCCInput').style.display = 'none';
         document.getElementById('manualVCCLast4').value = '';
         document.getElementById('campaignTypesGroup').style.display = currentChannel === 'google' ? 'block' : 'none';
-        // shared-account: reset field + suggest existing group names
         const groupInput = document.getElementById('accountGroup');
         if (groupInput) groupInput.value = '';
         const existingGroups = [...new Set(
@@ -4636,11 +4643,40 @@ Or just card numbers:
         )];
         const dl = document.getElementById('accountGroupOptions');
         if (dl) dl.innerHTML = existingGroups.map(g => `<option value="${g}">`).join('');
-        document.getElementById('accountStore').onchange = function() {
-          const option = this.options[this.selectedIndex];
-          const isPerformer = option.dataset.performer === 'true';
-          document.getElementById('youtubeOption').style.display = isPerformer ? 'flex' : 'none';
-        };
+        onAccountStoresChange();
+      }
+    }
+    function filterAccountStores(q) {
+      const query = (q || '').toLowerCase().trim();
+      document.querySelectorAll('#accountStoreList .account-store-opt').forEach(opt => {
+        opt.style.display = (!query || opt.dataset.name.includes(query)) ? 'flex' : 'none';
+      });
+    }
+    function domainOf(url) {
+      if (!url) return '';
+      try { return new URL(url).hostname.replace(/^www\./, ''); }
+      catch (e) {
+        const m = String(url).replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+        return m || '';
+      }
+    }
+    function onAccountStoresChange() {
+      const checked = [...document.querySelectorAll('.account-store-cb:checked')];
+      const countEl = document.getElementById('accountStoreSelectedCount');
+      if (countEl) countEl.textContent = checked.length === 0 ? 'No stores selected'
+        : `${checked.length} store${checked.length > 1 ? 's' : ''} selected`;
+      // YouTube option shows if ANY selected store is a top performer (google only)
+      const anyPerformer = checked.some(cb => cb.dataset.performer === 'true');
+      const yt = document.getElementById('youtubeOption');
+      if (yt) yt.style.display = anyPerformer ? 'flex' : 'none';
+      // auto-fill the shared name from the first store's domain when 2+ selected and field empty
+      const groupInput = document.getElementById('accountGroup');
+      if (groupInput && checked.length > 1 && !groupInput.value.trim()) {
+        groupInput.value = domainOf(checked[0].dataset.url);
+      }
+      if (groupInput && checked.length <= 1) {
+        // clear an auto-suggested value when going back to a single store (only if it matched a domain)
+        // (leave manual entries alone — we can't easily tell, so just leave it)
       }
     }
     function closeModal(modalId) {
@@ -4796,47 +4832,62 @@ Or just card numbers:
       document.getElementById('profileName').value = '';
     }
     async function addAccount() {
-      const storeId = document.getElementById('accountStore').value;
+      const selectedStoreIds = [...document.querySelectorAll('.account-store-cb:checked')].map(cb => cb.value);
       const profileId = document.getElementById('accountProfile').value;
       const vccSelect = document.getElementById('accountVCC').value;
       const manualVCCLast4 = document.getElementById('manualVCCLast4').value.trim();
       const accountType = document.getElementById('accountType').value;
-      const accountGroup = (document.getElementById('accountGroup')?.value || '').trim() || null;
       const isManualVCC = vccSelect === 'manual';
-      if (!storeId || !profileId) { alert('Please fill all fields'); return; }
+      if (!selectedStoreIds.length) { alert('Please pick at least one store this account runs.'); return; }
+      if (!profileId) { alert('Please select a profile.'); return; }
       if (!isManualVCC && !vccSelect) { alert('Please select a VCC'); return; }
       if (isManualVCC && (!manualVCCLast4 || manualVCCLast4.length !== 4)) { alert('Please enter 4 digits for VCC'); return; }
-      const store = getStore(storeId);
-      const campaigns = ['search'];
-      if (currentChannel === 'google' && store?.isPerformer && document.getElementById('campaignYoutube').checked) {
-        campaigns.push('youtube');
+
+      // shared-account name: use what's typed, else auto-derive from first store's domain when 2+ stores
+      let group = (document.getElementById('accountGroup')?.value || '').trim() || null;
+      if (!group && selectedStoreIds.length > 1) {
+        group = domainOf(getStore(selectedStoreIds[0])?.url) || ('shared_' + Date.now());
       }
-      const newAccount = {
-        storeId: storeId, profileId: profileId,
-        vccId: isManualVCC ? null : vccSelect,
-        pendingVCC: isManualVCC ? manualVCCLast4 : null,
-        accountType: accountType,
-        accountGroup: accountGroup,
-        storeStatus: 'active', adsStatus: 'active',
-        spend: 0, lifetimeSpend: 0, campaigns: campaigns,
-        status: 'active', createdBy: currentUser, createdAt: getThailandDate()
-      };
-      const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
-      if (savedAccount) {
-        newAccount.id = savedAccount.id;
-        if (!isManualVCC && vccSelect) {
-          await updateVCCInSupabase(vccSelect, { status: 'in_use', linked_account: savedAccount.id });
-        }
-      } else { newAccount.id = Date.now(); }
-      data.accounts[currentChannel].push(newAccount);
-      if (!isManualVCC) {
+      const youtubeChecked = document.getElementById('campaignYoutube')?.checked;
+
+      const createdNames = [];
+      let firstAccountId = null;
+      for (const storeId of selectedStoreIds) {
+        const store = getStore(storeId);
+        const campaigns = ['search'];
+        if (currentChannel === 'google' && store?.isPerformer && youtubeChecked) campaigns.push('youtube');
+        const newAccount = {
+          storeId: storeId, profileId: profileId,
+          vccId: isManualVCC ? null : vccSelect,
+          pendingVCC: isManualVCC ? manualVCCLast4 : null,
+          accountType: accountType,
+          accountGroup: group,
+          storeStatus: 'active', adsStatus: 'active',
+          spend: 0, lifetimeSpend: 0, campaigns: campaigns,
+          status: 'active', createdBy: currentUser, createdAt: getThailandDate()
+        };
+        const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
+        newAccount.id = savedAccount ? savedAccount.id : (Date.now() + Math.floor(Math.random() * 100000));
+        if (firstAccountId === null) firstAccountId = newAccount.id;
+        data.accounts[currentChannel].push(newAccount);
+        createdNames.push(store?.name || 'Store');
+      }
+
+      // one shared VCC across all the created rows
+      if (!isManualVCC && vccSelect) {
+        await updateVCCInSupabase(vccSelect, { status: 'in_use', linked_account: firstAccountId });
         const vcc = data.vccs[currentChannel].find(v => v.id === vccSelect);
-        if (vcc) { vcc.status = 'in_use'; vcc.linkedAccount = storeId; }
+        if (vcc) { vcc.status = 'in_use'; vcc.linkedAccount = firstAccountId; }
       }
+
       closeModal('addAccount');
-      showToast(isManualVCC ? 'Account created with pending VCC ⚠️' : 'Account created!');
+      const many = createdNames.length > 1;
+      showToast(many
+        ? `Account created for ${createdNames.length} products: ${createdNames.join(', ')} 🔗`
+        : (isManualVCC ? 'Account created with pending VCC ⚠️' : 'Account created!'));
       renderAccounts();
       renderVCCs();
+      renderDashboard();
       updateBadges();
     }
     async function init() {
