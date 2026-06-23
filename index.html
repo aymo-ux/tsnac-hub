@@ -1959,11 +1959,32 @@ Or just card numbers:
     async function openEditAccountGroup(accountId) {
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
       if (!account) return;
-      const val = prompt('Shared ad account name (e.g. rosabella.health).\n\nGive two products the SAME name to link them to one Google account.\nLeave blank to unlink.', account.accountGroup || '');
+      // Offer existing shared accounts so the user joins one reliably (no typos creating a new group)
+      const existing = [...new Set(
+        ['google', 'tiktok', 'facebook'].flatMap(ch => data.accounts[ch].map(a => a.accountGroup).filter(Boolean))
+      )].filter(g => g !== account.accountGroup);
+      let msg = 'Link this account to a shared Google account.\n\n';
+      if (existing.length) {
+        msg += 'Existing shared accounts:\n' + existing.map((g, i) => `  ${i + 1}. ${g}`).join('\n')
+            + '\n\nType a NUMBER to join one of the above,\nor type a NEW name to create one.\nLeave blank to unlink.';
+      } else {
+        msg += 'Type a name (e.g. rosabella.health) to create one.\nLeave blank to unlink.';
+      }
+      const val = prompt(msg, account.accountGroup || '');
       if (val === null) return;
-      account.accountGroup = val.trim() || null;
-      await persistAccountGroup(accountId, account.accountGroup);
+      const trimmed = val.trim();
+      let group;
+      const asNum = parseInt(trimmed, 10);
+      if (trimmed && !isNaN(asNum) && asNum >= 1 && asNum <= existing.length && String(asNum) === trimmed) {
+        group = existing[asNum - 1];           // picked an existing group by number
+      } else {
+        group = trimmed || null;               // new name, or blank to unlink
+      }
+      account.accountGroup = group;
+      await persistAccountGroup(accountId, group);
+      showToast(group ? `Linked to "${group}" ✓` : 'Unlinked');
       renderAccounts();
+      renderTracking();
       renderDashboard();
     }
     async function editAccountLast4(accountId) {
