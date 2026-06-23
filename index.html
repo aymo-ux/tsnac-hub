@@ -1092,16 +1092,9 @@
           <div class="nav-item" data-section="accounts" onclick="showSection('accounts')">
             <span>📢</span> Ad Accounts
           </div>
-          <div class="nav-item" data-section="vccs" onclick="showSection('vccs')">
-            <span>💳</span> VCCs
-            <span class="nav-badge" id="vccBadge" style="display: none;">0</span>
-          </div>
           <div class="nav-item" data-section="suspended" onclick="showSection('suspended')">
             <span>🚫</span> Suspended
             <span class="nav-badge" id="suspendedBadge" style="display: none;">0</span>
-          </div>
-          <div class="nav-item" data-section="saved" onclick="showSection('saved')">
-            <span>💾</span> Saved Accounts
           </div>
         </div>
         <div class="nav-section">
@@ -1128,7 +1121,7 @@
       <div id="globalSearchContainer" style="margin-bottom: 1.5rem; position: relative;">
         <div style="position: relative;">
           <input type="text" id="globalSearch" 
-            placeholder="🔍 Search stores, accounts, VCCs, profiles..." 
+            placeholder="🔍 Search stores, accounts, profiles..." 
             style="width: 100%; padding: 0.9rem 1rem 0.9rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-family: inherit; font-size: 0.95rem; transition: all 0.2s;"
             oninput="handleGlobalSearch(this.value)"
             onfocus="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 0 0 3px var(--accent-glow)';"
@@ -1350,26 +1343,6 @@
           <!-- Store groups will be rendered here -->
         </div>
       </section>
-      <!-- VCCs Section -->
-      <section class="section" id="section-vccs">
-        <div class="header">
-          <div>
-            <h1 class="page-title">Virtual Credit Cards</h1>
-            <p class="page-subtitle">Manage payment cards</p>
-          </div>
-          <div class="header-actions" id="vccActions">
-            <button class="btn btn-primary" onclick="openModal('addVCC')">
-              + Add VCC
-            </button>
-          </div>
-        </div>
-        <div id="unassignedVCCs" style="margin-bottom: 2rem; display: none;">
-          <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--warning);">⏳ Unassigned VCCs (Ready to use)</h3>
-          <div id="unassignedVCCsList"></div>
-        </div>
-        <h3 style="font-size: 1rem; margin-bottom: 1rem;">Active VCCs</h3>
-        <div id="vccsList"></div>
-      </section>
       <!-- Suspended Accounts Section -->
       <section class="section" id="section-suspended">
         <div class="header">
@@ -1379,16 +1352,6 @@
           </div>
         </div>
         <div id="suspendedAccountsList"></div>
-      </section>
-      <!-- Saved Accounts Section -->
-      <section class="section" id="section-saved">
-        <div class="header">
-          <div>
-            <h1 class="page-title">Saved Accounts</h1>
-            <p class="page-subtitle">Accounts with &lt;$300 spend available for reuse</p>
-          </div>
-        </div>
-        <div id="savedAccountsList"></div>
       </section>
       <!-- Alerts Section -->
       <section class="section" id="section-alerts">
@@ -1645,12 +1608,8 @@ Or just card numbers:
           <select class="form-select" id="accountProfile"></select>
         </div>
         <div class="form-group">
-          <label class="form-label">VCC</label>
-          <select class="form-select" id="accountVCC" onchange="toggleManualVCC()"></select>
-          <div id="manualVCCInput" style="display: none; margin-top: 0.5rem;">
-            <input type="text" class="form-input" id="manualVCCLast4" placeholder="Enter last 4 digits" maxlength="4" pattern="[0-9]{4}" style="font-family: 'JetBrains Mono', monospace;">
-            <div style="font-size: 0.75rem; color: var(--warning); margin-top: 0.25rem;">⚠️ VCC will need to be added later</div>
-          </div>
+          <label class="form-label">💳 Card last 4 digits <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
+          <input type="text" class="form-input" id="manualVCCLast4" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" style="font-family: 'JetBrains Mono', monospace;">
         </div>
         <div class="form-group">
           <label class="form-label">Account Type</label>
@@ -2007,6 +1966,19 @@ Or just card numbers:
       renderAccounts();
       renderDashboard();
     }
+    async function editAccountLast4(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      if (!account) return;
+      const current = account.pendingVCC || (getVCC(account.vccId)?.number.slice(-4)) || '';
+      const val = prompt('Card last 4 digits (leave blank to clear):', current);
+      if (val === null) return;
+      const last4 = val.trim();
+      if (last4 && !/^\d{4}$/.test(last4)) { alert('Must be exactly 4 digits.'); return; }
+      account.pendingVCC = last4 || null;
+      account.vccId = null;
+      await updateAdAccountInSupabase(accountId, { pending_vcc: account.pendingVCC, vcc_id: null });
+      renderAccounts();
+    }
     async function updateAdAccountInSupabase(accountId, updates) {
       try {
         const { error } = await supabaseClient.from('ad_accounts').update(updates).eq('id', accountId);
@@ -2138,7 +2110,8 @@ Or just card numbers:
     }
     function updateUIForUser() {
       const perms = permissions[currentUser];
-      document.getElementById('vccActions').style.display = perms.canAddVCC ? 'flex' : 'none';
+      const vccActionsEl = document.getElementById('vccActions');
+      if (vccActionsEl) vccActionsEl.style.display = perms.canAddVCC ? 'flex' : 'none';
       document.getElementById('profileActions').style.display = perms.canAddProfile ? 'flex' : 'none';
       document.getElementById('accountActions').style.display = perms.canAddAccount ? 'flex' : 'none';
       document.getElementById('storeActions').style.display = perms.canAddStore ? 'flex' : 'none';
@@ -2146,9 +2119,12 @@ Or just card numbers:
         const channel = btn.classList.contains('google') ? 'google' : btn.classList.contains('tiktok') ? 'tiktok' : 'facebook';
         btn.style.display = perms.channels.includes(channel) ? 'flex' : 'none';
       });
-      const unassignedCount = data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').length;
-      document.getElementById('vccBadge').style.display = (currentUser === 'ara' && unassignedCount > 0) ? 'inline' : 'none';
-      document.getElementById('vccBadge').textContent = unassignedCount;
+      const vccBadgeEl = document.getElementById('vccBadge');
+      if (vccBadgeEl) {
+        const unassignedCount = data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').length;
+        vccBadgeEl.style.display = (currentUser === 'ara' && unassignedCount > 0) ? 'inline' : 'none';
+        vccBadgeEl.textContent = unassignedCount;
+      }
     }
     function updateBadges() {
       const perms = permissions[currentUser];
@@ -2168,7 +2144,7 @@ Or just card numbers:
       if (perms.alertsFor.includes('suspended')) alertCount += accounts.filter(a => a.adsStatus === 'suspended').length;
       if (perms.alertsFor.includes('payment_issue')) alertCount += accounts.filter(a => a.adsStatus === 'payment_issue').length;
       if (perms.alertsFor.includes('store_inactive')) alertCount += accounts.filter(a => a.storeStatus === 'inactive').length;
-      if (perms.alertsFor.includes('unassigned_vcc')) alertCount += data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').length;
+      // (VCC management removed — no longer counts unassigned VCCs as alerts)
       document.getElementById('alertBadge').textContent = alertCount;
       document.getElementById('alertBadge').style.display = alertCount > 0 ? 'inline' : 'none';
     }
@@ -3282,8 +3258,8 @@ Or just card numbers:
           const vcc = getVCC(account.vccId);
           let vccDisplay, vccStyle = '';
           if (vcc) vccDisplay = perms.canSeeVCCDetails ? `••••${vcc.number.slice(-4)}` : '••••••••';
-          else if (account.pendingVCC) { vccDisplay = `••••${account.pendingVCC} ⚠️`; vccStyle = 'color: var(--warning);'; }
-          else vccDisplay = '••••••••';
+          else if (account.pendingVCC) { vccDisplay = `••••${account.pendingVCC}`; }
+          else vccDisplay = '•••• ＋';
           const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
           const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
           let sharedWith = '';
@@ -3301,7 +3277,7 @@ Or just card numbers:
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${profile?.name || 'N/A'} ✏️</span></div>
-                  <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="openEditVCCModal('${account.id}')" title="${account.pendingVCC ? 'Pending VCC - Click to link' : 'Click to change VCC'}">${vccDisplay} ✏️</span></div>
+                  <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="editAccountLast4('${account.id}')" title="Click to edit card last 4 digits">${vccDisplay} ✏️</span></div>
                   <div>${groupChip}</div>
                   <div>${getCampaignTags(account.campaigns, store)}</div>
                 </div>
@@ -3312,8 +3288,6 @@ Or just card numbers:
                     <div style="font-family: 'JetBrains Mono', monospace;"><span style="color: var(--success);">$${accYesterday}</span> <span class="${account.lifetimeSpend < 300 ? 'lifetime-spend low' : ''}" style="color: var(--text-secondary);">/ $${account.lifetimeSpend}</span></div>
                   </div>
                   <div style="display: flex; gap: 0.3rem;">
-                    <button type="button" class="btn btn-sm" style="background: var(--accent); color: white; padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="openEditVCCModal('${account.id}')" title="Change VCC">🔄</button>
-                    ${perms.canSaveAccount && account.lifetimeSpend < 300 ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="saveAccount('${account.id}')" title="Save Account">💾</button>` : ''}
                     <button type="button" class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="deleteAdAccount('${account.id}')" title="Delete Account">🗑️</button>
                   </div>
                 </div>
@@ -3509,6 +3483,7 @@ Or just card numbers:
       }
     }
     function renderVCCs() {
+      if (!document.getElementById('vccsList')) return;
       const perms = permissions[currentUser];
       const vccs = data.vccs[currentChannel];
       const grouped = { available: [], warming: [], ready: [], in_use: [] };
@@ -3759,6 +3734,7 @@ Or just card numbers:
       document.getElementById('suspendedBadge').style.display = remainingAccounts.length > 0 ? 'inline' : 'none';
     }
     function renderSavedAccounts() {
+      if (!document.getElementById('savedAccountsList')) return;
       const saved = data.savedAccounts[currentChannel];
       let html = '';
       saved.forEach(account => {
@@ -4028,34 +4004,6 @@ Or just card numbers:
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
               action: () => { showSection('accounts'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
-            });
-          }
-        });
-      });
-      
-      // Search VCCs (by number)
-      ['google', 'tiktok', 'facebook'].forEach(channel => {
-        data.vccs[channel].forEach(vcc => {
-          if (vcc.number.includes(q) || vcc.number.slice(-4).includes(q)) {
-            const linkedAccount = data.accounts[channel].find(a => a.vccId === vcc.id);
-            const store = linkedAccount ? getStore(linkedAccount.storeId) : null;
-            const lifetimeSpend = linkedAccount ? linkedAccount.lifetimeSpend || 0 : 0;
-            const yesterdaySpend = linkedAccount ? (dailySpendHistory[`${linkedAccount.id}_${yesterdayKey}`] ?? 0) : 0;
-            
-            let subtitle;
-            if (store) {
-              subtitle = `🏪 Linked to: ${store.name} • Yesterday: $${yesterdaySpend} • Lifetime: $${lifetimeSpend} • Exp: ${vcc.expiry}`;
-            } else {
-              subtitle = `Status: ${vcc.status || 'Available'} • Balance: $${vcc.balance} • Exp: ${vcc.expiry}`;
-            }
-            
-            results.push({
-              type: 'vcc', icon: '💳',
-              title: `••••${vcc.number.slice(-4)}`,
-              subtitle: subtitle,
-              badge: store ? '🔗 In Use' : '🆕 Available',
-              id: vcc.id,
-              action: () => { showSection('vccs'); hideSearchResults(); highlightItem('vcc', vcc.id, vcc.number.slice(-4)); }
             });
           }
         });
@@ -4627,13 +4575,6 @@ Or just card numbers:
         let profileOptions = '<option value="">Select profile...</option>';
         data.profiles[currentChannel].forEach(p => { profileOptions += `<option value="${p.id}">${p.name}</option>`; });
         document.getElementById('accountProfile').innerHTML = profileOptions;
-        let vccOptions = '<option value="">Select VCC...</option>';
-        data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(v => {
-          vccOptions += `<option value="${v.id}">••••${v.number.slice(-4)} ($${v.balance})</option>`;
-        });
-        vccOptions += '<option value="manual">✏️ Enter last 4 digits manually...</option>';
-        document.getElementById('accountVCC').innerHTML = vccOptions;
-        document.getElementById('manualVCCInput').style.display = 'none';
         document.getElementById('manualVCCLast4').value = '';
         document.getElementById('campaignTypesGroup').style.display = currentChannel === 'google' ? 'block' : 'none';
         const groupInput = document.getElementById('accountGroup');
@@ -4834,14 +4775,11 @@ Or just card numbers:
     async function addAccount() {
       const selectedStoreIds = [...document.querySelectorAll('.account-store-cb:checked')].map(cb => cb.value);
       const profileId = document.getElementById('accountProfile').value;
-      const vccSelect = document.getElementById('accountVCC').value;
-      const manualVCCLast4 = document.getElementById('manualVCCLast4').value.trim();
+      const last4 = document.getElementById('manualVCCLast4').value.trim();
       const accountType = document.getElementById('accountType').value;
-      const isManualVCC = vccSelect === 'manual';
       if (!selectedStoreIds.length) { alert('Please pick at least one store this account runs.'); return; }
       if (!profileId) { alert('Please select a profile.'); return; }
-      if (!isManualVCC && !vccSelect) { alert('Please select a VCC'); return; }
-      if (isManualVCC && (!manualVCCLast4 || manualVCCLast4.length !== 4)) { alert('Please enter 4 digits for VCC'); return; }
+      if (last4 && !/^\d{4}$/.test(last4)) { alert('Card digits must be exactly 4 numbers (or leave blank).'); return; }
 
       // shared-account name: use what's typed, else auto-derive from first store's domain when 2+ stores
       let group = (document.getElementById('accountGroup')?.value || '').trim() || null;
@@ -4851,15 +4789,14 @@ Or just card numbers:
       const youtubeChecked = document.getElementById('campaignYoutube')?.checked;
 
       const createdNames = [];
-      let firstAccountId = null;
       for (const storeId of selectedStoreIds) {
         const store = getStore(storeId);
         const campaigns = ['search'];
         if (currentChannel === 'google' && store?.isPerformer && youtubeChecked) campaigns.push('youtube');
         const newAccount = {
           storeId: storeId, profileId: profileId,
-          vccId: isManualVCC ? null : vccSelect,
-          pendingVCC: isManualVCC ? manualVCCLast4 : null,
+          vccId: null,
+          pendingVCC: last4 || null,
           accountType: accountType,
           accountGroup: group,
           storeStatus: 'active', adsStatus: 'active',
@@ -4868,25 +4805,16 @@ Or just card numbers:
         };
         const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
         newAccount.id = savedAccount ? savedAccount.id : (Date.now() + Math.floor(Math.random() * 100000));
-        if (firstAccountId === null) firstAccountId = newAccount.id;
         data.accounts[currentChannel].push(newAccount);
         createdNames.push(store?.name || 'Store');
-      }
-
-      // one shared VCC across all the created rows
-      if (!isManualVCC && vccSelect) {
-        await updateVCCInSupabase(vccSelect, { status: 'in_use', linked_account: firstAccountId });
-        const vcc = data.vccs[currentChannel].find(v => v.id === vccSelect);
-        if (vcc) { vcc.status = 'in_use'; vcc.linkedAccount = firstAccountId; }
       }
 
       closeModal('addAccount');
       const many = createdNames.length > 1;
       showToast(many
         ? `Account created for ${createdNames.length} products: ${createdNames.join(', ')} 🔗`
-        : (isManualVCC ? 'Account created with pending VCC ⚠️' : 'Account created!'));
+        : 'Account created!');
       renderAccounts();
-      renderVCCs();
       renderDashboard();
       updateBadges();
     }
