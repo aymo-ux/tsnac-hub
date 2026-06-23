@@ -24,23 +24,24 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      /* Modern light theme palette */
-      --bg-primary: #fafafa;
+      /* Refined light theme — calm cool neutrals, confident indigo */
+      --bg-primary: #f7f8fa;
       --bg-secondary: #ffffff;
-      --bg-tertiary: #f4f4f5;
+      --bg-tertiary: #f1f3f6;
       --bg-card: #ffffff;
-      --bg-hover: #f4f4f5;
-      --bg-glass: rgba(255, 255, 255, 0.8);
-      --text-primary: #18181b;
-      --text-secondary: #52525b;
-      --text-muted: #a1a1aa;
-      --border: rgba(0, 0, 0, 0.08);
-      --border-light: rgba(0, 0, 0, 0.12);
-      --border-hover: rgba(0, 0, 0, 0.2);
-      --accent: #6366f1;
-      --accent-light: #818cf8;
-      --accent-soft: rgba(99, 102, 241, 0.1);
-      --accent-glow: rgba(99, 102, 241, 0.25);
+      --bg-hover: #eef1f5;
+      --bg-glass: rgba(255, 255, 255, 0.92);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: rgba(15, 23, 42, 0.07);
+      --border-light: rgba(15, 23, 42, 0.11);
+      --border-hover: rgba(15, 23, 42, 0.2);
+      --accent: #4f46e5;
+      --accent-light: #6366f1;
+      --accent-dark: #4338ca;
+      --accent-soft: rgba(79, 70, 229, 0.08);
+      --accent-glow: rgba(79, 70, 229, 0.18);
       --success: #059669;
       --success-bg: rgba(5, 150, 105, 0.1);
       --warning: #d97706;
@@ -63,40 +64,47 @@
       --facebook: #1877f2;
       --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       --gradient-2: linear-gradient(135deg, #059669 0%, #0d9488 100%);
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
-      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
-      --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
-      --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.15);
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 1px 3px rgba(15, 23, 42, 0.05), 0 6px 16px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 4px 24px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+      --shadow-glow: 0 6px 16px rgba(79, 70, 229, 0.18);
       --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg-primary);
-      background-image: 
-        radial-gradient(ellipse 70% 40% at 50% -10%, rgba(99, 102, 241, 0.06), transparent 60%),
-        radial-gradient(ellipse 50% 30% at 100% 100%, rgba(168, 85, 247, 0.03), transparent 60%);
       color: var(--text-primary);
       min-height: 100vh;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
-      line-height: 1.5;
-      letter-spacing: -0.01em;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      font-feature-settings: 'cv11', 'ss01';
+      line-height: 1.55;
+      letter-spacing: -0.005em;
+    }
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+      .stat-card:hover, .btn:hover, .card:hover { transform: none !important; }
     }
     .app { display: flex; min-height: 100vh; }
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 999px; border: 2px solid var(--bg-primary); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
     .sidebar {
       width: 240px;
-      background: var(--bg-glass);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
+      background: var(--bg-secondary);
       border-right: 1px solid var(--border);
       padding: 1.25rem 1rem;
       display: flex;
@@ -200,7 +208,8 @@
     }
     .nav-item.active {
       background: var(--accent-soft);
-      color: var(--accent-light);
+      color: var(--accent);
+      font-weight: 600;
     }
     .nav-item.active::before {
       content: '';
@@ -258,40 +267,44 @@
       margin-bottom: 1.75rem;
     }
     .page-title {
-      font-size: 1.6rem;
+      font-size: 1.75rem;
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
       color: var(--text-primary);
     }
-    .page-subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
+    .page-subtitle { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.35rem; }
     .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .btn {
       padding: 0.6rem 1rem;
       border-radius: var(--radius-sm);
       font-family: inherit;
       font-size: 0.85rem;
-      font-weight: 500;
+      font-weight: 550;
       cursor: pointer;
       transition: var(--transition);
-      border: none;
+      border: 1px solid transparent;
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
       white-space: nowrap;
+      line-height: 1.2;
     }
     .btn-primary {
       background: var(--accent);
       color: white;
-    }
-    .btn-primary:hover {
-      background: var(--accent-light);
-      transform: translateY(-1px);
       box-shadow: var(--shadow-sm);
     }
+    .btn-primary:hover {
+      background: var(--accent-dark);
+      box-shadow: var(--shadow-md);
+    }
+    .btn-primary:active { transform: translateY(0.5px); }
     .btn-secondary {
-      background: var(--bg-tertiary);
+      background: var(--bg-secondary);
       color: var(--text-primary);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm);
     }
     .btn-secondary:hover {
       border-color: var(--border-hover);
@@ -310,28 +323,31 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 1.1rem 1.25rem;
+      padding: 1.15rem 1.3rem;
       transition: var(--transition);
       position: relative;
       overflow: hidden;
+      box-shadow: var(--shadow-sm);
     }
     .stat-card:hover {
-      border-color: var(--border-hover);
+      border-color: var(--border-light);
+      box-shadow: var(--shadow-md);
       transform: translateY(-2px);
     }
     .stat-label {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.5rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       font-weight: 600;
     }
     .stat-value {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
     }
     .stat-card.success .stat-value { color: var(--success); }
     .stat-card.warning .stat-value { color: var(--warning); }
@@ -345,6 +361,7 @@
       margin-bottom: 1.1rem;
       transition: var(--transition);
       overflow: hidden;
+      box-shadow: var(--shadow-sm);
     }
     .card:hover { border-color: var(--border-light); }
     .card-header {
@@ -435,30 +452,33 @@
     .store-group {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       margin-bottom: 0.85rem;
       overflow: hidden;
       transition: var(--transition);
+      box-shadow: var(--shadow-sm);
     }
     .store-group:hover { border-color: var(--border-light); }
     .store-group-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.9rem 1.1rem;
-      background: var(--bg-tertiary);
+      padding: 0.95rem 1.2rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: var(--transition);
     }
     .store-group-header:hover {
-      background: var(--bg-hover);
+      background: var(--bg-tertiary);
     }
     .store-group-title {
       display: flex;
       align-items: center;
       gap: 0.6rem;
-      font-weight: 600;
+      font-weight: 650;
       font-size: 0.95rem;
+      letter-spacing: -0.01em;
     }
     .store-group-stats {
       display: flex;
@@ -562,8 +582,8 @@
     .form-input, .form-select, .form-textarea {
       width: 100%;
       padding: 0.7rem 0.9rem;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
       font-family: inherit;
@@ -573,7 +593,8 @@
     .form-input:focus, .form-select:focus, .form-textarea:focus {
       outline: none;
       border-color: var(--accent);
-      background: var(--bg-hover);
+      background: var(--bg-secondary);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
     .form-input::placeholder { color: var(--text-muted); }
     .form-textarea { min-height: 90px; resize: vertical; }
@@ -1122,10 +1143,10 @@
         <div style="position: relative;">
           <input type="text" id="globalSearch" 
             placeholder="🔍 Search stores, accounts, profiles..." 
-            style="width: 100%; padding: 0.9rem 1rem 0.9rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-family: inherit; font-size: 0.95rem; transition: all 0.2s;"
+            style="width: 100%; padding: 0.85rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-primary); font-family: inherit; font-size: 0.95rem; box-shadow: var(--shadow-sm); transition: all 0.18s;"
             oninput="handleGlobalSearch(this.value)"
-            onfocus="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 0 0 3px var(--accent-glow)';"
-            onblur="setTimeout(() => { this.style.borderColor='var(--border)'; this.style.boxShadow='none'; hideSearchResults(); }, 200);">
+            onfocus="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 0 0 3px var(--accent-soft)';"
+            onblur="setTimeout(() => { this.style.borderColor='var(--border-light)'; this.style.boxShadow='var(--shadow-sm)'; hideSearchResults(); }, 200);">
         </div>
         <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; max-height: 400px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg);"></div>
       </div>
@@ -2045,6 +2066,16 @@ Or just card numbers:
       admin: fullAccess, account_creator: fullAccess,
       tracker: fullAccess, designer: fullAccess
     };
+    // Escape user-entered text before it is placed into innerHTML (prevents stored XSS)
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
     function getStore(id) { return data.stores.find(s => s.id === id); }
     function getProfile(id, channel = currentChannel) { return data.profiles[channel].find(p => p.id === id); }
     function getVCC(id, channel = currentChannel) { return data.vccs[channel].find(v => v.id === id); }
@@ -2231,7 +2262,7 @@ Or just card numbers:
           <div class="store-group" style="margin-bottom: 0.75rem; ${hasIssue ? 'border-color: var(--warning);' : ''}">
             <div class="store-group-header" style="padding: 0.75rem 1rem;">
               <div class="store-group-title">
-                <span style="font-size: 0.95rem;">📦 ${storeName}</span>
+                <span style="font-size: 0.95rem;">📦 ${escapeHtml(storeName)}</span>
                 ${isPerformer ? '<span class="performer-badge" style="font-size: 0.6rem;">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge" style="font-size: 0.6rem;">📊 Tr</span>' : ''}
               </div>
@@ -2361,12 +2392,12 @@ Or just card numbers:
             <div class="store-header">
               <div>
                 <div class="store-name">
-                  ${store.name}
+                  ${escapeHtml(store.name)}
                   ${isNew ? '<span style="background: var(--info); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem;">🆕 NEW</span>' : ''}
                   ${store.isPerformer ? '<span class="performer-badge">⭐ TOP PERFORMER</span>' : ''}
                   ${store.hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
                 </div>
-                <div class="store-url">${store.url || ''}</div>
+                <div class="store-url">${escapeHtml(store.url || '')}</div>
                 <div class="store-channels" style="margin-top: 0.5rem;">
                   ${isNew ? '<span style="color: var(--info); font-size: 0.85rem;">⏳ Waiting for campaign launch</span>' : ''}
                   ${googleAccounts.length > 0 ? '<span class="channel-tag google">Google (' + googleAccounts.length + ')</span>' : ''}
@@ -2439,7 +2470,7 @@ Or just card numbers:
           <div class="store-group ${hasIssue ? 'has-issue' : ''}" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
             <div class="store-group-header" onclick="toggleTrackingGroup('${gid}')">
               <div class="store-group-title">
-                <span>${isShared ? '🔗' : '📦'} ${headerName}</span>
+                <span>${isShared ? '🔗' : '📦'} ${escapeHtml(headerName)}</span>
                 ${isShared ? `<span onclick="event.stopPropagation(); renameAccountGroup('${groupName.replace(/'/g, "\\'")}')" style="cursor: pointer; font-size: 0.8rem; color: var(--accent);" title="Rename shared account">✏️</span>` : ''}
                 ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
@@ -2463,10 +2494,10 @@ Or just card numbers:
           else vccDisplay = '••••••••';
           // In a shared-account group, each row is headed by its STORE/product name; otherwise by the profile name
           const headline = isShared
-            ? `<span onclick="changeAccountStore('${account.id}')" style="cursor: pointer;" title="Click to change store">${rowStore?.name || 'Unknown'}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
-            : `${profile?.name || 'N/A'}${account.accountGroup ? ` <span title="Shares Google account: ${account.accountGroup}" style="color: var(--accent); font-size: 0.75rem; cursor: help;">🔗 ${account.accountGroup}</span>` : ''}`;
+            ? `<span onclick="changeAccountStore('${account.id}')" style="cursor: pointer;" title="Click to change store">${escapeHtml(rowStore?.name || 'Unknown')}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
+            : `${escapeHtml(profile?.name || 'N/A')}${account.accountGroup ? ` <span title="Shares Google account: ${escapeHtml(account.accountGroup)}" style="color: var(--accent); font-size: 0.75rem; cursor: help;">🔗 ${escapeHtml(account.accountGroup)}</span>` : ''}`;
           const subline = isShared
-            ? `${profile?.name || 'N/A'} • ${vccDisplay} • Lifetime: $${account.lifetimeSpend}`
+            ? `${escapeHtml(profile?.name || 'N/A')} • ${vccDisplay} • Lifetime: $${account.lifetimeSpend}`
             : `${vccDisplay} • Lifetime: $${account.lifetimeSpend}`;
           html += `
               <div class="store-group-account ${accHasIssue ? 'has-issue' : ''}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
@@ -2695,8 +2726,8 @@ Or just card numbers:
             <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${borderColor}; background: ${bgColor};">
               <div class="card-body" style="display: flex; justify-content: space-between; align-items: start;">
                 <div>
-                  <div style="font-weight: 600; margin-bottom: 0.25rem;">${notification.title}</div>
-                  <div style="color: var(--text-secondary);">${notification.message}</div>
+                  <div style="font-weight: 600; margin-bottom: 0.25rem;">${escapeHtml(notification.title)}</div>
+                  <div style="color: var(--text-secondary);">${escapeHtml(notification.message)}</div>
                   <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">${timeAgo}</div>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
@@ -2845,7 +2876,7 @@ Or just card numbers:
       quickEntries.forEach(([storeId, accs]) => {
         const store = getStore(storeId);
         html += `<div class="quick-store-block" style="margin-bottom: 0.5rem;">
-          <div class="quick-store-label" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 0.5rem 0.25rem 0.35rem;">📦 ${store?.name || 'Unknown Store'}</div>`;
+          <div class="quick-store-label" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 0.5rem 0.25rem 0.35rem;">📦 ${escapeHtml(store?.name || 'Unknown Store')}</div>`;
         accs.forEach(account => {
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
@@ -2859,7 +2890,7 @@ Or just card numbers:
               style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.85rem; background:var(--bg-card); border:1px solid var(--border); border-left:4px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-radius:10px; margin-bottom:0.4rem;">
               <span class="quick-entry-dot" style="width:9px; height:9px; border-radius:50%; flex-shrink:0; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? 1 : 0.4};"></span>
               <div style="flex:1; min-width:0;">
-                <div style="font-weight:600; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+                <div style="font-weight:600; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(name)}</div>
                 <div style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">••••${last4} · ${getAccountTypeBadge(account.accountType)}</div>
               </div>
               <div style="display:flex; align-items:center; gap:0.3rem;">
@@ -3231,7 +3262,7 @@ Or just card numbers:
             <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
               <div class="profile-avatar">${initials}</div>
               <div class="profile-info">
-                <div class="profile-name">${profile.name}</div>
+                <div class="profile-name">${escapeHtml(profile.name)}</div>
                 <div class="profile-meta">Created ${profile.createdAt ? formatDate(profile.createdAt) : 'N/A'}</div>
               </div>
             </div>
@@ -3310,7 +3341,7 @@ Or just card numbers:
           <div class="store-group" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
             <div class="store-group-header" onclick="toggleStoreGroupAccounts('${suffix}')">
               <div class="store-group-title">
-                <span>${isShared ? '🔗' : '📦'} ${storeName}</span>
+                <span>${isShared ? '🔗' : '📦'} ${escapeHtml(storeName)}</span>
                 ${isShared ? `<span onclick="event.stopPropagation(); renameAccountGroup('${groupName.replace(/'/g, "\\'")}')" style="cursor: pointer; font-size: 0.8rem; color: var(--accent);" title="Rename shared account">✏️</span>` : ''}
                 ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
@@ -3338,21 +3369,21 @@ Or just card numbers:
             const names = [...new Set(data.accounts[currentChannel]
               .filter(x => x.id != account.id && x.accountGroup && x.accountGroup === account.accountGroup)
               .map(x => getStore(x.storeId)?.name).filter(Boolean))];
-            if (names.length) sharedWith = ' · with ' + names.join(', ');
+            if (names.length) sharedWith = ' · with ' + names.map(escapeHtml).join(', ');
           }
           // In a shared group the header already names the account; each row shows its STORE/product name instead of a group chip
           const storeLabel = isShared
-            ? `<span style="cursor:pointer; font-weight:700; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px solid var(--border);" onclick="changeAccountStore('${account.id}')" title="Click to change store">📦 ${rowStore?.name || 'Unknown'}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
+            ? `<span style="cursor:pointer; font-weight:700; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px solid var(--border);" onclick="changeAccountStore('${account.id}')" title="Click to change store">📦 ${escapeHtml(rowStore?.name || 'Unknown')}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
             : '';
           const groupChip = isShared ? '' : (account.accountGroup
-            ? `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--accent-soft); border:1px solid var(--accent); color:var(--accent); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Shared Google account — click to edit">🔗 ${account.accountGroup}${sharedWith}</span>`
+            ? `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--accent-soft); border:1px solid var(--accent); color:var(--accent); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Shared Google account — click to edit">🔗 ${escapeHtml(account.accountGroup)}${sharedWith}</span>`
             : `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px dashed var(--border-light); color:var(--text-muted); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Link this account to a shared Google account">🔗 link</span>`);
           html += `
               <div class="store-group-account" data-account-id="${account.id}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   ${storeLabel ? `<div>${storeLabel}</div>` : ''}
-                  <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${profile?.name || 'N/A'} ✏️</span></div>
+                  <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${escapeHtml(profile?.name || 'N/A')} ✏️</span></div>
                   <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="editAccountLast4('${account.id}')" title="Click to edit card last 4 digits">${vccDisplay} ✏️</span></div>
                   <div>${groupChip}</div>
                   <div>${getCampaignTags(account.campaigns, rowStore)}</div>
@@ -3522,7 +3553,7 @@ Or just card numbers:
       document.getElementById('editAccountTypeInfo').innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-weight: 600; font-size: 1.1rem;">📦 ${store?.name || 'Unknown Store'}</div>
+            <div style="font-weight: 600; font-size: 1.1rem;">📦 ${escapeHtml(store?.name || 'Unknown Store')}</div>
             <div style="color: var(--text-secondary); margin-top: 0.25rem;">Profile: ${profile?.name || 'N/A'}</div>
           </div>
           <div style="text-align: right;">
@@ -3924,8 +3955,8 @@ Or just card numbers:
         <div class="alert-item ${alert.type}">
           <div class="alert-icon">${alert.icon}</div>
           <div class="alert-content">
-            <div class="alert-title">${alert.title}</div>
-            <div class="alert-desc">${alert.desc}</div>
+            <div class="alert-title">${escapeHtml(alert.title)}</div>
+            <div class="alert-desc">${escapeHtml(alert.desc)}</div>
           </div>
           <button class="alert-action" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
         </div>
@@ -4129,8 +4160,8 @@ Or just card numbers:
           <div onclick="(${r.action.toString()})()" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: all 0.15s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='transparent'">
             <div style="font-size: 1.25rem; width: 32px; text-align: center;">${r.icon}</div>
             <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.title}</div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.subtitle}</div>
+              <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.title)}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.subtitle)}</div>
             </div>
             ${r.badge ? `<div style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--bg-tertiary); border-radius: 4px; white-space: nowrap;">${r.badge}</div>` : ''}
           </div>
