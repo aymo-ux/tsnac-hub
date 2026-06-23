@@ -2388,9 +2388,9 @@ Or just card numbers:
       document.getElementById('selectedDateLabel').textContent = isToday ? '' : `Viewing: ${dateStr}`;
       const storeGroups = {};
       accounts.forEach(account => {
-        const storeId = account.storeId;
-        if (!storeGroups[storeId]) storeGroups[storeId] = [];
-        storeGroups[storeId].push(account);
+        const key = account.accountGroup ? ('grp::' + account.accountGroup) : ('store::' + account.storeId);
+        if (!storeGroups[key]) storeGroups[key] = [];
+        storeGroups[key].push(account);
       });
       const typeOrder = { principal: 0, warming: 1, ready: 2 };
       const daySpendOf = acc => parseFloat(dailySpendHistory[`${acc.id}_${dateKey}`]) || 0;
@@ -2403,48 +2403,58 @@ Or just card numbers:
         trackingEntries.sort((A, B) =>
           B[1].reduce((s, a) => s + daySpendOf(a), 0) - A[1].reduce((s, a) => s + daySpendOf(a), 0));
       }
-      trackingEntries.forEach(([storeId, storeAccounts]) => {
-        const store = getStore(storeId);
-        const storeName = store?.name || 'Unknown Store';
-        const isPerformer = store?.isPerformer;
-        const hasTracking = store?.hasTracking;
+      trackingEntries.forEach(([groupKey, storeAccounts], gi) => {
+        const isShared = groupKey.startsWith('grp::');
+        const groupName = isShared ? groupKey.slice(5) : null;
+        const headStore = isShared ? null : getStore(groupKey.slice(7));
+        const headerName = isShared ? groupName : (headStore?.name || 'Unknown Store');
+        const isPerformer = isShared ? false : headStore?.isPerformer;
+        const hasTracking = isShared ? false : headStore?.hasTracking;
         let storeTotal = 0;
-        storeAccounts.forEach(acc => {
-          storeTotal += parseFloat(dailySpendHistory[`${acc.id}_${dateKey}`]) || 0;
-        });
+        storeAccounts.forEach(acc => { storeTotal += daySpendOf(acc); });
         const hasIssue = storeAccounts.some(acc => acc.adsStatus !== 'active' || acc.storeStatus !== 'active');
+        const gid = 'trk_' + gi;
         html += `
           <div class="store-group ${hasIssue ? 'has-issue' : ''}" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
-            <div class="store-group-header" onclick="toggleStoreGroup('${storeId}')">
+            <div class="store-group-header" onclick="toggleTrackingGroup('${gid}')">
               <div class="store-group-title">
-                <span>📦 ${storeName}</span>
+                <span>${isShared ? '🔗' : '📦'} ${headerName}</span>
+                ${isShared ? `<span onclick="event.stopPropagation(); renameAccountGroup('${groupName.replace(/'/g, "\\'")}')" style="cursor: pointer; font-size: 0.8rem; color: var(--accent);" title="Rename shared account">✏️</span>` : ''}
                 ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
                 <span style="font-size: 0.8rem; color: var(--text-secondary);">(${storeAccounts.length} account${storeAccounts.length > 1 ? 's' : ''})</span>
               </div>
               <div class="store-group-stats">
                 <span style="font-weight: 600; color: var(--success);">$${storeTotal.toFixed(0)}</span>
-                <span style="font-size: 1.2rem;" id="storeGroupArrow_${storeId}">▼</span>
+                <span style="font-size: 1.2rem;" id="${gid}_arrow">▼</span>
               </div>
             </div>
-            <div class="store-group-body" id="storeGroupBody_${storeId}">`;
+            <div class="store-group-body" id="${gid}_body">`;
         storeAccounts.forEach(account => {
           const profile = getProfile(account.profileId);
+          const rowStore = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
           const daySpend = dailySpendHistory[`${account.id}_${dateKey}`] ?? 0;
           const accHasIssue = account.adsStatus !== 'active' || account.storeStatus !== 'active';
           let vccDisplay;
           if (vcc) vccDisplay = `••••${vcc.number.slice(-4)}`;
-          else if (account.pendingVCC) vccDisplay = `••••${account.pendingVCC} ⚠️`;
+          else if (account.pendingVCC) vccDisplay = `••••${account.pendingVCC}`;
           else vccDisplay = '••••••••';
+          // In a shared-account group, each row is headed by its STORE/product name; otherwise by the profile name
+          const headline = isShared
+            ? `<span onclick="changeAccountStore('${account.id}')" style="cursor: pointer;" title="Click to change store">${rowStore?.name || 'Unknown'}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
+            : `${profile?.name || 'N/A'}${account.accountGroup ? ` <span title="Shares Google account: ${account.accountGroup}" style="color: var(--accent); font-size: 0.75rem; cursor: help;">🔗 ${account.accountGroup}</span>` : ''}`;
+          const subline = isShared
+            ? `${profile?.name || 'N/A'} • ${vccDisplay} • Lifetime: $${account.lifetimeSpend}`
+            : `${vccDisplay} • Lifetime: $${account.lifetimeSpend}`;
           html += `
               <div class="store-group-account ${accHasIssue ? 'has-issue' : ''}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
                   <div>
-                    <div style="font-weight: 500;">${profile?.name || 'N/A'}${account.accountGroup ? ` <span title="Shares Google account: ${account.accountGroup}" style="color: var(--accent); font-size: 0.75rem; cursor: help;">🔗 ${account.accountGroup}</span>` : ''}</div>
+                    <div style="font-weight: 500;">${headline}</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                      ${vccDisplay} • Lifetime: $${account.lifetimeSpend}
+                      ${subline}
                     </div>
                   </div>
                 </div>
@@ -2489,6 +2499,41 @@ Or just card numbers:
         body.style.display = 'none';
         arrow.textContent = '▶';
       }
+    }
+    function toggleTrackingGroup(gid) {
+      const body = document.getElementById(gid + '_body');
+      const arrow = document.getElementById(gid + '_arrow');
+      if (!body) return;
+      if (body.style.display === 'none') { body.style.display = 'block'; if (arrow) arrow.textContent = '▼'; }
+      else { body.style.display = 'none'; if (arrow) arrow.textContent = '▶'; }
+    }
+    async function renameAccountGroup(oldName) {
+      const val = prompt(`Rename shared account "${oldName}" to:`, oldName);
+      if (val === null) return;
+      const newName = val.trim();
+      if (!newName || newName === oldName) return;
+      const affected = [];
+      ['google', 'tiktok', 'facebook'].forEach(ch => data.accounts[ch].forEach(a => {
+        if (a.accountGroup === oldName) { a.accountGroup = newName; affected.push(a.id); }
+      }));
+      for (const id of affected) await persistAccountGroup(id, newName);
+      showToast(`Renamed to "${newName}" ✓`);
+      renderTracking(); renderAccounts(); renderDashboard();
+    }
+    async function changeAccountStore(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id == accountId);
+      if (!account) return;
+      if (!data.stores.length) { alert('No stores available.'); return; }
+      const current = getStore(account.storeId)?.name || 'none';
+      const list = data.stores.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+      const ans = prompt(`Move this account to which store? (currently: ${current})\n\n${list}\n\nEnter the number:`, '');
+      if (ans === null) return;
+      const idx = parseInt(ans, 10) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= data.stores.length) { alert('Invalid number.'); return; }
+      account.storeId = data.stores[idx].id;
+      await updateAdAccountInSupabase(accountId, { store_id: account.storeId });
+      showToast(`Moved to ${data.stores[idx].name} ✓`);
+      renderTracking(); renderAccounts(); renderDashboard();
     }
     async function autoSaveTracking(accountId, field, value) {
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
@@ -3217,20 +3262,23 @@ Or just card numbers:
       const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
       const storeGroups = {};
       accounts.forEach(account => {
-        const storeId = account.storeId;
-        if (!storeGroups[storeId]) storeGroups[storeId] = [];
-        storeGroups[storeId].push(account);
+        const key = account.accountGroup ? ('grp::' + account.accountGroup) : ('store::' + account.storeId);
+        if (!storeGroups[key]) storeGroups[key] = [];
+        storeGroups[key].push(account);
       });
       const typeOrder = { principal: 0, warming: 1, ready: 2 };
       Object.values(storeGroups).forEach(group => {
         group.sort((a, b) => (typeOrder[a.accountType] || 0) - (typeOrder[b.accountType] || 0));
       });
       let html = '';
-      Object.entries(storeGroups).forEach(([storeId, storeAccounts]) => {
-        const store = getStore(storeId);
-        const storeName = store?.name || 'Unknown Store';
-        const isPerformer = store?.isPerformer;
-        const hasTracking = store?.hasTracking;
+      Object.entries(storeGroups).forEach(([groupKey, storeAccounts], gi) => {
+        const isShared = groupKey.startsWith('grp::');
+        const groupName = isShared ? groupKey.slice(5) : null;
+        const headStore = isShared ? null : getStore(groupKey.slice(7));
+        const storeName = isShared ? groupName : (headStore?.name || 'Unknown Store');
+        const isPerformer = isShared ? false : headStore?.isPerformer;
+        const hasTracking = isShared ? false : headStore?.hasTracking;
+        const suffix = 'g' + gi;
         let storeLifetime = 0, storeYesterday = 0;
         storeAccounts.forEach(acc => {
           storeLifetime += acc.lifetimeSpend || 0;
@@ -3239,9 +3287,10 @@ Or just card numbers:
         const hasIssue = storeAccounts.some(acc => acc.adsStatus !== 'active' || acc.storeStatus !== 'active');
         html += `
           <div class="store-group" style="${hasIssue ? 'border-color: var(--warning);' : ''}">
-            <div class="store-group-header" onclick="toggleStoreGroupAccounts('${storeId}')">
+            <div class="store-group-header" onclick="toggleStoreGroupAccounts('${suffix}')">
               <div class="store-group-title">
-                <span>📦 ${storeName}</span>
+                <span>${isShared ? '🔗' : '📦'} ${storeName}</span>
+                ${isShared ? `<span onclick="event.stopPropagation(); renameAccountGroup('${groupName.replace(/'/g, "\\'")}')" style="cursor: pointer; font-size: 0.8rem; color: var(--accent);" title="Rename shared account">✏️</span>` : ''}
                 ${isPerformer ? '<span class="performer-badge">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge">📊 Tr</span>' : ''}
                 <span style="font-size: 0.8rem; color: var(--text-secondary);">(${storeAccounts.length} account${storeAccounts.length > 1 ? 's' : ''})</span>
@@ -3249,12 +3298,13 @@ Or just card numbers:
               <div class="store-group-stats">
                 <span>Yday: <strong style="color: var(--success);">$${storeYesterday.toFixed(0)}</strong></span>
                 <span>Lifetime: <strong>$${storeLifetime}</strong></span>
-                <span style="font-size: 1.2rem;" id="storeGroupAccArrow_${storeId}">▼</span>
+                <span style="font-size: 1.2rem;" id="storeGroupAccArrow_${suffix}">▼</span>
               </div>
             </div>
-            <div class="store-group-body" id="storeGroupAccBody_${storeId}">`;
+            <div class="store-group-body" id="storeGroupAccBody_${suffix}">`;
         storeAccounts.forEach(account => {
           const profile = getProfile(account.profileId);
+          const rowStore = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
           let vccDisplay, vccStyle = '';
           if (vcc) vccDisplay = perms.canSeeVCCDetails ? `••••${vcc.number.slice(-4)}` : '••••••••';
@@ -3269,17 +3319,22 @@ Or just card numbers:
               .map(x => getStore(x.storeId)?.name).filter(Boolean))];
             if (names.length) sharedWith = ' · with ' + names.join(', ');
           }
-          const groupChip = account.accountGroup
+          // In a shared group the header already names the account; each row shows its STORE/product name instead of a group chip
+          const storeLabel = isShared
+            ? `<span style="cursor:pointer; font-weight:700; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px solid var(--border);" onclick="changeAccountStore('${account.id}')" title="Click to change store">📦 ${rowStore?.name || 'Unknown'}${rowStore?.isPerformer ? ' ⭐' : ''} ✏️</span>`
+            : '';
+          const groupChip = isShared ? '' : (account.accountGroup
             ? `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--accent-soft); border:1px solid var(--accent); color:var(--accent); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Shared Google account — click to edit">🔗 ${account.accountGroup}${sharedWith}</span>`
-            : `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px dashed var(--border-light); color:var(--text-muted); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Link this account to a shared Google account">🔗 link</span>`;
+            : `<span style="cursor:pointer; padding:0.2rem 0.45rem; border-radius:4px; background:var(--bg-tertiary); border:1px dashed var(--border-light); color:var(--text-muted); font-size:0.75rem; white-space:nowrap;" onclick="openEditAccountGroup('${account.id}')" title="Link this account to a shared Google account">🔗 link</span>`);
           html += `
               <div class="store-group-account" data-account-id="${account.id}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;">
                   <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                  ${storeLabel ? `<div>${storeLabel}</div>` : ''}
                   <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${profile?.name || 'N/A'} ✏️</span></div>
                   <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="editAccountLast4('${account.id}')" title="Click to edit card last 4 digits">${vccDisplay} ✏️</span></div>
                   <div>${groupChip}</div>
-                  <div>${getCampaignTags(account.campaigns, store)}</div>
+                  <div>${getCampaignTags(account.campaigns, rowStore)}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                   ${getStatusBadge(account.adsStatus, 'ads')}
