@@ -1281,6 +1281,11 @@
             <h1 class="page-title" id="dashboardTitle">Google Ads Dashboard</h1>
             <p class="page-subtitle" id="dashboardSubtitle">Overview</p>
           </div>
+          <div class="header-actions" style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-primary" onclick="openDailyNote()" title="Build the daily WhatsApp note — just copy and paste">
+              📋 Daily Note
+            </button>
+          </div>
         </div>
         <div class="stats-grid" style="grid-template-columns: repeat(7, 1fr);">
           <div class="stat-card info">
@@ -1703,6 +1708,23 @@ Or just card numbers:
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('editProfile')">Cancel</button>
         <button class="btn btn-primary" onclick="updateAccountProfile()">Update Profile</button>
+      </div>
+    </div>
+  </div>
+  <!-- Daily Note (WhatsApp) Modal -->
+  <div class="modal-overlay" id="modal-dailyNote">
+    <div class="modal" style="max-width: 560px;">
+      <div class="modal-header">
+        <span class="modal-title">📋 Daily Note for WhatsApp</span>
+        <button class="modal-close" onclick="closeModal('dailyNote')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.75rem;">Auto-built from today's data. Fill in the payment amounts (after each <strong>$</strong>), then tap Copy and paste into WhatsApp.</p>
+        <textarea id="dailyNoteText" class="form-textarea" spellcheck="false" style="min-height: 300px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; line-height: 1.55; white-space: pre; overflow-wrap: normal; overflow-x: auto;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('dailyNote')">Close</button>
+        <button class="btn btn-primary" onclick="copyDailyNote()">📋 Copy</button>
       </div>
     </div>
   </div>
@@ -4075,6 +4097,60 @@ Or just card numbers:
     function renderAlerts() {
       const html = generateAlertsHtml();
       document.getElementById('alertsList').innerHTML = (html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No alerts</p></div>') + zeroSpendDropdownHtml();
+    }
+    // Build the daily WhatsApp note Jeannie copies & pastes
+    function generateDailyNote() {
+      const accounts = data.accounts[currentChannel];
+      const last4Of = (a) => {
+        const vcc = getVCC(a.vccId);
+        return (vcc && vcc.number) ? vcc.number.slice(-4) : (a.pendingVCC || '');
+      };
+      // Yesterday's date key
+      const tKey = getThailandDate();
+      const yd = new Date(tKey + 'T12:00:00'); yd.setDate(yd.getDate() - 1);
+      const yKey = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+      const valOf = (id, key) => {
+        const v = dailySpendHistory[`${id}_${key}`];
+        return (v !== undefined && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : undefined;
+      };
+
+      const lines = ['For Payment', ''];
+      const pay = accounts.filter(a => a.adsStatus === 'payment_issue');
+      if (pay.length) {
+        pay.forEach(a => {
+          const l4 = last4Of(a);
+          lines.push(`${getStore(a.storeId)?.name || 'Account'}${l4 ? ' -' + l4 : ''} -$`);
+        });
+      } else {
+        lines.push('(none)');
+      }
+
+      lines.push('', '0 Spend', '');
+      // Active accounts that logged $0 yesterday (includes payment ones too, as in the example)
+      const zero = accounts.filter(a => a.status === 'active' && valOf(a.id, yKey) === 0);
+      if (zero.length) {
+        zero.forEach(a => lines.push(getStore(a.storeId)?.name || 'Account'));
+      } else {
+        lines.push('(none)');
+      }
+      return lines.join('\n');
+    }
+    function openDailyNote() {
+      document.getElementById('dailyNoteText').value = generateDailyNote();
+      openModal('dailyNote');
+    }
+    function copyDailyNote() {
+      const ta = document.getElementById('dailyNoteText');
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, 999999);
+      const ok = () => showToast('📋 Copied! Paste into WhatsApp');
+      const fallback = () => { try { document.execCommand('copy'); ok(); } catch (e) { showToast('Press Ctrl/Cmd + C to copy'); } };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(ok).catch(fallback);
+      } else {
+        fallback();
+      }
     }
     function generateAlertsHtml(limit = null) {
       const perms = permissions[currentUser];
