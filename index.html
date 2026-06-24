@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TSNAC Hub - Ads Manager</title>
+  <script>
+    // Apply saved theme before paint to avoid a flash
+    (function () {
+      try {
+        var saved = localStorage.getItem('tsnac_theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Manage Google Ads accounts, VCCs, and daily tracking">
@@ -73,7 +83,45 @@
       --radius-lg: 14px;
       --radius-xl: 18px;
       --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      color-scheme: light;
     }
+    [data-theme="dark"] {
+      --bg-primary: #0b0c0e;
+      --bg-secondary: #141518;
+      --bg-tertiary: #1d1f24;
+      --bg-card: #141518;
+      --bg-hover: #242631;
+      --bg-glass: rgba(20, 21, 24, 0.92);
+      --text-primary: #f3f4f6;
+      --text-secondary: #a8b0bd;
+      --text-muted: #6b7280;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.13);
+      --border-hover: rgba(255, 255, 255, 0.24);
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-dark: #4f46e5;
+      --accent-soft: rgba(129, 140, 248, 0.15);
+      --accent-glow: rgba(129, 140, 248, 0.25);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
+      --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 6px 16px rgba(129, 140, 248, 0.25);
+      color-scheme: dark;
+    }
+    .theme-toggle {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-light);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+    .theme-toggle:hover { background: var(--bg-hover); border-color: var(--border-hover); color: var(--text-primary); }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -391,7 +439,7 @@
     }
     .table tr:last-child td { border-bottom: none; }
     .table tr { transition: var(--transition); }
-    .table tr:hover { background: rgba(0, 0, 0, 0.02); }
+    .table tr:hover { background: var(--bg-tertiary); }
     .status {
       display: inline-flex;
       align-items: center;
@@ -1068,9 +1116,12 @@
   <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <div class="logo">
-        <div class="logo-icon">📊</div>
-        <span>AdsManager</span>
+      <div class="logo" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <div class="logo-icon">📊</div>
+          <span>AdsManager</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Switch light / dark" aria-label="Toggle dark mode">🌙</button>
       </div>
       <!-- Channel Switcher -->
       <!-- Channel switcher hidden - Google only for now -->
@@ -2063,6 +2114,21 @@ Or just card numbers:
       document.getElementById('toastMessage').textContent = message;
       toast.classList.add('active');
       setTimeout(() => toast.classList.remove('active'), 3000);
+    }
+    function currentTheme() {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    }
+    function syncThemeToggle() {
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = currentTheme() === 'dark' ? '☀️' : '🌙';
+    }
+    function toggleTheme() {
+      const next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('tsnac_theme', next); } catch (e) {}
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', next === 'dark' ? '#0b0c0e' : '#ffffff');
+      syncThemeToggle();
     }
     function getCampaignTags(campaigns, store) {
       let tags = '';
@@ -4909,6 +4975,7 @@ Or just card numbers:
           .catch(error => { console.log('SW registration failed:', error); });
       });
     }
+    syncThemeToggle();
     init();
   </script>
 </body>
