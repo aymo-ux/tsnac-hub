@@ -4045,6 +4045,56 @@ Or just card numbers:
           alerts.push({ type: 'warning', icon: '⏸️', title: `${store?.name} is DOWN`, desc: `${vccInfo} • Yesterday: $${yesterdaySpend} - Pause campaign now!`, action: 'Fix', accountId: account.id });
         });
       }
+      // Barely spending: active, healthy accounts that logged <= $5 for 2+ days in a row.
+      // New stores/accounts (created within 3 days) get grace; once spend rises above $5 the streak breaks and the alert clears itself.
+      if (perms.alertsFor.includes('store_inactive')) {
+        const LOW = 5, MIN_STREAK = 2, GRACE_DAYS = 3;
+        const tKey = getThailandDate();
+        const keyDaysAgo = (n) => {
+          const d = new Date(tKey + 'T12:00:00');
+          d.setDate(d.getDate() - n);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+        const ageDays = (createdAt) => {
+          if (!createdAt) return Infinity;
+          const c = new Date(createdAt);
+          if (isNaN(c.getTime())) return Infinity;
+          return Math.floor((new Date(tKey + 'T12:00:00') - c) / 86400000);
+        };
+        accounts.forEach(account => {
+          // Only healthy, live accounts — skip anything another alert already covers
+          if (account.status !== 'active') return;
+          if (account.adsStatus && account.adsStatus !== 'active') return;
+          if (account.storeStatus === 'inactive') return;
+          const store = getStore(account.storeId);
+          // 3-day grace for new stores / new accounts (ramping up is normal)
+          if (ageDays(account.createdAt) < GRACE_DAYS) return;
+          if (store && ageDays(store.createdAt) < GRACE_DAYS) return;
+          // If it's already spending again today, it's no longer a concern
+          const todayVal = dailySpendHistory[`${account.id}_${tKey}`];
+          if (todayVal !== undefined && parseFloat(todayVal) > LOW) return;
+          // Count consecutive logged days (ending yesterday) at or below $5
+          let streak = 0, yesterdayLow = 0;
+          for (let n = 1; n <= 3; n++) {
+            const v = dailySpendHistory[`${account.id}_${keyDaysAgo(n)}`];
+            if (v !== undefined && parseFloat(v) <= LOW) {
+              streak++;
+              if (n === 1) yesterdayLow = parseFloat(v) || 0;
+            } else break;
+          }
+          if (streak >= MIN_STREAK) {
+            const profile = getProfile(account.profileId);
+            alerts.push({
+              type: 'warning',
+              icon: '📉',
+              title: `${store?.name || 'Account'} barely spending`,
+              desc: `${profile?.name || 'N/A'} • ≤$${LOW} for ${streak} days in a row (yesterday $${yesterdayLow}) — check delivery`,
+              action: 'Check',
+              accountId: account.id
+            });
+          }
+        });
+      }
       if (perms.alertsFor.includes('unassigned_vcc')) {
         data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(vcc => {
           alerts.push({ type: 'purple', icon: '💳', title: 'New VCC available', desc: `Card ••••${vcc.number.slice(-4)} ($${vcc.balance}) ready to use`, action: 'Use', vccId: vcc.id });
@@ -4111,6 +4161,9 @@ Or just card numbers:
               showAutoSaveIndicator('✓ Tracking fixed');
               showToast(`📊 Tracking removed from ${store.name} - Fixed!`);
             } else { showSection('suspended'); return; }
+          } else {
+            // Healthy account (e.g. low-spend "Check") — go to Daily Tracking to review spend
+            showSection('tracking');
           }
         }
       }
