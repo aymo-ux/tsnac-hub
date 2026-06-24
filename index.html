@@ -649,6 +649,54 @@
     /* "Done" style actions (e.g. Sent ✓) read as completed, not actionable */
     .alert-action.done { background: var(--success-bg); color: var(--success); border-color: transparent; box-shadow: none; cursor: default; }
     .alert-action.done:hover { filter: none; }
+    /* Zero-spend watchlist dropdown */
+    .zero-spend {
+      margin-top: 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    .zero-spend summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.7rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+    .zero-spend summary::-webkit-details-marker { display: none; }
+    .zero-spend summary::after { content: '⌄'; margin-left: auto; font-size: 1rem; transition: transform var(--transition); opacity: 0.6; }
+    .zero-spend[open] summary::after { transform: rotate(180deg); }
+    .zero-spend summary:hover { background: var(--bg-tertiary); }
+    .zero-count {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.05rem 0.45rem;
+      border-radius: 999px;
+    }
+    .zero-list { border-top: 1px solid var(--border); }
+    .zero-row {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    .zero-row:last-child { border-bottom: none; }
+    .zero-row:hover { background: var(--bg-tertiary); }
+    .zero-row-name { font-weight: 600; font-size: 0.83rem; }
+    .zero-row-sub { color: var(--text-muted); font-size: 0.78rem; }
+    .zero-row-days { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
     .form-group { margin-bottom: 1.1rem; }
     .form-label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 500; }
     .form-input, .form-select, .form-textarea {
@@ -2298,7 +2346,10 @@ Or just card numbers:
       document.getElementById('statTracking').textContent = trackingStores;
       document.getElementById('statWarning').textContent = needsAttention;
       document.getElementById('statSuspended').textContent = suspended;
-      document.getElementById('dashboardAlerts').innerHTML = generateAlertsHtml(10) || '<div class="empty-state"><p>No alerts</p></div>';
+      const dashAlertsHtml = generateAlertsHtml(10);
+      const dashZeroHtml = zeroSpendDropdownHtml();
+      document.getElementById('dashboardAlerts').innerHTML =
+        (dashAlertsHtml || (dashZeroHtml ? '' : '<div class="empty-state"><p>No alerts</p></div>')) + dashZeroHtml;
       const storeGroups = {};
       accounts.forEach(account => {
         const storeId = account.storeId;
@@ -3962,9 +4013,68 @@ Or just card numbers:
       });
       document.getElementById('savedAccountsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">💾</div><p>No saved accounts</p></div>';
     }
+    // Shared spend analysis for an account: streaks of low (<=$5) and zero ($0) spend,
+    // with new-store grace and health checks. Returns null if the account isn't eligible.
+    function lowSpendInfo(account) {
+      const LOW = 5, GRACE_DAYS = 3;
+      if (account.status !== 'active') return null;
+      if (account.adsStatus && account.adsStatus !== 'active') return null;
+      if (account.storeStatus === 'inactive') return null;
+      const tKey = getThailandDate();
+      const ageDays = (createdAt) => {
+        if (!createdAt) return Infinity;
+        const c = new Date(createdAt);
+        if (isNaN(c.getTime())) return Infinity;
+        return Math.floor((new Date(tKey + 'T12:00:00') - c) / 86400000);
+      };
+      const store = getStore(account.storeId);
+      if (ageDays(account.createdAt) < GRACE_DAYS) return null;          // new account grace
+      if (store && ageDays(store.createdAt) < GRACE_DAYS) return null;   // new store grace
+      const keyDaysAgo = (n) => {
+        const d = new Date(tKey + 'T12:00:00');
+        d.setDate(d.getDate() - n);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+      const parseVal = (v) => (v !== undefined && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : undefined;
+      const todayVal = parseVal(dailySpendHistory[`${account.id}_${tKey}`]);
+      let lowStreak = 0, zeroStreak = 0, yesterdayVal = 0, lowGoing = true, zeroGoing = true;
+      for (let n = 1; n <= 14 && (lowGoing || zeroGoing); n++) {
+        const num = parseVal(dailySpendHistory[`${account.id}_${keyDaysAgo(n)}`]);
+        if (n === 1) yesterdayVal = (num !== undefined) ? num : 0;
+        if (lowGoing) { if (num !== undefined && num <= LOW) lowStreak++; else lowGoing = false; }
+        if (zeroGoing) { if (num !== undefined && num === 0) zeroStreak++; else zeroGoing = false; }
+      }
+      return { lowStreak, zeroStreak, todayVal, yesterdayVal, store, profile: getProfile(account.profileId) };
+    }
+    // Accounts sitting at $0 for 3+ days in a row — a quiet watchlist, shown in a dropdown.
+    function getZeroSpendAccounts() {
+      const out = [];
+      data.accounts[currentChannel].forEach(account => {
+        const info = lowSpendInfo(account);
+        if (!info) return;
+        if (info.todayVal !== undefined && info.todayVal > 0) return; // started spending today
+        if (info.zeroStreak >= 3) out.push({ account, info });
+      });
+      return out;
+    }
+    function zeroSpendDropdownHtml() {
+      const list = getZeroSpendAccounts();
+      if (!list.length) return '';
+      const rows = list.map(({ account, info }) => `
+        <div class="zero-row" onclick="handleAlertAction('${account.id}', '', '')" title="View in Daily Tracking">
+          <span class="zero-row-name">${escapeHtml(info.store?.name || 'Account')}</span>
+          <span class="zero-row-sub">${escapeHtml(info.profile?.name || 'N/A')}</span>
+          <span class="zero-row-days">$0 · ${info.zeroStreak}d</span>
+        </div>`).join('');
+      return `
+        <details class="zero-spend">
+          <summary><span>💤 Zero spend · 3+ days</span><span class="zero-count">${list.length}</span></summary>
+          <div class="zero-list">${rows}</div>
+        </details>`;
+    }
     function renderAlerts() {
       const html = generateAlertsHtml();
-      document.getElementById('alertsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No alerts</p></div>';
+      document.getElementById('alertsList').innerHTML = (html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No alerts</p></div>') + zeroSpendDropdownHtml();
     }
     function generateAlertsHtml(limit = null) {
       const perms = permissions[currentUser];
@@ -4046,49 +4156,20 @@ Or just card numbers:
         });
       }
       // Barely spending: active, healthy accounts that logged <= $5 for 2+ days in a row.
-      // New stores/accounts (created within 3 days) get grace; once spend rises above $5 the streak breaks and the alert clears itself.
+      // New stores/accounts (created within 3 days) get grace; rising above $5 clears it.
+      // Accounts at $0 for 3+ days go to the separate "Zero spend" dropdown instead.
       if (perms.alertsFor.includes('store_inactive')) {
-        const LOW = 5, MIN_STREAK = 2, GRACE_DAYS = 3;
-        const tKey = getThailandDate();
-        const keyDaysAgo = (n) => {
-          const d = new Date(tKey + 'T12:00:00');
-          d.setDate(d.getDate() - n);
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        };
-        const ageDays = (createdAt) => {
-          if (!createdAt) return Infinity;
-          const c = new Date(createdAt);
-          if (isNaN(c.getTime())) return Infinity;
-          return Math.floor((new Date(tKey + 'T12:00:00') - c) / 86400000);
-        };
         accounts.forEach(account => {
-          // Only healthy, live accounts — skip anything another alert already covers
-          if (account.status !== 'active') return;
-          if (account.adsStatus && account.adsStatus !== 'active') return;
-          if (account.storeStatus === 'inactive') return;
-          const store = getStore(account.storeId);
-          // 3-day grace for new stores / new accounts (ramping up is normal)
-          if (ageDays(account.createdAt) < GRACE_DAYS) return;
-          if (store && ageDays(store.createdAt) < GRACE_DAYS) return;
-          // If it's already spending again today, it's no longer a concern
-          const todayVal = dailySpendHistory[`${account.id}_${tKey}`];
-          if (todayVal !== undefined && parseFloat(todayVal) > LOW) return;
-          // Count consecutive logged days (ending yesterday) at or below $5
-          let streak = 0, yesterdayLow = 0;
-          for (let n = 1; n <= 3; n++) {
-            const v = dailySpendHistory[`${account.id}_${keyDaysAgo(n)}`];
-            if (v !== undefined && parseFloat(v) <= LOW) {
-              streak++;
-              if (n === 1) yesterdayLow = parseFloat(v) || 0;
-            } else break;
-          }
-          if (streak >= MIN_STREAK) {
-            const profile = getProfile(account.profileId);
+          const info = lowSpendInfo(account);
+          if (!info) return;
+          if (info.todayVal !== undefined && info.todayVal > 5) return; // started spending again
+          if (info.zeroStreak >= 3) return;                             // belongs in the Zero-spend dropdown
+          if (info.lowStreak >= 2) {
             alerts.push({
               type: 'warning',
               icon: '📉',
-              title: `${store?.name || 'Account'} barely spending`,
-              desc: `${profile?.name || 'N/A'} • ≤$${LOW} for ${streak} days in a row (yesterday $${yesterdayLow}) — check delivery`,
+              title: `${info.store?.name || 'Account'} barely spending`,
+              desc: `${info.profile?.name || 'N/A'} • ≤$5 for ${info.lowStreak} days in a row (yesterday $${info.yesterdayVal}) — check delivery`,
               action: 'Check',
               accountId: account.id
             });
