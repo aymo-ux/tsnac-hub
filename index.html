@@ -1633,6 +1633,19 @@ Or just card numbers:
       </div>
     </div>
   </div>
+  <!-- Store Spend Trend Modal -->
+  <div class="modal-overlay" id="modal-storeTrend">
+    <div class="modal" style="max-width: 780px;">
+      <div class="modal-header">
+        <span class="modal-title" id="storeTrendTitle">Spend Trend · Last 14 Days</span>
+        <button class="modal-close" onclick="closeModal('storeTrend')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="storeTrendSummary" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.1rem;"></div>
+        <div id="storeTrendChart"></div>
+      </div>
+    </div>
+  </div>
   <!-- Add Account Modal -->
   <div class="modal-overlay" id="modal-addAccount">
     <div class="modal">
@@ -2321,10 +2334,14 @@ Or just card numbers:
       renderSpendTrend();
     }
     function renderSpendTrend() {
-      const chartEl = document.getElementById('spendTrendChart');
-      const summaryEl = document.getElementById('spendTrendSummary');
+      buildSpendTrend(
+        data.accounts[currentChannel].filter(a => a.status === 'active'),
+        document.getElementById('spendTrendChart'),
+        document.getElementById('spendTrendSummary')
+      );
+    }
+    function buildSpendTrend(accounts, chartEl, summaryEl) {
       if (!chartEl) return;
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       // Build the last 14 day keys (oldest -> newest), based on the app's "today"
       const todayKey = getThailandDate();
       const base = new Date(todayKey + 'T12:00:00');
@@ -2391,6 +2408,18 @@ Or just card numbers:
 
       chartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${avgLine}${bars}${labels}</svg>`;
     }
+    function openStoreTrend(storeId) {
+      const store = getStore(storeId);
+      if (!store) return;
+      const titleEl = document.getElementById('storeTrendTitle');
+      if (titleEl) titleEl.textContent = `${store.name || 'Store'} · Spend Trend · Last 14 Days`;
+      // All active accounts for this store, across channels (spend history is keyed by account id)
+      const accounts = ['google', 'tiktok', 'facebook']
+        .flatMap(ch => data.accounts[ch])
+        .filter(a => a.status === 'active' && a.storeId === storeId);
+      buildSpendTrend(accounts, document.getElementById('storeTrendChart'), document.getElementById('storeTrendSummary'));
+      openModal('storeTrend');
+    }
     function renderStores() {
       const perms = permissions[currentUser];
       let html = '';
@@ -2435,6 +2464,7 @@ Or just card numbers:
                 ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
                 <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">📊</button>
                 ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">⭐</button>` : ''}
+                <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">📈</button>
                 <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View Assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">📋</button>
                 ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.45rem 0.6rem; min-width: 38px;" onclick="deleteStore('${store.id}')" title="Delete Store">🗑️</button>` : ''}
               </div>
@@ -4113,7 +4143,7 @@ Or just card numbers:
             subtitle: subtitle,
             badge: badge,
             id: store.id,
-            action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); }
+            action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); openStoreTrend(store.id); }
           });
         }
       });
