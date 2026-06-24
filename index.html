@@ -1582,33 +1582,6 @@ Or just card numbers:
       </div>
     </div>
   </div>
-  <!-- Edit Account Type Modal -->
-  <div class="modal-overlay" id="modal-editAccountType">
-    <div class="modal" style="max-width: 500px;">
-      <div class="modal-header">
-        <span class="modal-title">Change Account Type</span>
-        <button class="modal-close" onclick="closeModal('editAccountType')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="editAccountTypeInfo" style="padding: 1rem; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 1.5rem;">
-          <!-- Account info will be inserted here -->
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Select Account Type</label>
-          <select class="form-select" id="editAccountTypeSelect">
-            <option value="principal">👑 Principal (Main Account)</option>
-            <option value="warming">🔥 Backup (Warming Up)</option>
-            <option value="ready">✅ Backup (Ready)</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('editAccountType')">Cancel</button>
-        <button class="btn btn-primary" onclick="updateAccountType()">Update Type</button>
-      </div>
-    </div>
-  </div>
   <!-- Add Account Modal -->
   <div class="modal-overlay" id="modal-addAccount">
     <div class="modal">
@@ -1631,14 +1604,6 @@ Or just card numbers:
         <div class="form-group">
           <label class="form-label">💳 Card last 4 digits <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
           <input type="text" class="form-input" id="manualVCCLast4" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" style="font-family: 'JetBrains Mono', monospace;">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Account Type</label>
-          <select class="form-select" id="accountType">
-            <option value="principal">👑 Principal (Main Account)</option>
-            <option value="warming">🔥 Backup (Warming Up)</option>
-            <option value="ready">✅ Backup (Ready)</option>
-          </select>
         </div>
         <div class="form-group">
           <label class="form-label">🔗 Shared account name <span style="font-weight: 400; color: var(--text-muted);">(auto-filled when you pick 2+ stores)</span></label>
@@ -2088,12 +2053,7 @@ Or just card numbers:
       return badges[type]?.[status] || status;
     }
     function getAccountTypeBadge(type) {
-      const badges = {
-        principal: '<span class="account-type-badge principal">👑 Principal</span>',
-        warming: '<span class="account-type-badge warming">🔥 Warming</span>',
-        ready: '<span class="account-type-badge ready">✅ Ready</span>'
-      };
-      return badges[type] || badges.principal;
+      return ''; // Account type removed — no badge shown
     }
     function formatDate(dateStr) {
       return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2280,7 +2240,7 @@ Or just card numbers:
           const accYesterday = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
           groupsHtml += `
               <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg-tertiary); border-radius: 6px; font-size: 0.8rem;">
-                <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                
                 <span>${profile?.name || 'N/A'}</span>
                 <span style="color: var(--text-muted);">••••${vccLast4}</span>
                 ${getStatusBadge(account.adsStatus, 'ads')}
@@ -2502,7 +2462,7 @@ Or just card numbers:
           html += `
               <div class="store-group-account ${accHasIssue ? 'has-issue' : ''}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
-                  <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                  
                   <div>
                     <div style="font-weight: 500;">${headline}</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">
@@ -2891,7 +2851,7 @@ Or just card numbers:
               <span class="quick-entry-dot" style="width:9px; height:9px; border-radius:50%; flex-shrink:0; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? 1 : 0.4};"></span>
               <div style="flex:1; min-width:0;">
                 <div style="font-weight:600; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(name)}</div>
-                <div style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">••••${last4} · ${getAccountTypeBadge(account.accountType)}</div>
+                <div style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">••••${last4}</div>
               </div>
               <div style="display:flex; align-items:center; gap:0.3rem;">
                 <span style="color:var(--text-muted); font-weight:600;">$</span>
@@ -3221,7 +3181,7 @@ Or just card numbers:
         return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
       };
       // Header: Store, Account, then one column per date, then Total
-      const header = ['Store', 'Account', 'Type', ...dates, 'Total'];
+      const header = ['Store', 'Account', ...dates, 'Total'];
       const rows = [header.map(esc).join(',')];
       const colTotals = dates.map(() => 0);
       accounts.forEach(a => {
@@ -3233,10 +3193,10 @@ Or just card numbers:
           rowTotal += v; colTotals[i] += v;
           return v;
         });
-        rows.push([store?.name || 'Unknown', profile?.name || ('Acct ' + a.id), a.accountType || '', ...cells, rowTotal.toFixed(2)].map(esc).join(','));
+        rows.push([store?.name || 'Unknown', profile?.name || ('Acct ' + a.id), ...cells, rowTotal.toFixed(2)].map(esc).join(','));
       });
       const grand = colTotals.reduce((a, b) => a + b, 0);
-      rows.push(['TOTAL', '', '', ...colTotals.map(t => t.toFixed(2)), grand.toFixed(2)].map(esc).join(','));
+      rows.push(['TOTAL', '', ...colTotals.map(t => t.toFixed(2)), grand.toFixed(2)].map(esc).join(','));
       const csv = rows.join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -3381,7 +3341,7 @@ Or just card numbers:
           html += `
               <div class="store-group-account" data-account-id="${account.id}" style="${accHasIssue ? 'background: var(--warning-bg);' : ''}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;">
-                  <span onclick="openEditAccountType('${account.id}')" style="cursor: pointer;" title="Click to change type">${getAccountTypeBadge(account.accountType)}</span>
+                  
                   ${storeLabel ? `<div>${storeLabel}</div>` : ''}
                   <div><span style="cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border);" onclick="openEditProfile('${account.id}')" title="Click to change Profile">${escapeHtml(profile?.name || 'N/A')} ✏️</span></div>
                   <div><span style="font-family: 'JetBrains Mono', monospace; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); border: 1px solid var(--border); ${vccStyle}" onclick="editAccountLast4('${account.id}')" title="Click to edit card last 4 digits">${vccDisplay} ✏️</span></div>
@@ -3545,6 +3505,9 @@ Or just card numbers:
       }
     }
     function openEditAccountType(accountId) {
+      return; // Account type removed — editing disabled
+    }
+    function openEditAccountType_removed(accountId) {
       editingAccountId = accountId;
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
@@ -4883,7 +4846,7 @@ Or just card numbers:
       const selectedStoreIds = [...document.querySelectorAll('.account-store-cb:checked')].map(cb => cb.value);
       const profileId = document.getElementById('accountProfile').value;
       const last4 = document.getElementById('manualVCCLast4').value.trim();
-      const accountType = document.getElementById('accountType').value;
+      const accountType = 'principal';
       if (!selectedStoreIds.length) { alert('Please pick at least one store this account runs.'); return; }
       if (!profileId) { alert('Please select a profile.'); return; }
       if (last4 && !/^\d{4}$/.test(last4)) { alert('Card digits must be exactly 4 numbers (or leave blank).'); return; }
