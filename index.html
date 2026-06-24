@@ -591,40 +591,64 @@
       display: flex;
       align-items: center;
       gap: 0.85rem;
-      padding: 0.85rem 1rem;
-      background: var(--bg-tertiary);
-      border-radius: var(--radius-sm);
-      margin-bottom: 0.6rem;
-      border-left: 3px solid;
-      transition: var(--transition);
-    }
-    .alert-item:hover { background: var(--bg-hover); }
-    .alert-item.warning { border-color: var(--warning); background: var(--warning-bg); }
-    .alert-item.danger { border-color: var(--danger); background: var(--danger-bg); }
-    .alert-item.orange { border-color: var(--orange); background: var(--orange-bg); }
-    .alert-item.info { border-color: var(--info); background: var(--info-bg); }
-    .alert-item.purple { border-color: var(--purple); background: var(--purple-bg); }
-    .alert-item.teal { border-color: var(--teal); background: var(--teal-bg); }
-    .alert-icon { font-size: 1.35rem; }
-    .alert-content { flex: 1; }
-    .alert-title { font-weight: 600; font-size: 0.88rem; }
-    .alert-desc { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.15rem; }
-    .alert-time { font-size: 0.72rem; color: var(--text-muted); }
-    .alert-action {
-      padding: 0.45rem 0.9rem;
+      padding: 0.8rem 1rem;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-left: 3px solid var(--text-muted);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.55rem;
+      transition: var(--transition);
+    }
+    .alert-item:hover { background: var(--bg-tertiary); border-color: var(--border-light); }
+    .alert-item.warning { border-left-color: var(--warning); }
+    .alert-item.danger { border-left-color: var(--danger); }
+    .alert-item.orange { border-left-color: var(--orange); }
+    .alert-item.info { border-left-color: var(--info); }
+    .alert-item.purple { border-left-color: var(--purple); }
+    .alert-item.teal { border-left-color: var(--teal); }
+    .alert-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
+      flex-shrink: 0;
+      background: var(--bg-tertiary);
+    }
+    .alert-item.warning .alert-icon { background: var(--warning-bg); }
+    .alert-item.danger .alert-icon { background: var(--danger-bg); }
+    .alert-item.orange .alert-icon { background: var(--orange-bg); }
+    .alert-item.info .alert-icon { background: var(--info-bg); }
+    .alert-item.purple .alert-icon { background: var(--purple-bg); }
+    .alert-item.teal .alert-icon { background: var(--teal-bg); }
+    .alert-content { flex: 1; min-width: 0; }
+    .alert-title { font-weight: 600; font-size: 0.88rem; letter-spacing: -0.01em; }
+    .alert-desc { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alert-time { font-size: 0.72rem; color: var(--text-muted); }
+    .alert-action {
+      padding: 0.45rem 0.95rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
       color: var(--text-primary);
       font-size: 0.78rem;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       transition: var(--transition);
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
     }
     .alert-action:hover {
       background: var(--bg-hover);
       border-color: var(--border-hover);
     }
+    /* Urgent alerts get a filled action button so the fix is obvious */
+    .alert-item.danger .alert-action { background: var(--danger); color: #fff; border-color: transparent; box-shadow: none; }
+    .alert-item.orange .alert-action { background: var(--orange); color: #fff; border-color: transparent; box-shadow: none; }
+    .alert-item.danger .alert-action:hover,
+    .alert-item.orange .alert-action:hover { filter: brightness(0.92); }
+    /* "Done" style actions (e.g. Sent ✓) read as completed, not actionable */
+    .alert-action.done { background: var(--success-bg); color: var(--success); border-color: transparent; box-shadow: none; cursor: default; }
+    .alert-action.done:hover { filter: none; }
     .form-group { margin-bottom: 1.1rem; }
     .form-label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 500; }
     .form-input, .form-select, .form-textarea {
@@ -1075,6 +1099,7 @@
         align-items: flex-start;
         gap: 0.6rem;
       }
+      .alert-desc { white-space: normal; }
       .channel-switcher { padding: 0.25rem; }
       .channel-btn { padding: 0.5rem 0.25rem; font-size: 0.7rem; }
       .store-group-header {
@@ -4025,15 +4050,18 @@ Or just card numbers:
           alerts.push({ type: 'purple', icon: '💳', title: 'New VCC available', desc: `Card ••••${vcc.number.slice(-4)} ($${vcc.balance}) ready to use`, action: 'Use', vccId: vcc.id });
         });
       }
+      // Most urgent first, so the alerts that need action surface to the top
+      const severity = { danger: 0, orange: 1, warning: 2, info: 3, teal: 4, purple: 5 };
+      alerts.sort((a, b) => (severity[a.type] ?? 9) - (severity[b.type] ?? 9));
       if (limit) alerts = alerts.slice(0, limit);
       return alerts.map(alert => `
         <div class="alert-item ${alert.type}">
           <div class="alert-icon">${alert.icon}</div>
           <div class="alert-content">
             <div class="alert-title">${escapeHtml(alert.title)}</div>
-            <div class="alert-desc">${escapeHtml(alert.desc)}</div>
+            <div class="alert-desc" title="${escapeHtml(alert.desc)}">${escapeHtml(alert.desc)}</div>
           </div>
-          <button class="alert-action" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
+          <button class="alert-action${(alert.action || '').includes('✓') ? ' done' : ''}" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
         </div>
       `).join('');
     }
