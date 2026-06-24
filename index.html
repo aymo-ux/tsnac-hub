@@ -2842,6 +2842,7 @@ Or just card numbers:
     let selectedTrackingDate = getThailandDate();
     let trackingViewMode = 'card';
     let trackingSortBySpend = false;
+    let calendarSortDay = null;
     function changeTrackingDay(offset) {
       const currentDate = new Date(selectedTrackingDate + 'T12:00:00');
       currentDate.setDate(currentDate.getDate() + offset);
@@ -2897,6 +2898,7 @@ Or just card numbers:
     }
     function toggleSpendRanking() {
       trackingSortBySpend = !trackingSortBySpend;
+      if (trackingSortBySpend) calendarSortDay = null; // month-total ranking clears any single-day sort
       const btn = document.getElementById('rankSpendBtn');
       if (btn) {
         btn.textContent = trackingSortBySpend ? '🔽 Ranked by Spend ✓' : '🔽 Rank by Spend';
@@ -3055,6 +3057,12 @@ Or just card numbers:
       renderTrackingCalendar();
     }
     function getDaysInMonth(month, year) { return new Date(year, month + 1, 0).getDate(); }
+    function sortCalendarByDay(dateKey) {
+      // Toggle: click the same day again to return to the default order
+      calendarSortDay = (calendarSortDay === dateKey) ? null : dateKey;
+      if (calendarSortDay) trackingSortBySpend = false; // single-day sort overrides month-total ranking
+      renderTrackingCalendar();
+    }
     function renderTrackingCalendar() {
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       const daysInMonth = getDaysInMonth(currentTrackingMonth, currentTrackingYear);
@@ -3083,14 +3091,21 @@ Or just card numbers:
       days.forEach(d => {
         const isToday = d.date === getThailandDate();
         const isWeekend = new Date(d.date).getDay() === 0 || new Date(d.date).getDay() === 6;
-        headerHtml += `<th style="min-width: 55px; text-align: center; padding: 0.5rem 0.25rem; ${isToday ? 'background: var(--accent); color: white; border-radius: 4px;' : ''} ${isWeekend ? 'color: var(--text-muted);' : ''}"><div style="font-size: 0.75rem; opacity: 0.7;">${d.dayOfWeek}</div><div>${d.day}</div></th>`;
+        const isSorted = calendarSortDay === d.date;
+        const bg = isSorted ? 'background: var(--accent-soft); border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--accent);'
+                            : (isToday ? 'background: var(--accent); color: white; border-radius: 4px;' : '');
+        headerHtml += `<th onclick="sortCalendarByDay('${d.date}')" title="Click to rank stores by this day's spend" style="min-width: 55px; text-align: center; padding: 0.5rem 0.25rem; cursor: pointer; ${bg} ${isWeekend && !isSorted && !isToday ? 'color: var(--text-muted);' : ''}"><div style="font-size: 0.75rem; opacity: 0.7;">${d.dayOfWeek}</div><div>${d.day}${isSorted ? ' <span style="color: var(--accent);">▼</span>' : ''}</div></th>`;
       });
       headerHtml += '<th style="min-width: 70px; text-align: center; background: var(--bg-tertiary);">Total</th>';
       let bodyHtml = '';
       const dayTotals = {};
       days.forEach(d => dayTotals[d.date] = 0);
       let grandTotal = 0;
-      if (trackingSortBySpend) {
+      if (calendarSortDay) {
+        // Rank rows by the chosen day's spend (highest first)
+        const daySpend = acc => parseFloat(dailySpendHistory[`${acc.id}_${calendarSortDay}`]) || 0;
+        accounts.sort((a, b) => daySpend(b) - daySpend(a));
+      } else if (trackingSortBySpend) {
         const monthTotal = acc => days.reduce((s, d) => {
           const v = dailySpendHistory[`${acc.id}_${d.date}`];
           return s + (v !== undefined ? (parseFloat(v) || 0) : 0);
@@ -3107,7 +3122,8 @@ Or just card numbers:
           const isToday = d.date === getThailandDate();
           const spend = dailySpendHistory[key] !== undefined ? dailySpendHistory[key] : (isToday ? account.spend : 0);
           if (spend > 0) { rowTotal += spend; dayTotals[d.date] += spend; }
-          bodyHtml += `<td style="text-align: center; padding: 0.25rem;"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${spend || ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
+          const isSortedCol = calendarSortDay === d.date;
+          bodyHtml += `<td style="text-align: center; padding: 0.25rem; ${isSortedCol ? 'background: var(--accent-soft);' : ''}"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${spend || ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
         });
         grandTotal += rowTotal;
         bodyHtml += `<td style="text-align: center; font-weight: 600; color: var(--success); background: var(--bg-tertiary);">$${rowTotal}</td></tr>`;
