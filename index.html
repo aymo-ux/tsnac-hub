@@ -697,6 +697,8 @@
     .zero-row-name { font-weight: 600; font-size: 0.83rem; }
     .zero-row-sub { color: var(--text-muted); font-size: 0.78rem; }
     .zero-row-days { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+    .trend-mini { cursor: pointer; opacity: 0.5; margin-left: 0.4rem; font-size: 0.9rem; transition: opacity 0.15s; }
+    .trend-mini:hover { opacity: 1; }
     .form-group { margin-bottom: 1.1rem; }
     .form-label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 500; }
     .form-input, .form-select, .form-textarea {
@@ -3214,7 +3216,7 @@ Or just card numbers:
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
         let rowTotal = 0;
-        bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500; white-space: nowrap;">${store?.name || 'N/A'}${store?.isPerformer ? ' ⭐' : ''}</td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem;">${profile?.name || 'N/A'}</td>`;
+        bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500; white-space: nowrap;">${escapeHtml(store?.name || 'N/A')}${store?.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="openStoreTrend('${account.storeId}')" title="Last 14 days spend trend">📈</span></td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem;">${escapeHtml(profile?.name || 'N/A')}</td>`;
         days.forEach(d => {
           const key = `${account.id}_${d.date}`;
           const isToday = d.date === getThailandDate();
