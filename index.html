@@ -3073,20 +3073,26 @@ Or just card numbers:
       const v = Math.round((n + Number.EPSILON) * 100) / 100;
       return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
+    function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
+    function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
     async function loadRevenue() {
       if (!isOwner()) return;
+      loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
       try {
         const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*');
-        if (error) { console.error('daily_revenue load error:', error); return; }
-        dailyRevenue = {};
-        (rows || []).forEach(r => { dailyRevenue[`${r.store_id}_${r.date}`] = parseFloat(r.amount) || 0; });
-        revenueLoaded = true;
+        if (error) { console.error('daily_revenue load error:', error); }
+        else if (rows) {
+          rows.forEach(r => { dailyRevenue[`${r.store_id}_${r.date}`] = parseFloat(r.amount) || 0; });
+          saveRevenueLocal(); // keep local copy in sync with cloud
+        }
       } catch (e) { console.error('daily_revenue exception:', e); }
+      revenueLoaded = true;
     }
     async function saveRevenue(storeId, dateKey, value) {
       const amount = parseFloat(value) || 0;
       if (amount) dailyRevenue[`${storeId}_${dateKey}`] = amount;
       else delete dailyRevenue[`${storeId}_${dateKey}`];
+      saveRevenueLocal(); // save locally FIRST so a refresh never loses it
       renderRevenue();
       if (typeof renderPnl === 'function') renderPnl();
       try {
@@ -3094,9 +3100,9 @@ Or just card numbers:
           { store_id: String(storeId), date: dateKey, amount: amount },
           { onConflict: 'store_id,date' }
         );
-        showAutoSaveIndicator(error ? '⚠️ Not saved' : '✓ Saved');
+        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
         if (error) console.error('daily_revenue save error:', error);
-      } catch (e) { console.error('daily_revenue exception:', e); showAutoSaveIndicator('⚠️ Not saved'); }
+      } catch (e) { console.error('daily_revenue exception:', e); showAutoSaveIndicator('✓ Saved on this device'); }
     }
     function revenueDateKey() { return revenueDate || getThailandDate(); }
     function shiftRevenueDate(delta) {
@@ -3153,6 +3159,7 @@ Or just card numbers:
         const c = (i === keys.length - 1) ? (cents - base * (keys.length - 1)) : base;
         dailyRevenue[`${storeId}_${k}`] = c / 100;
       });
+      saveRevenueLocal();
       renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
       let ok = true;
       for (const k of keys) {
@@ -3228,6 +3235,7 @@ Or just card numbers:
       if (target) { target.focus(); target.select(); target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
     async function persistRevenueDays(storeId, rows) {
+      saveRevenueLocal();
       let ok = true;
       for (const r of rows) {
         try {
@@ -3407,30 +3415,36 @@ Or just card numbers:
       });
       return s;
     }
+    function savePnlLocal() { try { localStorage.setItem('tsnac_pnl', JSON.stringify(pnlData)); } catch (e) {} }
+    function loadPnlLocal() { try { const s = localStorage.getItem('tsnac_pnl'); if (s) pnlData = JSON.parse(s) || {}; } catch (e) {} }
     async function loadPnl() {
       if (!isOwner()) return;
+      loadPnlLocal();
       try {
         const { data: rows, error } = await supabaseClient.from('daily_pnl').select('*');
-        if (error) { console.error('daily_pnl load error:', error); return; }
-        pnlData = {};
-        (rows || []).forEach(r => { pnlData[r.date] = { cogs: parseFloat(r.cogs) || 0, refunds: parseFloat(r.refunds) || 0 }; });
-        pnlLoaded = true;
+        if (error) { console.error('daily_pnl load error:', error); }
+        else if (rows) {
+          rows.forEach(r => { pnlData[r.date] = { cogs: parseFloat(r.cogs) || 0, refunds: parseFloat(r.refunds) || 0 }; });
+          savePnlLocal();
+        }
       } catch (e) { console.error('daily_pnl exception:', e); }
+      pnlLoaded = true;
     }
     async function savePnl(dateKey, field, value) {
       const amount = parseFloat(value) || 0;
       const cur = pnlData[dateKey] || { cogs: 0, refunds: 0 };
       cur[field] = amount;
       pnlData[dateKey] = cur;
+      savePnlLocal();
       renderPnl();
       try {
         const { error } = await supabaseClient.from('daily_pnl').upsert(
           { date: dateKey, cogs: cur.cogs, refunds: cur.refunds },
           { onConflict: 'date' }
         );
-        showAutoSaveIndicator(error ? '⚠️ Not saved' : '✓ Saved');
+        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
         if (error) console.error('daily_pnl save error:', error);
-      } catch (e) { showAutoSaveIndicator('⚠️ Not saved'); console.error(e); }
+      } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); console.error(e); }
     }
     function pnlEnsureMonth() {
       if (pnlMonth === null) { const t = getThailandDate().split('-').map(Number); pnlYear = t[0]; pnlMonth = t[1] - 1; }
