@@ -1535,7 +1535,8 @@
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
             <button class="btn btn-secondary" id="revMonthBtn" onclick="setRevenueView('month')">🗓️ Month</button>
-            <button class="btn btn-primary" onclick="openRevenueRange()">📅 Enter range</button>
+            <button class="btn btn-primary" onclick="openRevenueQuick()">⚡ Quick entry</button>
+            <button class="btn btn-secondary" onclick="openRevenueRange()">📅 Enter range</button>
           </div>
         </div>
 
@@ -1815,6 +1816,31 @@ Or just card numbers:
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('dailyNote')">Close</button>
         <button class="btn btn-primary" onclick="copyDailyNote()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+  <!-- Revenue Quick Entry Modal -->
+  <div class="modal-overlay" id="modal-revenueQuick">
+    <div class="modal" style="max-width: 520px;">
+      <div class="modal-header">
+        <span class="modal-title">⚡ Quick revenue entry</span>
+        <button class="modal-close" onclick="closeModal('revenueQuick')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+          <input type="date" id="revQuickDate" class="form-input" style="width: auto;" onchange="renderRevenueQuick()">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Type a number, press <strong>Enter</strong> for the next store.</span>
+        </div>
+        <input type="text" id="revQuickFilter" class="form-input" placeholder="🔎 Filter stores..." oninput="filterRevQuick(this.value)" style="margin-bottom: 0.6rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 999px; overflow: hidden;"><div id="revQuickBar" style="height: 100%; width: 0; background: var(--success); transition: width 0.2s;"></div></div>
+          <span id="revQuickProgress" style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">0 / 0</span>
+          <span style="font-size: 0.85rem; font-weight: 700; white-space: nowrap;">Total: <span id="revQuickTotal">$0</span></span>
+        </div>
+        <div id="revQuickList" style="max-height: 50vh; overflow-y: auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeModal('revenueQuick')">Done</button>
       </div>
     </div>
   </div>
@@ -3084,6 +3110,78 @@ Or just card numbers:
       closeModal('revenueRange');
       const storeName = storeId === MANUAL_REV_STORE ? 'all stores' : ((getStore(storeId) || {}).name || 'store');
       showToast(`Recorded ${fmtMoney(total)} for ${storeName} across ${keys.length} day${keys.length > 1 ? 's' : ''} (≈${fmtMoney(base / 100)}/day)`);
+    }
+    // ---- Quick revenue entry: type a number, Enter -> next store ----
+    function revQuickDateKey() { const d = document.getElementById('revQuickDate'); return (d && d.value) || revenueDateKey(); }
+    function openRevenueQuick() {
+      if (!isOwner()) return;
+      const d = document.getElementById('revQuickDate'); if (d) d.value = revenueDateKey();
+      const f = document.getElementById('revQuickFilter'); if (f) f.value = '';
+      renderRevenueQuick();
+      openModal('revenueQuick');
+      setTimeout(() => { const first = document.querySelector('.rev-quick-input'); if (first) { first.focus(); first.select(); } }, 60);
+    }
+    function renderRevenueQuick() {
+      const list = document.getElementById('revQuickList'); if (!list) return;
+      const dateKey = revQuickDateKey();
+      const stores = (data.stores || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      let html = '';
+      stores.forEach((store, idx) => {
+        const val = dailyRevenue[`${store.id}_${dateKey}`];
+        const entered = (val !== undefined && val !== null);
+        html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
+          <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
+          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}</span>
+          <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? val : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
+        </div>`;
+      });
+      list.innerHTML = html || '<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">No stores yet</div>';
+      updateRevQuickTotals();
+      const f = document.getElementById('revQuickFilter'); if (f && f.value) filterRevQuick(f.value);
+    }
+    function revQuickKey(e, idx) {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); revQuickFocus(e.shiftKey ? idx - 1 : idx + 1); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); e.target.blur(); revQuickFocus(idx + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.blur(); revQuickFocus(idx - 1); }
+    }
+    function revQuickFocus(targetIdx) {
+      const inputs = Array.from(document.querySelectorAll('.rev-quick-input')).filter(i => i.closest('.rev-quick-row').style.display !== 'none');
+      if (!inputs.length) return;
+      let target = inputs.find(i => parseInt(i.dataset.idx) === targetIdx);
+      if (!target) { const idxs = inputs.map(i => parseInt(i.dataset.idx)); const clamped = Math.max(idxs[0], Math.min(targetIdx, idxs[idxs.length - 1])); target = inputs.find(i => parseInt(i.dataset.idx) === clamped) || inputs[inputs.length - 1]; }
+      if (target) { target.focus(); target.select(); target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    }
+    function revQuickSave(input) {
+      const storeId = input.dataset.store;
+      const raw = input.value.trim();
+      const row = input.closest('.rev-quick-row');
+      const dot = row.querySelector('.rev-quick-dot');
+      const dateKey = revQuickDateKey();
+      if (raw === '') {
+        input.dataset.entered = 'false';
+        row.style.borderLeftColor = 'var(--border-light)';
+        dot.style.background = 'var(--text-muted)'; dot.style.opacity = '0.4';
+        saveRevenue(storeId, dateKey, 0);
+      } else {
+        input.dataset.entered = 'true';
+        row.style.borderLeftColor = 'var(--success)';
+        dot.style.background = 'var(--success)'; dot.style.opacity = '1';
+        saveRevenue(storeId, dateKey, parseFloat(raw) || 0);
+      }
+      updateRevQuickTotals();
+    }
+    function updateRevQuickTotals() {
+      const inputs = document.querySelectorAll('.rev-quick-input');
+      let total = 0, entered = 0;
+      inputs.forEach(i => { if (i.dataset.entered === 'true') { entered++; total += parseFloat(i.value) || 0; } });
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('revQuickTotal', fmtMoney(total));
+      set('revQuickProgress', `${entered} / ${inputs.length}`);
+      const bar = document.getElementById('revQuickBar'); if (bar) bar.style.width = (inputs.length ? (entered / inputs.length) * 100 : 0) + '%';
+    }
+    function filterRevQuick(query) {
+      const q = (query || '').toLowerCase().trim();
+      document.querySelectorAll('.rev-quick-row').forEach(row => { row.style.display = (!q || row.dataset.name.includes(q)) ? 'flex' : 'none'; });
     }
     function storeSpendForDate(storeId, dateKey) {
       let s = 0;
