@@ -1237,6 +1237,15 @@
           <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
             <span>📒</span> P&amp;L
           </div>
+          <div class="nav-item" data-section="trends" onclick="showSection('trends')">
+            <span>📈</span> Trends
+          </div>
+          <div class="nav-item" data-section="trends" onclick="showSection('trends')">
+            <span>📈</span> Trends
+          </div>
+          <div class="nav-item" data-section="trends" onclick="showSection('trends')">
+            <span>📊</span> Trends
+          </div>
         </div>
         <div class="nav-section">
           <div class="nav-title">Management</div>
@@ -1356,7 +1365,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Stores</h1>
-            <p class="page-subtitle">Manage your stores and products</p>
+            <p class="page-subtitle">Your stores, launch status, and top performers</p>
           </div>
           <div class="header-actions" id="storeActions">
             <button class="btn btn-primary" onclick="openModal('addStore')">
@@ -1478,7 +1487,7 @@
         <div class="header">
           <div>
             <h1 class="page-title" id="profilesTitle">AdsPower Profiles</h1>
-            <p class="page-subtitle">Manage browser profiles</p>
+            <p class="page-subtitle">Your browser profiles for account management</p>
           </div>
           <div class="header-actions" id="profileActions">
             <button class="btn btn-primary" onclick="openModal('addProfile')">
@@ -1493,7 +1502,7 @@
         <div class="header">
           <div>
             <h1 class="page-title" id="accountsTitle">Google Ads Accounts</h1>
-            <p class="page-subtitle">All advertising accounts</p>
+            <p class="page-subtitle">Every account, with status and spend</p>
           </div>
           <div class="header-actions" id="accountActions">
             <button class="btn btn-primary" onclick="openModal('addAccount')">
@@ -1520,7 +1529,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Notifications</h1>
-            <p class="page-subtitle">Issues requiring your attention</p>
+            <p class="page-subtitle">What needs your attention right now</p>
           </div>
         </div>
         <div id="alertsList"></div>
@@ -1603,6 +1612,56 @@
           </div>
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Revenue comes from the Revenue page (per store) · Ad spend from Daily Tracking. You only fill <strong>COGS</strong> and <strong>Refunds</strong>. Shopify = Revenue − Refunds · Fee = Fee% × Shopify · Gross = Revenue − COGS · Profit = Gross − Fee − Ad spend.</p>
+      </section>
+
+      <section class="section" id="section-trends">
+        <div class="header">
+          <div>
+            <h1 class="page-title">📊 Trends</h1>
+            <p class="page-subtitle">Private — revenue, profit &amp; ROAS over time</p>
+          </div>
+          <div class="header-actions" style="display: flex; gap: 0.4rem;">
+            <button class="btn btn-sm btn-secondary" id="trend14" onclick="setTrendPeriod(14)">14d</button>
+            <button class="btn btn-sm btn-secondary" id="trend30" onclick="setTrendPeriod(30)">30d</button>
+            <button class="btn btn-sm btn-secondary" id="trend90" onclick="setTrendPeriod(90)">90d</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Revenue</span>
+            <span id="trendRevSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+          </div>
+          <div id="trendRevChart"></div>
+        </div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Total Profit</span>
+            <span id="trendProfitSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+          </div>
+          <div id="trendProfitChart"></div>
+        </div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">ROAS</span>
+            <span id="trendRoasSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+          </div>
+          <div id="trendRoasChart"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" id="trendMoversGrid">
+          <div class="card" style="padding: 1.1rem 1.3rem;">
+            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">📈 Top risers <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">last 7d vs prior 7d</span></div>
+            <div id="trendRisers"></div>
+          </div>
+          <div class="card" style="padding: 1.1rem 1.3rem;">
+            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">📉 Declining <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">last 7d vs prior 7d</span></div>
+            <div id="trendDecliners"></div>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Revenue, profit &amp; ROAS are built from your Revenue and P&amp;L data. Risers/decliners compare each store's revenue over the last 7 days against the 7 days before.</p>
       </section>
     </main>
   </div>
@@ -2416,6 +2475,7 @@ Or just card numbers:
     function showSection(sectionId) {
       if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'trends' && !isOwner()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2436,6 +2496,7 @@ Or just card numbers:
         case 'alerts': renderAlerts(); break;
         case 'revenue': openRevenueSection(); break;
         case 'pnl': openPnlSection(); break;
+        case 'trends': openTrendsSection(); break;
       }
     }
     function switchUser(userId) {
@@ -2500,7 +2561,7 @@ Or just card numbers:
       // Update dashboard subtitle with today's actual date
       const todayFormatted = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       const subtitleEl = document.getElementById('dashboardSubtitle');
-      if (subtitleEl) subtitleEl.textContent = `Overview for ${todayFormatted}`;
+      if (subtitleEl) subtitleEl.textContent = `Performance snapshot · ${todayFormatted}`;
       
       todayDate.setDate(todayDate.getDate() - 1);
       const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
@@ -2728,7 +2789,7 @@ Or just card numbers:
           </div>
         `;
       });
-      document.getElementById('storesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">🏪</div><p>No stores yet</p></div>';
+      document.getElementById('storesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">🏪</div><p>No stores yet — add your first store to start tracking spend and revenue.</p></div>';
     }
     function renderTracking() {
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
@@ -2846,7 +2907,7 @@ Or just card numbers:
         });
         html += `</div></div>`;
       });
-      document.getElementById('trackingList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts to track</p></div>';
+      document.getElementById('trackingList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts yet — add an ad account to begin daily tracking.</p></div>';
       if (trackingViewMode === 'quick') {
         const search = document.getElementById('quickEntrySearch');
         renderQuickEntry();
@@ -3481,6 +3542,129 @@ Or just card numbers:
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
     }
+    // ===== Trends (owner only) =====
+    let trendPeriod = 30;
+    function setTrendPeriod(p) { trendPeriod = p; renderTrends(); }
+    async function openTrendsSection() {
+      if (!isOwner()) { showSection('dashboard'); return; }
+      if (!revenueLoaded) await loadRevenue();
+      if (!pnlLoaded) await loadPnl();
+      renderTrends();
+    }
+    function trendDateKeys(n) {
+      const keys = [];
+      const base = new Date(getThailandDate() + 'T12:00:00');
+      for (let i = n - 1; i >= 0; i--) { const d = new Date(base); d.setDate(d.getDate() - i); keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); }
+      return keys;
+    }
+    function renderTrendSVG(el, series, opts) {
+      if (!el) return;
+      opts = opts || {};
+      const fmt = opts.format || (v => String(Math.round(v)));
+      const vals = series.map(s => (s.value == null ? 0 : s.value));
+      const maxVal = Math.max(...vals, 1);
+      const n = series.length;
+      const W = Math.max(340, n * 22), H = 180, padL = 6, padR = 6, padT = 20, padB = 22;
+      const innerW = W - padL - padR, innerH = H - padT - padB;
+      const slot = innerW / n, barW = Math.min(26, slot * 0.6);
+      const showLabels = n <= 14;
+      const drawn = vals.filter((v, i) => series[i].value != null);
+      const avg = drawn.length ? drawn.reduce((a, b) => a + b, 0) / drawn.length : 0;
+      const every = Math.max(1, Math.ceil(n / 6));
+      let bars = '', labels = '';
+      series.forEach((s, i) => {
+        const v = s.value == null ? 0 : s.value;
+        const x = padL + slot * i + (slot - barW) / 2;
+        const h = Math.max(2, (v / maxVal) * innerH);
+        const y = padT + innerH - h;
+        const isToday = i === n - 1;
+        const op = (s.value == null || v === 0) ? 0.18 : (isToday ? 1 : 0.82);
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${opts.color || 'var(--accent)'}" opacity="${op}"><title>${s.label || ''}: ${s.value == null ? '—' : fmt(s.value)}</title></rect>`;
+        if (showLabels && s.value != null && v > 0) bars += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${opts.shortFmt ? opts.shortFmt(v) : fmt(s.value)}</text>`;
+        if (i % every === 0 || isToday) labels += `<text x="${(x + barW / 2).toFixed(1)}" y="${(H - 7).toFixed(1)}" text-anchor="middle" font-size="9" fill="${isToday ? 'var(--accent)' : 'var(--text-muted)'}" font-weight="${isToday ? 600 : 400}">${isToday ? 'Today' : s.short}</text>`;
+      });
+      const avgY = padT + innerH - (avg / maxVal) * innerH;
+      const avgLine = avg > 0 ? `<line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="4 4" opacity="0.45"/>` : '';
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${avgLine}${bars}${labels}</svg>`;
+    }
+    function wowDelta(vals) {
+      // recent 7 vs prior 7 (sums)
+      if (vals.length < 14) return null;
+      const recent = vals.slice(-7).reduce((a, b) => a + (b || 0), 0);
+      const prior = vals.slice(-14, -7).reduce((a, b) => a + (b || 0), 0);
+      if (prior === 0) return recent > 0 ? 100 : null;
+      return (recent - prior) / prior * 100;
+    }
+    function deltaTag(pct, goodUp) {
+      if (pct == null) return '';
+      const up = pct >= 0;
+      const good = goodUp ? up : !up;
+      const color = good ? 'var(--success)' : 'var(--danger)';
+      return `<span style="color:${color}; font-weight:600;">${up ? '▲' : '▼'} ${Math.abs(Math.round(pct))}%</span> vs prior 7d`;
+    }
+    function renderTrends() {
+      if (!isOwner()) return;
+      ['trend14', 'trend30', 'trend90'].forEach(id => { const b = document.getElementById(id); if (b) b.className = 'btn btn-sm ' + (('trend' + trendPeriod) === id ? 'btn-primary' : 'btn-secondary'); });
+      const keys = trendDateKeys(trendPeriod);
+      const rate = pnlFeeRate / 100;
+      const revSeries = [], profitSeries = [], roasSeries = [];
+      keys.forEach(k => {
+        const d = new Date(k + 'T12:00:00');
+        const rev = dayTotalRevenue(k);
+        const ads = dayTotalAdSpend(k);
+        const p = pnlData[k] || { cogs: 0, refunds: 0 };
+        const fee = rate * (rev - (p.refunds || 0));
+        const profit = (rev - (p.cogs || 0)) - fee - ads;
+        const roas = ads > 0 ? rev / ads : null;
+        const short = String(d.getDate());
+        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        revSeries.push({ value: rev, short, label });
+        profitSeries.push({ value: (rev || ads || p.cogs) ? profit : 0, short, label });
+        roasSeries.push({ value: roas, short, label });
+      });
+      const moneyFmt = v => fmtMoney(v);
+      const shortMoney = v => (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v)));
+      renderTrendSVG(document.getElementById('trendRevChart'), revSeries, { color: 'var(--success)', format: moneyFmt, shortFmt: shortMoney });
+      renderTrendSVG(document.getElementById('trendProfitChart'), profitSeries, { color: 'var(--accent)', format: moneyFmt, shortFmt: shortMoney });
+      renderTrendSVG(document.getElementById('trendRoasChart'), roasSeries.map(s => ({ ...s, value: s.value })), { color: 'var(--purple)', format: v => v.toFixed(2) + 'x', shortFmt: v => v.toFixed(1) });
+      // summaries
+      const revVals = revSeries.map(s => s.value), profVals = profitSeries.map(s => s.value);
+      const revTot = revVals.reduce((a, b) => a + b, 0), profTot = profVals.reduce((a, b) => a + b, 0);
+      const roasVals = roasSeries.map(s => s.value).filter(v => v != null);
+      const roasAvg = roasVals.length ? roasVals.reduce((a, b) => a + b, 0) / roasVals.length : null;
+      const setHtml = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
+      setHtml('trendRevSummary', `Total <strong style="color:var(--text-primary);">${fmtMoney(revTot)}</strong> · Avg <strong style="color:var(--text-primary);">${fmtMoney(revTot / trendPeriod)}</strong>/day · ${deltaTag(wowDelta(revVals), true)}`);
+      setHtml('trendProfitSummary', `Total <strong style="color:var(--text-primary);">${fmtMoney(profTot)}</strong> · Avg <strong style="color:var(--text-primary);">${fmtMoney(profTot / trendPeriod)}</strong>/day · ${deltaTag(wowDelta(profVals), true)}`);
+      setHtml('trendRoasSummary', roasAvg == null ? 'No ad spend yet' : `Avg <strong style="color:var(--text-primary);">${roasAvg.toFixed(2)}x</strong> · ${deltaTag(wowDelta(roasSeries.map(s => s.value || 0)), true)}`);
+      // top / declining stores (revenue, last 7 vs prior 7)
+      const last7 = trendDateKeys(14).slice(-7), prev7 = trendDateKeys(14).slice(0, 7);
+      const stats = (data.stores || []).map(store => {
+        const rNow = last7.reduce((s, k) => s + (dailyRevenue[`${store.id}_${k}`] || 0), 0);
+        const rPrev = prev7.reduce((s, k) => s + (dailyRevenue[`${store.id}_${k}`] || 0), 0);
+        const spendNow = last7.reduce((s, k) => s + storeSpendForDate(store.id, k), 0);
+        const roasNow = spendNow > 0 ? rNow / spendNow : null;
+        let delta = null;
+        if (rPrev > 0) delta = (rNow - rPrev) / rPrev * 100;
+        else if (rNow > 0) delta = 100;
+        return { store, rNow, rPrev, delta, roasNow };
+      });
+      const rowHtml = (st, isRiser) => {
+        const d = st.delta;
+        const color = d == null ? 'var(--text-muted)' : (d >= 0 ? 'var(--success)' : 'var(--danger)');
+        const arrow = d == null ? '' : (d >= 0 ? '▲' : '▼');
+        const deltaTxt = d == null ? 'new' : `${arrow} ${Math.abs(Math.round(d))}%`;
+        return `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0; border-bottom:1px solid var(--border);">
+          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.store.name)}</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:var(--text-secondary);">${fmtMoney(st.rNow)}</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--text-muted); width:52px; text-align:right;">${st.roasNow == null ? '—' : st.roasNow.toFixed(1) + 'x'}</span>
+          <span style="color:${color}; font-weight:600; font-size:0.82rem; width:64px; text-align:right;">${deltaTxt}</span>
+        </div>`;
+      };
+      const risers = stats.filter(s => s.rNow > 0 && (s.delta == null || s.delta >= 0)).sort((a, b) => (b.delta ?? 999) - (a.delta ?? 999)).slice(0, 6);
+      const decliners = stats.filter(s => s.rPrev > 0 && s.delta != null && s.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 6);
+      setHtml('trendRisers', risers.length ? risers.map(s => rowHtml(s, true)).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Not enough data yet.</div>');
+      setHtml('trendDecliners', decliners.length ? decliners.map(s => rowHtml(s, false)).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Nothing declining — nice.</div>');
+    }
     function addNotification(notification) {
       notification.id = Date.now();
       notification.read = false;
@@ -3502,7 +3686,7 @@ Or just card numbers:
       const myNotifications = data.notifications.filter(n => n.forRoles.includes(currentUser));
       let html = '';
       if (myNotifications.length === 0) {
-        html = '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No notifications</p></div>';
+        html = '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>All caught up — no new notifications.</p></div>';
       } else {
         myNotifications.forEach(notification => {
           const timeAgo = getTimeAgo(notification.createdAt);
@@ -3698,7 +3882,7 @@ Or just card numbers:
         });
         html += `</div>`;
       });
-      listEl.innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts to track</p></div>';
+      listEl.innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts yet — add an ad account to begin daily tracking.</p></div>';
       updateQuickTotals();
     }
     function quickEntryKey(e, idx) {
@@ -4080,7 +4264,7 @@ Or just card numbers:
           </div>
         `;
       });
-      document.getElementById('profilesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No profiles yet</p></div>';
+      document.getElementById('profilesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No profiles yet — add one to organize your accounts.</p></div>';
     }
     async function deleteProfile(profileId) {
       const profile = data.profiles[currentChannel].find(p => p.id === profileId || p.id == profileId);
@@ -4206,7 +4390,7 @@ Or just card numbers:
         });
         html += `</div></div>`;
       });
-      document.getElementById('accountsGroupedView').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No ad accounts yet</p></div>';
+      document.getElementById('accountsGroupedView').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No ad accounts yet — add your first to start tracking.</p></div>';
     }
     function toggleStoreGroupAccounts(storeId) {
       const body = document.getElementById(`storeGroupAccBody_${storeId}`);
@@ -4643,7 +4827,7 @@ Or just card numbers:
           </div>
         `;
       });
-      document.getElementById('suspendedAccountsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">✅</div><p>No suspended accounts</p></div>';
+      document.getElementById('suspendedAccountsList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">✅</div><p>All clear — no suspended accounts.</p></div>';
       document.getElementById('suspendedBadge').textContent = remainingAccounts.length;
       document.getElementById('suspendedBadge').style.display = remainingAccounts.length > 0 ? 'inline' : 'none';
     }
@@ -4730,7 +4914,7 @@ Or just card numbers:
     }
     function renderAlerts() {
       const html = generateAlertsHtml();
-      document.getElementById('alertsList').innerHTML = (html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>No alerts</p></div>') + zeroSpendDropdownHtml();
+      document.getElementById('alertsList').innerHTML = (html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>All clear — nothing needs your attention right now.</p></div>') + zeroSpendDropdownHtml();
     }
     // Build the daily WhatsApp note Jeannie copies & pastes
     function generateDailyNote() {
