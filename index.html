@@ -1534,6 +1534,7 @@
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
+            <button class="btn btn-secondary" id="revGridBtn" onclick="setRevenueView('grid')">🔢 Grid entry</button>
             <button class="btn btn-secondary" id="revMonthBtn" onclick="setRevenueView('month')">🗓️ Month</button>
           </div>
         </div>
@@ -1545,6 +1546,8 @@
           <button class="btn btn-secondary btn-sm" onclick="revenueToday()">Today</button>
           <span id="revenueRangeLabel" style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.25rem;"></span>
         </div>
+
+        <div id="revenueManualBox" style="margin-bottom: 1.1rem;"></div>
 
         <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1.25rem;">
           <div class="stat-card success"><div class="stat-label">Revenue</div><div class="stat-value" id="revStatRevenue">$0</div></div>
@@ -2972,6 +2975,7 @@ Or just card numbers:
       if (amount) dailyRevenue[`${storeId}_${dateKey}`] = amount;
       else delete dailyRevenue[`${storeId}_${dateKey}`];
       renderRevenue();
+      if (typeof renderPnl === 'function') renderPnl();
       try {
         const { error } = await supabaseClient.from('daily_revenue').upsert(
           { store_id: String(storeId), date: dateKey, amount: amount },
@@ -2984,7 +2988,8 @@ Or just card numbers:
     function revenueDateKey() { return revenueDate || getThailandDate(); }
     function shiftRevenueDate(delta) {
       const d = new Date(revenueDateKey() + 'T12:00:00');
-      d.setDate(d.getDate() + delta);
+      if (revenueView === 'day') d.setDate(d.getDate() + delta);
+      else d.setMonth(d.getMonth() + delta);
       revenueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const el = document.getElementById('revenueDate'); if (el) el.value = revenueDate;
       renderRevenue();
@@ -3027,16 +3032,31 @@ Or just card numbers:
       if (dateInput && !dateInput.value) dateInput.value = dateKey;
       const [yy, mm] = dateKey.split('-').map(Number);
       const monthIdx = mm - 1;
-      const dayBtn = document.getElementById('revDayBtn'), monBtn = document.getElementById('revMonthBtn');
-      if (dayBtn && monBtn) {
-        dayBtn.className = 'btn btn-sm ' + (revenueView === 'day' ? 'btn-primary' : 'btn-secondary');
-        monBtn.className = 'btn btn-sm ' + (revenueView === 'month' ? 'btn-primary' : 'btn-secondary');
-      }
+      const dayBtn = document.getElementById('revDayBtn'), gridBtn = document.getElementById('revGridBtn'), monBtn = document.getElementById('revMonthBtn');
+      [[dayBtn, 'day'], [gridBtn, 'grid'], [monBtn, 'month']].forEach(([b, m]) => { if (b) b.className = 'btn btn-sm ' + (revenueView === m ? 'btn-primary' : 'btn-secondary'); });
+      const manualBox = document.getElementById('revenueManualBox');
+
+      if (revenueView === 'grid') { if (manualBox) manualBox.innerHTML = ''; renderRevenueGrid(dateKey, yy, monthIdx); return; }
+
       const label = document.getElementById('revenueRangeLabel');
       const dObj = new Date(dateKey + 'T12:00:00');
       if (label) label.textContent = revenueView === 'day'
         ? dObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
         : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
+
+      // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
+      if (manualBox) {
+        if (revenueView === 'day') {
+          const manual = manualDayRevenue(dateKey);
+          const auto = autoDayRevenue(dateKey);
+          manualBox.innerHTML = `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
+            <span style="font-weight:600; font-size:0.88rem;">Manual daily total</span>
+            <input type="number" step="0.01" min="0" class="form-input" style="width:150px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${manual !== null ? manual : ''}" placeholder="${auto ? fmtMoney(auto) : '$0'}" onchange="saveRevenue('${MANUAL_REV_STORE}','${dateKey}',this.value)">
+            <span style="font-size:0.8rem; color:${manual !== null ? 'var(--accent)' : 'var(--text-muted)'};">${manual !== null ? '✎ using this total (per-store rows below are ignored for the day total)' : 'leave empty = automatic sum of the stores below'}</span>
+          </div>`;
+        } else manualBox.innerHTML = '';
+      }
+
       head.innerHTML = `<tr>
         <th style="text-align:left; padding:0.6rem;">Store</th>
         <th style="text-align:right; padding:0.6rem;">Revenue</th>
@@ -3070,25 +3090,86 @@ Or just card numbers:
           <td style="text-align:right; padding:0.5rem 0.6rem; color:${margin === null ? 'var(--text-muted)' : (margin >= 0 ? 'var(--success)' : 'var(--danger)')};">${margin === null ? '—' : margin.toFixed(0) + '%'}</td></tr>`;
       });
       body.innerHTML = rowsHtml || '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No stores yet</td></tr>';
-      const totProfit = totRev - totSpend;
-      const totRoas = totSpend > 0 ? totRev / totSpend : null;
-      const totMargin = totRev > 0 ? totProfit / totRev * 100 : null;
+      // Effective revenue uses the manual override when set (day view)
+      let effRev = totRev;
+      if (revenueView === 'day') { const m = manualDayRevenue(dateKey); if (m !== null) effRev = m; }
+      const totProfit = effRev - totSpend;
+      const totRoas = totSpend > 0 ? effRev / totSpend : null;
+      const totMargin = effRev > 0 ? totProfit / effRev * 100 : null;
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('revStatRevenue', fmtMoney(totRev));
+      set('revStatRevenue', fmtMoney(effRev));
       set('revStatSpend', fmtMoney(totSpend));
       set('revStatRoas', totRoas === null ? '—' : totRoas.toFixed(2) + 'x');
       set('revStatProfit', fmtMoney(totProfit));
       set('revStatMargin', totMargin === null ? '—' : totMargin.toFixed(0) + '%');
+    }
+    // Multi-day entry grid: stores (rows) × days of the month (columns) — enter several days at once
+    function renderRevenueGrid(dateKey, yy, monthIdx) {
+      const head = document.getElementById('revenueTableHead');
+      const body = document.getElementById('revenueTableBody');
+      const label = document.getElementById('revenueRangeLabel');
+      const monthKeys = daysOfMonth(yy, monthIdx);
+      const monthName = new Date(yy, monthIdx, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (label) label.textContent = monthName + ' · type revenue for any days';
+      const todayKey = getThailandDate();
+      let th = '<tr><th style="position:sticky; left:0; background:var(--bg-card); z-index:1; text-align:left; padding:0.5rem; min-width:130px;">Store</th>';
+      monthKeys.forEach(k => {
+        const d = Number(k.split('-')[2]);
+        const isToday = k === todayKey;
+        th += `<th style="text-align:center; padding:0.4rem 0.2rem; min-width:64px; ${isToday ? 'background:var(--accent); color:#fff; border-radius:4px;' : ''}">${d}</th>`;
+      });
+      th += '<th style="text-align:right; padding:0.5rem; background:var(--bg-tertiary); min-width:80px;">Total</th></tr>';
+      head.innerHTML = th;
+      const dayTotals = {}; monthKeys.forEach(k => dayTotals[k] = 0);
+      let rows = '';
+      (data.stores || []).forEach(store => {
+        let rowTotal = 0;
+        let cells = '';
+        monthKeys.forEach(k => {
+          const v = dailyRevenue[`${store.id}_${k}`] || 0;
+          rowTotal += v; dayTotals[k] += v;
+          const isToday = k === todayKey;
+          cells += `<td style="text-align:center; padding:0.2rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:58px; padding:0.25rem; text-align:center; font-size:0.78rem; ${isToday ? 'border-color:var(--accent);' : ''}" value="${v || ''}" placeholder="-" onchange="saveRevenue('${store.id}','${k}',this.value)"></td>`;
+        });
+        rows += `<tr>
+          <td style="position:sticky; left:0; background:var(--bg-card); z-index:1; font-weight:500; white-space:nowrap; padding:0.4rem 0.5rem;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}</td>
+          ${cells}
+          <td style="text-align:right; padding:0.4rem 0.5rem; font-weight:600; color:var(--success); background:var(--bg-tertiary); font-family:'JetBrains Mono',monospace;">${rowTotal ? fmtMoney(rowTotal) : '—'}</td></tr>`;
+      });
+      let footer = '<tr style="font-weight:700; background:var(--bg-tertiary);"><td style="position:sticky; left:0; background:var(--bg-tertiary); padding:0.5rem;">Daily total</td>';
+      let grand = 0;
+      monthKeys.forEach(k => { const t = dayTotals[k]; grand += t; footer += `<td style="text-align:center; padding:0.4rem 0.2rem; font-size:0.78rem; color:${t > 0 ? 'var(--accent)' : 'var(--text-muted)'};">${t > 0 ? fmtMoney(t) : '-'}</td>`; });
+      footer += `<td style="text-align:right; padding:0.5rem; color:var(--success); background:var(--success-bg); font-family:'JetBrains Mono',monospace;">${fmtMoney(grand)}</td></tr>`;
+      body.innerHTML = (rows || `<tr><td colspan="${monthKeys.length + 2}" style="text-align:center; padding:2rem; color:var(--text-muted);">No stores yet</td></tr>`) + footer;
+      // summary cards for the month
+      let mSpend = 0; monthKeys.forEach(k => { mSpend += dayTotalAdSpend(k); });
+      const mProfit = grand - mSpend, mRoas = mSpend > 0 ? grand / mSpend : null, mMargin = grand > 0 ? mProfit / grand * 100 : null;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('revStatRevenue', fmtMoney(grand));
+      set('revStatSpend', fmtMoney(mSpend));
+      set('revStatRoas', mRoas === null ? '—' : mRoas.toFixed(2) + 'x');
+      set('revStatProfit', fmtMoney(mProfit));
+      set('revStatMargin', mMargin === null ? '—' : mMargin.toFixed(0) + '%');
     }
     // ===== Profit & Loss (owner only) =====
     let pnlData = {};        // date -> { cogs, refunds }
     let pnlLoaded = false;
     let pnlMonth = null, pnlYear = null;
     let pnlFeeRate = 7;
-    function dayTotalRevenue(dateKey) {
+    // Manual daily-total revenue override lives in daily_revenue under a reserved store id
+    const MANUAL_REV_STORE = '__daily_total__';
+    function manualDayRevenue(dateKey) {
+      const v = dailyRevenue[`${MANUAL_REV_STORE}_${dateKey}`];
+      return (v !== undefined && v !== null) ? v : null;
+    }
+    function autoDayRevenue(dateKey) {
       let s = 0;
       (data.stores || []).forEach(st => { s += dailyRevenue[`${st.id}_${dateKey}`] || 0; });
       return s;
+    }
+    function dayTotalRevenue(dateKey) {
+      const m = manualDayRevenue(dateKey);
+      return m !== null ? m : autoDayRevenue(dateKey);
     }
     function dayTotalAdSpend(dateKey) {
       let s = 0;
@@ -3175,6 +3256,8 @@ Or just card numbers:
       for (let d = 1; d <= dim; d++) {
         const key = `${pnlYear}-${String(pnlMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const rev = dayTotalRevenue(key);
+        const autoRev = autoDayRevenue(key);
+        const manualRev = manualDayRevenue(key);
         const p = pnlData[key] || { cogs: 0, refunds: 0 };
         const refunds = p.refunds || 0, cogs = p.cogs || 0;
         const shop = rev - refunds;
@@ -3190,7 +3273,7 @@ Or just card numbers:
         const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
         rows += `<tr style="${empty ? 'opacity:0.45;' : ''}${isToday ? 'background:var(--accent-soft);' : ''}">
           <td style="padding:0.4rem 0.5rem; font-weight:600;">${d}${isToday ? ' •' : ''}</td>
-          <td style="text-align:right; padding:0.4rem 0.5rem; ${mono}">${rev ? fmtMoney(rev) : '—'}</td>
+          <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:96px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${manualRev !== null ? manualRev : ''}" placeholder="${autoRev ? fmtMoney(autoRev) : '0'}" title="Blank = auto-sum from the Revenue page${autoRev ? ' (' + fmtMoney(autoRev) + ')' : ''}. Type a number to override." onchange="saveRevenue('${MANUAL_REV_STORE}','${key}',this.value)"></td>
           <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:76px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${refunds || ''}" placeholder="0" onchange="savePnl('${key}','refunds',this.value)"></td>
           <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-secondary); ${mono}">${rev ? fmtMoney(shop) : '—'}</td>
           <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-muted); ${mono}">${rev ? fmtMoney(fee) : '—'}</td>
