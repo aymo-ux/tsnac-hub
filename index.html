@@ -1826,6 +1826,10 @@ Or just card numbers:
         <button class="modal-close" onclick="closeModal('revenueRange')">&times;</button>
       </div>
       <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Store</label>
+          <select class="form-select" id="rangeStore"></select>
+        </div>
         <div style="display: flex; gap: 0.6rem; margin-bottom: 1rem;">
           <div class="form-group" style="flex: 1; margin: 0;"><label class="form-label">From</label><input type="date" id="rangeFrom" class="form-input"></div>
           <div class="form-group" style="flex: 1; margin: 0;"><label class="form-label">To</label><input type="date" id="rangeTo" class="form-input"></div>
@@ -1834,7 +1838,7 @@ Or just card numbers:
           <label class="form-label">Total revenue for these days</label>
           <input type="number" step="0.01" min="0" id="rangeAmount" class="form-input" placeholder="e.g. 249" style="font-family: 'JetBrains Mono', monospace;">
         </div>
-        <p style="font-size: 0.8rem; color: var(--text-muted);">The total is split evenly across the days so your P&amp;L and monthly totals stay exact. This becomes the daily total for those days (replacing any per-store or manual total on them).</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">The total is split evenly across the days. Pick a store to set <strong>that store's</strong> revenue for the range, or <strong>All stores</strong> for one combined daily total. P&amp;L and monthly totals stay exact.</p>
         <div id="rangeInfo" style="font-size: 0.82rem; color: var(--danger); margin-top: 0.5rem;"></div>
       </div>
       <div class="modal-footer">
@@ -3036,6 +3040,12 @@ Or just card numbers:
       if (toEl) toEl.value = today;
       if (amtEl) amtEl.value = '';
       if (info) info.textContent = '';
+      const storeSel = document.getElementById('rangeStore');
+      if (storeSel) {
+        const opts = (data.stores || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          .map(s => `<option value="${escapeHtml(String(s.id))}">${escapeHtml(s.name)}</option>`).join('');
+        storeSel.innerHTML = `<option value="${MANUAL_REV_STORE}">All stores — one daily total</option>` + opts;
+      }
       openModal('revenueRange');
     }
     async function applyRevenueRange() {
@@ -3050,19 +3060,21 @@ Or just card numbers:
       let d = new Date(from + 'T12:00:00'); const endD = new Date(to + 'T12:00:00');
       while (d <= endD) { keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); d.setDate(d.getDate() + 1); }
       if (!keys.length) { if (info) info.textContent = 'Invalid range.'; return; }
+      const storeSel = document.getElementById('rangeStore');
+      const storeId = (storeSel && storeSel.value) || MANUAL_REV_STORE;
       // Split exactly in cents so the days sum back to the total
       const cents = Math.round(total * 100);
       const base = Math.floor(cents / keys.length);
       keys.forEach((k, i) => {
         const c = (i === keys.length - 1) ? (cents - base * (keys.length - 1)) : base;
-        dailyRevenue[`${MANUAL_REV_STORE}_${k}`] = c / 100;
+        dailyRevenue[`${storeId}_${k}`] = c / 100;
       });
       renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
       let ok = true;
       for (const k of keys) {
         try {
           const { error } = await supabaseClient.from('daily_revenue').upsert(
-            { store_id: MANUAL_REV_STORE, date: k, amount: dailyRevenue[`${MANUAL_REV_STORE}_${k}`] },
+            { store_id: String(storeId), date: k, amount: dailyRevenue[`${storeId}_${k}`] },
             { onConflict: 'store_id,date' }
           );
           if (error) { ok = false; console.error('range save error:', error); }
@@ -3070,7 +3082,8 @@ Or just card numbers:
       }
       showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Some not saved');
       closeModal('revenueRange');
-      showToast(`Recorded ${fmtMoney(total)} across ${keys.length} day${keys.length > 1 ? 's' : ''} (≈${fmtMoney(base / 100)}/day)`);
+      const storeName = storeId === MANUAL_REV_STORE ? 'all stores' : ((getStore(storeId) || {}).name || 'store');
+      showToast(`Recorded ${fmtMoney(total)} for ${storeName} across ${keys.length} day${keys.length > 1 ? 's' : ''} (≈${fmtMoney(base / 100)}/day)`);
     }
     function storeSpendForDate(storeId, dateKey) {
       let s = 0;
