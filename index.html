@@ -1194,7 +1194,7 @@
       <div class="logo" style="justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 0.65rem;">
           <div class="logo-icon">📊</div>
-          <span>AdsManager</span>
+          <span>TSNAC Hub</span>
         </div>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Switch light / dark" aria-label="Toggle dark mode">🌙</button>
       </div>
@@ -1232,7 +1232,6 @@
           <div class="nav-title">Private</div>
           <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
             <span>💰</span> Revenue
-            <span class="nav-badge" style="background: var(--success); color: #fff;">only you</span>
           </div>
           <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
             <span>📒</span> P&amp;L
@@ -1532,8 +1531,8 @@
       <section class="section" id="section-revenue">
         <div class="header">
           <div>
-            <h1 class="page-title">💰 Revenue &amp; ROAS</h1>
-            <p class="page-subtitle">Private — visible only to you</p>
+            <h1 class="page-title">Revenue &amp; ROAS</h1>
+            <p class="page-subtitle">Daily revenue and return on ad spend</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
@@ -1575,8 +1574,8 @@
       <section class="section" id="section-pnl">
         <div class="header">
           <div>
-            <h1 class="page-title">📒 Profit &amp; Loss</h1>
-            <p class="page-subtitle">Private — auto-built from your revenue &amp; ad spend</p>
+            <h1 class="page-title">Profit &amp; Loss</h1>
+            <p class="page-subtitle">Daily profit, margin, and ROAS — built from your revenue and ad spend</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.6rem; align-items: center;">
             <label style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;">Fee %
@@ -1611,8 +1610,8 @@
       <section class="section" id="section-trends">
         <div class="header">
           <div>
-            <h1 class="page-title">📊 Trends</h1>
-            <p class="page-subtitle">Private — revenue, profit &amp; ROAS over time</p>
+            <h1 class="page-title">Performance Trends</h1>
+            <p class="page-subtitle">Revenue, profit, and ROAS over time</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.4rem;">
             <button class="btn btn-sm btn-secondary" id="trend14" onclick="setTrendPeriod(14)">14d</button>
