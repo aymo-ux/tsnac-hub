@@ -1228,6 +1228,13 @@
             <span>📋</span> Daily Tracking
           </div>
         </div>
+        <div class="nav-section" id="ownerNavSection" style="display: none;">
+          <div class="nav-title">Private</div>
+          <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
+            <span>💰</span> Revenue
+            <span class="nav-badge" style="background: var(--success); color: #fff;">only you</span>
+          </div>
+        </div>
         <div class="nav-section">
           <div class="nav-title">Management</div>
           <div class="nav-item" data-section="stores" onclick="showSection('stores')">
@@ -1514,6 +1521,45 @@
           </div>
         </div>
         <div id="alertsList"></div>
+      </section>
+
+      <section class="section" id="section-revenue">
+        <div class="header">
+          <div>
+            <h1 class="page-title">💰 Revenue &amp; ROAS</h1>
+            <p class="page-subtitle">Private — visible only to you</p>
+          </div>
+          <div class="header-actions" style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
+            <button class="btn btn-secondary" id="revMonthBtn" onclick="setRevenueView('month')">🗓️ Month</button>
+          </div>
+        </div>
+
+        <div id="revenueDateNav" style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.1rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="shiftRevenueDate(-1)">◀ Prev</button>
+          <input type="date" id="revenueDate" class="form-input" style="width: auto;" onchange="onRevenueDateChange(this.value)">
+          <button class="btn btn-secondary btn-sm" onclick="shiftRevenueDate(1)">Next ▶</button>
+          <button class="btn btn-secondary btn-sm" onclick="revenueToday()">Today</button>
+          <span id="revenueRangeLabel" style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.25rem;"></span>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1.25rem;">
+          <div class="stat-card success"><div class="stat-label">Revenue</div><div class="stat-value" id="revStatRevenue">$0</div></div>
+          <div class="stat-card info"><div class="stat-label">Ad Spend</div><div class="stat-value" id="revStatSpend">$0</div></div>
+          <div class="stat-card purple"><div class="stat-label">ROAS</div><div class="stat-value" id="revStatRoas">—</div></div>
+          <div class="stat-card"><div class="stat-label">Profit</div><div class="stat-value" id="revStatProfit">$0</div></div>
+          <div class="stat-card warning"><div class="stat-label">Margin</div><div class="stat-value" id="revStatMargin">—</div></div>
+        </div>
+
+        <div class="card">
+          <div style="overflow-x: auto;">
+            <table class="table" id="revenueTable" style="width: 100%; border-collapse: collapse;">
+              <thead id="revenueTableHead"></thead>
+              <tbody id="revenueTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">ROAS = revenue ÷ ad spend · Profit = revenue − spend · Margin = profit ÷ revenue. Ad spend is pulled automatically from Daily Tracking. Revenue auto-saves.</p>
       </section>
     </main>
   </div>
@@ -1865,6 +1911,12 @@ Or just card numbers:
             const switcher = document.querySelector('.user-switcher');
             if (switcher) switcher.style.display = 'none';
           }
+        }
+        // Reveal the private Revenue dashboard only for the owner's login
+        if (isOwner()) {
+          const ownerNav = document.getElementById('ownerNavSection');
+          if (ownerNav) ownerNav.style.display = '';
+          loadRevenue();
         }
         return true;
       } catch (e) {
@@ -2262,6 +2314,7 @@ Or just card numbers:
       document.getElementById('suspendedBadge').style.display = suspendedCount > 0 ? 'inline' : 'none';
     }
     function showSection(sectionId) {
+      if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2280,6 +2333,7 @@ Or just card numbers:
         case 'suspended': renderSuspendedAccounts(); break;
         case 'saved': renderSavedAccounts(); break;
         case 'alerts': renderAlerts(); break;
+        case 'revenue': openRevenueSection(); break;
       }
     }
     function switchUser(userId) {
@@ -2848,6 +2902,142 @@ Or just card numbers:
         await updateAdAccountInSupabase(accountId, { lifetime_spend: lifetimeSpend });
       }
       showAutoSaveIndicator('✓ Saved');
+    }
+    // ===== Private Revenue / ROAS dashboard (owner only) =====
+    const OWNER_EMAIL = 'aymo@maleistung.com';
+    let dailyRevenue = {};       // `${storeId}_${date}` -> amount
+    let revenueView = 'day';     // 'day' | 'month'
+    let revenueDate = null;      // 'YYYY-MM-DD'
+    let revenueLoaded = false;
+    function isOwner() {
+      return !!(authUser && authUser.email && authUser.email.toLowerCase() === OWNER_EMAIL);
+    }
+    function fmtMoney(n) {
+      const v = Math.round((n + Number.EPSILON) * 100) / 100;
+      return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+    async function loadRevenue() {
+      if (!isOwner()) return;
+      try {
+        const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*');
+        if (error) { console.error('daily_revenue load error:', error); return; }
+        dailyRevenue = {};
+        (rows || []).forEach(r => { dailyRevenue[`${r.store_id}_${r.date}`] = parseFloat(r.amount) || 0; });
+        revenueLoaded = true;
+      } catch (e) { console.error('daily_revenue exception:', e); }
+    }
+    async function saveRevenue(storeId, dateKey, value) {
+      const amount = parseFloat(value) || 0;
+      if (amount) dailyRevenue[`${storeId}_${dateKey}`] = amount;
+      else delete dailyRevenue[`${storeId}_${dateKey}`];
+      renderRevenue();
+      try {
+        const { error } = await supabaseClient.from('daily_revenue').upsert(
+          { store_id: String(storeId), date: dateKey, amount: amount },
+          { onConflict: 'store_id,date' }
+        );
+        showAutoSaveIndicator(error ? '⚠️ Not saved' : '✓ Saved');
+        if (error) console.error('daily_revenue save error:', error);
+      } catch (e) { console.error('daily_revenue exception:', e); showAutoSaveIndicator('⚠️ Not saved'); }
+    }
+    function revenueDateKey() { return revenueDate || getThailandDate(); }
+    function shiftRevenueDate(delta) {
+      const d = new Date(revenueDateKey() + 'T12:00:00');
+      d.setDate(d.getDate() + delta);
+      revenueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const el = document.getElementById('revenueDate'); if (el) el.value = revenueDate;
+      renderRevenue();
+    }
+    function revenueToday() {
+      revenueDate = getThailandDate();
+      const el = document.getElementById('revenueDate'); if (el) el.value = revenueDate;
+      renderRevenue();
+    }
+    function onRevenueDateChange(val) { if (val) { revenueDate = val; renderRevenue(); } }
+    function setRevenueView(mode) { revenueView = mode; renderRevenue(); }
+    function storeSpendForDate(storeId, dateKey) {
+      let s = 0;
+      ['google', 'tiktok', 'facebook'].forEach(ch => {
+        (data.accounts[ch] || []).forEach(a => {
+          if (a.storeId === storeId) s += parseFloat(dailySpendHistory[`${a.id}_${dateKey}`]) || 0;
+        });
+      });
+      return s;
+    }
+    function daysOfMonth(year, monthIdx) {
+      const keys = [], dim = new Date(year, monthIdx + 1, 0).getDate();
+      for (let d = 1; d <= dim; d++) keys.push(`${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+      return keys;
+    }
+    function storeSpendForMonth(storeId, y, m) { return daysOfMonth(y, m).reduce((s, k) => s + storeSpendForDate(storeId, k), 0); }
+    function storeRevenueForMonth(storeId, y, m) { return daysOfMonth(y, m).reduce((s, k) => s + (dailyRevenue[`${storeId}_${k}`] || 0), 0); }
+    async function openRevenueSection() {
+      if (!isOwner()) { showSection('dashboard'); return; }
+      if (!revenueLoaded) await loadRevenue();
+      renderRevenue();
+    }
+    function renderRevenue() {
+      if (!isOwner()) return;
+      const head = document.getElementById('revenueTableHead');
+      const body = document.getElementById('revenueTableBody');
+      if (!head || !body) return;
+      const dateKey = revenueDateKey();
+      const dateInput = document.getElementById('revenueDate');
+      if (dateInput && !dateInput.value) dateInput.value = dateKey;
+      const [yy, mm] = dateKey.split('-').map(Number);
+      const monthIdx = mm - 1;
+      const dayBtn = document.getElementById('revDayBtn'), monBtn = document.getElementById('revMonthBtn');
+      if (dayBtn && monBtn) {
+        dayBtn.className = 'btn btn-sm ' + (revenueView === 'day' ? 'btn-primary' : 'btn-secondary');
+        monBtn.className = 'btn btn-sm ' + (revenueView === 'month' ? 'btn-primary' : 'btn-secondary');
+      }
+      const label = document.getElementById('revenueRangeLabel');
+      const dObj = new Date(dateKey + 'T12:00:00');
+      if (label) label.textContent = revenueView === 'day'
+        ? dObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+        : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
+      head.innerHTML = `<tr>
+        <th style="text-align:left; padding:0.6rem;">Store</th>
+        <th style="text-align:right; padding:0.6rem;">Revenue</th>
+        <th style="text-align:right; padding:0.6rem;">Ad Spend</th>
+        <th style="text-align:right; padding:0.6rem;">ROAS</th>
+        <th style="text-align:right; padding:0.6rem;">Profit</th>
+        <th style="text-align:right; padding:0.6rem;">Margin</th></tr>`;
+      let totRev = 0, totSpend = 0;
+      const rowsData = (data.stores || []).map(store => {
+        const rev = revenueView === 'day' ? (dailyRevenue[`${store.id}_${dateKey}`] || 0) : storeRevenueForMonth(store.id, yy, monthIdx);
+        const spend = revenueView === 'day' ? storeSpendForDate(store.id, dateKey) : storeSpendForMonth(store.id, yy, monthIdx);
+        return { store, rev, spend };
+      }).sort((a, b) => (b.rev - a.rev) || (b.spend - a.spend));
+      let rowsHtml = '';
+      rowsData.forEach(({ store, rev, spend }) => {
+        totRev += rev; totSpend += spend;
+        const profit = rev - spend;
+        const roas = spend > 0 ? rev / spend : null;
+        const margin = rev > 0 ? profit / rev * 100 : null;
+        const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
+        const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
+        const revCell = revenueView === 'day'
+          ? `<input type="number" step="0.01" min="0" class="form-input" style="width:110px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${rev || ''}" placeholder="0" onchange="saveRevenue('${store.id}','${dateKey}',this.value)">`
+          : `<span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(rev)}</span>`;
+        rowsHtml += `<tr>
+          <td style="padding:0.5rem 0.6rem; font-weight:500; white-space:nowrap;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></td>
+          <td style="text-align:right; padding:0.5rem 0.6rem;">${revCell}</td>
+          <td style="text-align:right; padding:0.5rem 0.6rem; font-family:'JetBrains Mono',monospace; color:var(--text-secondary);">${fmtMoney(spend)}</td>
+          <td style="text-align:right; padding:0.5rem 0.6rem; font-weight:600; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</td>
+          <td style="text-align:right; padding:0.5rem 0.6rem; font-family:'JetBrains Mono',monospace; color:${profitColor};">${fmtMoney(profit)}</td>
+          <td style="text-align:right; padding:0.5rem 0.6rem; color:${margin === null ? 'var(--text-muted)' : (margin >= 0 ? 'var(--success)' : 'var(--danger)')};">${margin === null ? '—' : margin.toFixed(0) + '%'}</td></tr>`;
+      });
+      body.innerHTML = rowsHtml || '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No stores yet</td></tr>';
+      const totProfit = totRev - totSpend;
+      const totRoas = totSpend > 0 ? totRev / totSpend : null;
+      const totMargin = totRev > 0 ? totProfit / totRev * 100 : null;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('revStatRevenue', fmtMoney(totRev));
+      set('revStatSpend', fmtMoney(totSpend));
+      set('revStatRoas', totRoas === null ? '—' : totRoas.toFixed(2) + 'x');
+      set('revStatProfit', fmtMoney(totProfit));
+      set('revStatMargin', totMargin === null ? '—' : totMargin.toFixed(0) + '%');
     }
     function addNotification(notification) {
       notification.id = Date.now();
