@@ -1234,6 +1234,9 @@
             <span>💰</span> Revenue
             <span class="nav-badge" style="background: var(--success); color: #fff;">only you</span>
           </div>
+          <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
+            <span>📒</span> P&amp;L
+          </div>
         </div>
         <div class="nav-section">
           <div class="nav-title">Management</div>
@@ -1560,6 +1563,42 @@
           </div>
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">ROAS = revenue ÷ ad spend · Profit = revenue − spend · Margin = profit ÷ revenue. Ad spend is pulled automatically from Daily Tracking. Revenue auto-saves.</p>
+      </section>
+
+      <section class="section" id="section-pnl">
+        <div class="header">
+          <div>
+            <h1 class="page-title">📒 Profit &amp; Loss</h1>
+            <p class="page-subtitle">Private — auto-built from your revenue &amp; ad spend</p>
+          </div>
+          <div class="header-actions" style="display: flex; gap: 0.6rem; align-items: center;">
+            <label style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;">Fee %
+              <input type="number" id="pnlFeeRate" step="0.1" min="0" class="form-input" style="width: 70px;" onchange="onPnlFeeChange(this.value)">
+            </label>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.1rem;">
+          <button class="btn btn-secondary btn-sm" onclick="shiftPnlMonth(-1)">◀</button>
+          <span id="pnlMonthLabel" style="font-weight: 600; min-width: 150px; text-align: center;"></span>
+          <button class="btn btn-secondary btn-sm" onclick="shiftPnlMonth(1)">▶</button>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
+          <div class="stat-card success"><div class="stat-label">Revenue</div><div class="stat-value" id="pnlSumRevenue">$0</div></div>
+          <div class="stat-card"><div class="stat-label">COGS</div><div class="stat-value" id="pnlSumCogs">$0</div></div>
+          <div class="stat-card info"><div class="stat-label">Ad Spend</div><div class="stat-value" id="pnlSumAds">$0</div></div>
+          <div class="stat-card purple"><div class="stat-label">Total Profit</div><div class="stat-value" id="pnlSumProfit">$0</div></div>
+          <div class="stat-card warning"><div class="stat-label">ROAS</div><div class="stat-value" id="pnlSumRoas">—</div></div>
+          <div class="stat-card"><div class="stat-label">Profit %</div><div class="stat-value" id="pnlSumMargin">—</div></div>
+        </div>
+        <div class="card">
+          <div style="overflow-x: auto;">
+            <table class="table" id="pnlTable" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead id="pnlTableHead"></thead>
+              <tbody id="pnlTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Revenue comes from the Revenue page (per store) · Ad spend from Daily Tracking. You only fill <strong>COGS</strong> and <strong>Refunds</strong>. Shopify = Revenue − Refunds · Fee = Fee% × Shopify · Gross = Revenue − COGS · Profit = Gross − Fee − Ad spend.</p>
       </section>
     </main>
   </div>
@@ -2315,6 +2354,7 @@ Or just card numbers:
     }
     function showSection(sectionId) {
       if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2334,6 +2374,7 @@ Or just card numbers:
         case 'saved': renderSavedAccounts(); break;
         case 'alerts': renderAlerts(); break;
         case 'revenue': openRevenueSection(); break;
+        case 'pnl': openPnlSection(); break;
       }
     }
     function switchUser(userId) {
@@ -3038,6 +3079,150 @@ Or just card numbers:
       set('revStatRoas', totRoas === null ? '—' : totRoas.toFixed(2) + 'x');
       set('revStatProfit', fmtMoney(totProfit));
       set('revStatMargin', totMargin === null ? '—' : totMargin.toFixed(0) + '%');
+    }
+    // ===== Profit & Loss (owner only) =====
+    let pnlData = {};        // date -> { cogs, refunds }
+    let pnlLoaded = false;
+    let pnlMonth = null, pnlYear = null;
+    let pnlFeeRate = 7;
+    function dayTotalRevenue(dateKey) {
+      let s = 0;
+      (data.stores || []).forEach(st => { s += dailyRevenue[`${st.id}_${dateKey}`] || 0; });
+      return s;
+    }
+    function dayTotalAdSpend(dateKey) {
+      let s = 0;
+      ['google', 'tiktok', 'facebook'].forEach(ch => {
+        (data.accounts[ch] || []).forEach(a => { s += parseFloat(dailySpendHistory[`${a.id}_${dateKey}`]) || 0; });
+      });
+      return s;
+    }
+    async function loadPnl() {
+      if (!isOwner()) return;
+      try {
+        const { data: rows, error } = await supabaseClient.from('daily_pnl').select('*');
+        if (error) { console.error('daily_pnl load error:', error); return; }
+        pnlData = {};
+        (rows || []).forEach(r => { pnlData[r.date] = { cogs: parseFloat(r.cogs) || 0, refunds: parseFloat(r.refunds) || 0 }; });
+        pnlLoaded = true;
+      } catch (e) { console.error('daily_pnl exception:', e); }
+    }
+    async function savePnl(dateKey, field, value) {
+      const amount = parseFloat(value) || 0;
+      const cur = pnlData[dateKey] || { cogs: 0, refunds: 0 };
+      cur[field] = amount;
+      pnlData[dateKey] = cur;
+      renderPnl();
+      try {
+        const { error } = await supabaseClient.from('daily_pnl').upsert(
+          { date: dateKey, cogs: cur.cogs, refunds: cur.refunds },
+          { onConflict: 'date' }
+        );
+        showAutoSaveIndicator(error ? '⚠️ Not saved' : '✓ Saved');
+        if (error) console.error('daily_pnl save error:', error);
+      } catch (e) { showAutoSaveIndicator('⚠️ Not saved'); console.error(e); }
+    }
+    function pnlEnsureMonth() {
+      if (pnlMonth === null) { const t = getThailandDate().split('-').map(Number); pnlYear = t[0]; pnlMonth = t[1] - 1; }
+    }
+    function shiftPnlMonth(delta) {
+      pnlEnsureMonth();
+      pnlMonth += delta;
+      if (pnlMonth < 0) { pnlMonth = 11; pnlYear--; }
+      if (pnlMonth > 11) { pnlMonth = 0; pnlYear++; }
+      renderPnl();
+    }
+    function onPnlFeeChange(v) {
+      pnlFeeRate = parseFloat(v) || 0;
+      try { localStorage.setItem('tsnac_pnl_feerate', String(pnlFeeRate)); } catch (e) {}
+      renderPnl();
+    }
+    async function openPnlSection() {
+      if (!isOwner()) { showSection('dashboard'); return; }
+      pnlEnsureMonth();
+      try { const f = localStorage.getItem('tsnac_pnl_feerate'); if (f !== null) pnlFeeRate = parseFloat(f) || 7; } catch (e) {}
+      const fEl = document.getElementById('pnlFeeRate'); if (fEl) fEl.value = pnlFeeRate;
+      if (!pnlLoaded) await loadPnl();
+      if (!revenueLoaded) await loadRevenue();
+      renderPnl();
+    }
+    function renderPnl() {
+      if (!isOwner()) return;
+      const head = document.getElementById('pnlTableHead');
+      const body = document.getElementById('pnlTableBody');
+      if (!head || !body) return;
+      pnlEnsureMonth();
+      const label = document.getElementById('pnlMonthLabel');
+      if (label) label.textContent = new Date(pnlYear, pnlMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const rate = pnlFeeRate / 100;
+      const dim = new Date(pnlYear, pnlMonth + 1, 0).getDate();
+      const todayKey = getThailandDate();
+      head.innerHTML = `<tr>
+        <th style="text-align:left; padding:0.5rem;">Day</th>
+        <th style="text-align:right; padding:0.5rem;">Revenue</th>
+        <th style="text-align:right; padding:0.5rem;">Refunds</th>
+        <th style="text-align:right; padding:0.5rem;">Shopify</th>
+        <th style="text-align:right; padding:0.5rem;">Fee ${pnlFeeRate}%</th>
+        <th style="text-align:right; padding:0.5rem;">COGS</th>
+        <th style="text-align:right; padding:0.5rem;">Gross</th>
+        <th style="text-align:right; padding:0.5rem;">Ad Spend</th>
+        <th style="text-align:right; padding:0.5rem;">Profit</th>
+        <th style="text-align:right; padding:0.5rem;">ROAS</th>
+        <th style="text-align:right; padding:0.5rem;">Profit %</th></tr>`;
+      let tRev = 0, tRef = 0, tShop = 0, tFee = 0, tCogs = 0, tGross = 0, tAds = 0, tProfit = 0;
+      let rows = '';
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      for (let d = 1; d <= dim; d++) {
+        const key = `${pnlYear}-${String(pnlMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const rev = dayTotalRevenue(key);
+        const p = pnlData[key] || { cogs: 0, refunds: 0 };
+        const refunds = p.refunds || 0, cogs = p.cogs || 0;
+        const shop = rev - refunds;
+        const fee = rate * shop;
+        const gross = rev - cogs;
+        const ads = dayTotalAdSpend(key);
+        const profit = gross - fee - ads;
+        const roas = ads > 0 ? rev / ads : null;
+        const pct = rev > 0 ? profit / rev * 100 : null;
+        tRev += rev; tRef += refunds; tShop += shop; tFee += fee; tCogs += cogs; tGross += gross; tAds += ads; tProfit += profit;
+        const empty = (rev === 0 && cogs === 0 && ads === 0 && refunds === 0);
+        const isToday = key === todayKey;
+        const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
+        rows += `<tr style="${empty ? 'opacity:0.45;' : ''}${isToday ? 'background:var(--accent-soft);' : ''}">
+          <td style="padding:0.4rem 0.5rem; font-weight:600;">${d}${isToday ? ' •' : ''}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; ${mono}">${rev ? fmtMoney(rev) : '—'}</td>
+          <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:76px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${refunds || ''}" placeholder="0" onchange="savePnl('${key}','refunds',this.value)"></td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-secondary); ${mono}">${rev ? fmtMoney(shop) : '—'}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-muted); ${mono}">${rev ? fmtMoney(fee) : '—'}</td>
+          <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:86px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${cogs || ''}" placeholder="0" onchange="savePnl('${key}','cogs',this.value)"></td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; ${mono}">${(rev || cogs) ? fmtMoney(gross) : '—'}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--info); ${mono}">${ads ? fmtMoney(ads) : '—'}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; font-weight:600; color:${profitColor}; ${mono}">${(rev || cogs || ads) ? fmtMoney(profit) : '—'}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; font-weight:600; color:${roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)')};">${roas === null ? '—' : roas.toFixed(2)}</td>
+          <td style="text-align:right; padding:0.4rem 0.5rem; color:${pct === null ? 'var(--text-muted)' : (pct >= 0 ? 'var(--success)' : 'var(--danger)')};">${pct === null ? '—' : pct.toFixed(1) + '%'}</td></tr>`;
+      }
+      const tRoas = tAds > 0 ? tRev / tAds : null;
+      const tPct = tRev > 0 ? tProfit / tRev * 100 : null;
+      rows += `<tr style="border-top:2px solid var(--border-light); font-weight:700; background:var(--bg-tertiary);">
+        <td style="padding:0.5rem;">TOTAL</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tRev)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tRef)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tShop)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tFee)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tCogs)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tGross)}</td>
+        <td style="text-align:right; padding:0.5rem; color:var(--info); ${mono}">${fmtMoney(tAds)}</td>
+        <td style="text-align:right; padding:0.5rem; color:${tProfit >= 0 ? 'var(--success)' : 'var(--danger)'}; ${mono}">${fmtMoney(tProfit)}</td>
+        <td style="text-align:right; padding:0.5rem;">${tRoas === null ? '—' : tRoas.toFixed(2)}</td>
+        <td style="text-align:right; padding:0.5rem;">${tPct === null ? '—' : tPct.toFixed(1) + '%'}</td></tr>`;
+      body.innerHTML = rows;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('pnlSumRevenue', fmtMoney(tRev));
+      set('pnlSumCogs', fmtMoney(tCogs));
+      set('pnlSumAds', fmtMoney(tAds));
+      set('pnlSumProfit', fmtMoney(tProfit));
+      set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
+      set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
     }
     function addNotification(notification) {
       notification.id = Date.now();
