@@ -1534,8 +1534,8 @@
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
-            <button class="btn btn-secondary" id="revGridBtn" onclick="setRevenueView('grid')">🔢 Grid entry</button>
             <button class="btn btn-secondary" id="revMonthBtn" onclick="setRevenueView('month')">🗓️ Month</button>
+            <button class="btn btn-primary" onclick="openRevenueRange()">📅 Enter range</button>
           </div>
         </div>
 
@@ -1815,6 +1815,31 @@ Or just card numbers:
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('dailyNote')">Close</button>
         <button class="btn btn-primary" onclick="copyDailyNote()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+  <!-- Revenue Range Entry Modal -->
+  <div class="modal-overlay" id="modal-revenueRange">
+    <div class="modal" style="max-width: 460px;">
+      <div class="modal-header">
+        <span class="modal-title">📅 Enter revenue for a date range</span>
+        <button class="modal-close" onclick="closeModal('revenueRange')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 0.6rem; margin-bottom: 1rem;">
+          <div class="form-group" style="flex: 1; margin: 0;"><label class="form-label">From</label><input type="date" id="rangeFrom" class="form-input"></div>
+          <div class="form-group" style="flex: 1; margin: 0;"><label class="form-label">To</label><input type="date" id="rangeTo" class="form-input"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total revenue for these days</label>
+          <input type="number" step="0.01" min="0" id="rangeAmount" class="form-input" placeholder="e.g. 249" style="font-family: 'JetBrains Mono', monospace;">
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">The total is split evenly across the days so your P&amp;L and monthly totals stay exact. This becomes the daily total for those days (replacing any per-store or manual total on them).</p>
+        <div id="rangeInfo" style="font-size: 0.82rem; color: var(--danger); margin-top: 0.5rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('revenueRange')">Cancel</button>
+        <button class="btn btn-primary" onclick="applyRevenueRange()">Apply</button>
       </div>
     </div>
   </div>
@@ -3001,6 +3026,52 @@ Or just card numbers:
     }
     function onRevenueDateChange(val) { if (val) { revenueDate = val; renderRevenue(); } }
     function setRevenueView(mode) { revenueView = mode; renderRevenue(); }
+    function openRevenueRange() {
+      if (!isOwner()) return;
+      const today = getThailandDate();
+      const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() - 2);
+      const twoAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const fromEl = document.getElementById('rangeFrom'), toEl = document.getElementById('rangeTo'), amtEl = document.getElementById('rangeAmount'), info = document.getElementById('rangeInfo');
+      if (fromEl) fromEl.value = twoAgo;
+      if (toEl) toEl.value = today;
+      if (amtEl) amtEl.value = '';
+      if (info) info.textContent = '';
+      openModal('revenueRange');
+    }
+    async function applyRevenueRange() {
+      const info = document.getElementById('rangeInfo');
+      let from = document.getElementById('rangeFrom').value;
+      let to = document.getElementById('rangeTo').value;
+      const total = parseFloat(document.getElementById('rangeAmount').value) || 0;
+      if (!from || !to) { if (info) info.textContent = 'Pick a start and end date.'; return; }
+      if (from > to) { const t = from; from = to; to = t; }
+      if (total <= 0) { if (info) info.textContent = 'Enter a revenue amount greater than 0.'; return; }
+      const keys = [];
+      let d = new Date(from + 'T12:00:00'); const endD = new Date(to + 'T12:00:00');
+      while (d <= endD) { keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); d.setDate(d.getDate() + 1); }
+      if (!keys.length) { if (info) info.textContent = 'Invalid range.'; return; }
+      // Split exactly in cents so the days sum back to the total
+      const cents = Math.round(total * 100);
+      const base = Math.floor(cents / keys.length);
+      keys.forEach((k, i) => {
+        const c = (i === keys.length - 1) ? (cents - base * (keys.length - 1)) : base;
+        dailyRevenue[`${MANUAL_REV_STORE}_${k}`] = c / 100;
+      });
+      renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
+      let ok = true;
+      for (const k of keys) {
+        try {
+          const { error } = await supabaseClient.from('daily_revenue').upsert(
+            { store_id: MANUAL_REV_STORE, date: k, amount: dailyRevenue[`${MANUAL_REV_STORE}_${k}`] },
+            { onConflict: 'store_id,date' }
+          );
+          if (error) { ok = false; console.error('range save error:', error); }
+        } catch (e) { ok = false; console.error(e); }
+      }
+      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Some not saved');
+      closeModal('revenueRange');
+      showToast(`Recorded ${fmtMoney(total)} across ${keys.length} day${keys.length > 1 ? 's' : ''} (≈${fmtMoney(base / 100)}/day)`);
+    }
     function storeSpendForDate(storeId, dateKey) {
       let s = 0;
       ['google', 'tiktok', 'facebook'].forEach(ch => {
@@ -3032,11 +3103,9 @@ Or just card numbers:
       if (dateInput && !dateInput.value) dateInput.value = dateKey;
       const [yy, mm] = dateKey.split('-').map(Number);
       const monthIdx = mm - 1;
-      const dayBtn = document.getElementById('revDayBtn'), gridBtn = document.getElementById('revGridBtn'), monBtn = document.getElementById('revMonthBtn');
-      [[dayBtn, 'day'], [gridBtn, 'grid'], [monBtn, 'month']].forEach(([b, m]) => { if (b) b.className = 'btn btn-sm ' + (revenueView === m ? 'btn-primary' : 'btn-secondary'); });
+      const dayBtn = document.getElementById('revDayBtn'), monBtn = document.getElementById('revMonthBtn');
+      [[dayBtn, 'day'], [monBtn, 'month']].forEach(([b, m]) => { if (b) b.className = 'btn btn-sm ' + (revenueView === m ? 'btn-primary' : 'btn-secondary'); });
       const manualBox = document.getElementById('revenueManualBox');
-
-      if (revenueView === 'grid') { if (manualBox) manualBox.innerHTML = ''; renderRevenueGrid(dateKey, yy, monthIdx); return; }
 
       const label = document.getElementById('revenueRangeLabel');
       const dObj = new Date(dateKey + 'T12:00:00');
@@ -3102,54 +3171,6 @@ Or just card numbers:
       set('revStatRoas', totRoas === null ? '—' : totRoas.toFixed(2) + 'x');
       set('revStatProfit', fmtMoney(totProfit));
       set('revStatMargin', totMargin === null ? '—' : totMargin.toFixed(0) + '%');
-    }
-    // Multi-day entry grid: stores (rows) × days of the month (columns) — enter several days at once
-    function renderRevenueGrid(dateKey, yy, monthIdx) {
-      const head = document.getElementById('revenueTableHead');
-      const body = document.getElementById('revenueTableBody');
-      const label = document.getElementById('revenueRangeLabel');
-      const monthKeys = daysOfMonth(yy, monthIdx);
-      const monthName = new Date(yy, monthIdx, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      if (label) label.textContent = monthName + ' · type revenue for any days';
-      const todayKey = getThailandDate();
-      let th = '<tr><th style="position:sticky; left:0; background:var(--bg-card); z-index:1; text-align:left; padding:0.5rem; min-width:130px;">Store</th>';
-      monthKeys.forEach(k => {
-        const d = Number(k.split('-')[2]);
-        const isToday = k === todayKey;
-        th += `<th style="text-align:center; padding:0.4rem 0.2rem; min-width:64px; ${isToday ? 'background:var(--accent); color:#fff; border-radius:4px;' : ''}">${d}</th>`;
-      });
-      th += '<th style="text-align:right; padding:0.5rem; background:var(--bg-tertiary); min-width:80px;">Total</th></tr>';
-      head.innerHTML = th;
-      const dayTotals = {}; monthKeys.forEach(k => dayTotals[k] = 0);
-      let rows = '';
-      (data.stores || []).forEach(store => {
-        let rowTotal = 0;
-        let cells = '';
-        monthKeys.forEach(k => {
-          const v = dailyRevenue[`${store.id}_${k}`] || 0;
-          rowTotal += v; dayTotals[k] += v;
-          const isToday = k === todayKey;
-          cells += `<td style="text-align:center; padding:0.2rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:58px; padding:0.25rem; text-align:center; font-size:0.78rem; ${isToday ? 'border-color:var(--accent);' : ''}" value="${v || ''}" placeholder="-" onchange="saveRevenue('${store.id}','${k}',this.value)"></td>`;
-        });
-        rows += `<tr>
-          <td style="position:sticky; left:0; background:var(--bg-card); z-index:1; font-weight:500; white-space:nowrap; padding:0.4rem 0.5rem;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}</td>
-          ${cells}
-          <td style="text-align:right; padding:0.4rem 0.5rem; font-weight:600; color:var(--success); background:var(--bg-tertiary); font-family:'JetBrains Mono',monospace;">${rowTotal ? fmtMoney(rowTotal) : '—'}</td></tr>`;
-      });
-      let footer = '<tr style="font-weight:700; background:var(--bg-tertiary);"><td style="position:sticky; left:0; background:var(--bg-tertiary); padding:0.5rem;">Daily total</td>';
-      let grand = 0;
-      monthKeys.forEach(k => { const t = dayTotals[k]; grand += t; footer += `<td style="text-align:center; padding:0.4rem 0.2rem; font-size:0.78rem; color:${t > 0 ? 'var(--accent)' : 'var(--text-muted)'};">${t > 0 ? fmtMoney(t) : '-'}</td>`; });
-      footer += `<td style="text-align:right; padding:0.5rem; color:var(--success); background:var(--success-bg); font-family:'JetBrains Mono',monospace;">${fmtMoney(grand)}</td></tr>`;
-      body.innerHTML = (rows || `<tr><td colspan="${monthKeys.length + 2}" style="text-align:center; padding:2rem; color:var(--text-muted);">No stores yet</td></tr>`) + footer;
-      // summary cards for the month
-      let mSpend = 0; monthKeys.forEach(k => { mSpend += dayTotalAdSpend(k); });
-      const mProfit = grand - mSpend, mRoas = mSpend > 0 ? grand / mSpend : null, mMargin = grand > 0 ? mProfit / grand * 100 : null;
-      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('revStatRevenue', fmtMoney(grand));
-      set('revStatSpend', fmtMoney(mSpend));
-      set('revStatRoas', mRoas === null ? '—' : mRoas.toFixed(2) + 'x');
-      set('revStatProfit', fmtMoney(mProfit));
-      set('revStatMargin', mMargin === null ? '—' : mMargin.toFixed(0) + '%');
     }
     // ===== Profit & Loss (owner only) =====
     let pnlData = {};        // date -> { cogs, refunds }
