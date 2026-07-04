@@ -1827,10 +1827,13 @@ Or just card numbers:
         <button class="modal-close" onclick="closeModal('revenueQuick')">&times;</button>
       </div>
       <div class="modal-body">
-        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
-          <input type="date" id="revQuickDate" class="form-input" style="width: auto;" onchange="renderRevenueQuick()">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Type a number, press <strong>Enter</strong> for the next store.</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; flex-wrap: wrap;">
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">From</span>
+          <input type="date" id="revQuickDate" class="form-input" style="width: auto;" onchange="onRevQuickFromChange()">
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">to</span>
+          <input type="date" id="revQuickDateEnd" class="form-input" style="width: auto;" onchange="renderRevenueQuick()">
         </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">Type a number, press <strong>Enter</strong> for the next store. <span id="revQuickRangeNote"></span></div>
         <input type="text" id="revQuickFilter" class="form-input" placeholder="🔎 Filter stores..." oninput="filterRevQuick(this.value)" style="margin-bottom: 0.6rem;">
         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
           <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 999px; overflow: hidden;"><div id="revQuickBar" style="height: 100%; width: 0; background: var(--success); transition: width 0.2s;"></div></div>
@@ -3111,11 +3114,27 @@ Or just card numbers:
       const storeName = storeId === MANUAL_REV_STORE ? 'all stores' : ((getStore(storeId) || {}).name || 'store');
       showToast(`Recorded ${fmtMoney(total)} for ${storeName} across ${keys.length} day${keys.length > 1 ? 's' : ''} (≈${fmtMoney(base / 100)}/day)`);
     }
-    // ---- Quick revenue entry: type a number, Enter -> next store ----
+    // ---- Quick revenue entry: type a number, Enter -> next store (supports a date range) ----
     function revQuickDateKey() { const d = document.getElementById('revQuickDate'); return (d && d.value) || revenueDateKey(); }
+    function revQuickRangeKeys() {
+      const fromEl = document.getElementById('revQuickDate'), toEl = document.getElementById('revQuickDateEnd');
+      let from = (fromEl && fromEl.value) || revenueDateKey();
+      let to = (toEl && toEl.value) || from;
+      if (from > to) { const t = from; from = to; to = t; }
+      const keys = [];
+      let d = new Date(from + 'T12:00:00'); const endD = new Date(to + 'T12:00:00');
+      while (d <= endD) { keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); d.setDate(d.getDate() + 1); }
+      return keys.length ? keys : [from];
+    }
+    function onRevQuickFromChange() {
+      const fromEl = document.getElementById('revQuickDate'), toEl = document.getElementById('revQuickDateEnd');
+      if (fromEl && toEl && (!toEl.value || toEl.value < fromEl.value)) toEl.value = fromEl.value;
+      renderRevenueQuick();
+    }
     function openRevenueQuick() {
       if (!isOwner()) return;
       const d = document.getElementById('revQuickDate'); if (d) d.value = revenueDateKey();
+      const e = document.getElementById('revQuickDateEnd'); if (e) e.value = revenueDateKey();
       const f = document.getElementById('revQuickFilter'); if (f) f.value = '';
       renderRevenueQuick();
       openModal('revenueQuick');
@@ -3123,16 +3142,18 @@ Or just card numbers:
     }
     function renderRevenueQuick() {
       const list = document.getElementById('revQuickList'); if (!list) return;
-      const dateKey = revQuickDateKey();
+      const keys = revQuickRangeKeys();
+      const note = document.getElementById('revQuickRangeNote');
+      if (note) note.textContent = keys.length > 1 ? `Range of ${keys.length} days — each amount is split evenly across them.` : '';
       const stores = (data.stores || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       let html = '';
       stores.forEach((store, idx) => {
-        const val = dailyRevenue[`${store.id}_${dateKey}`];
-        const entered = (val !== undefined && val !== null);
+        let sum = 0; keys.forEach(k => { sum += dailyRevenue[`${store.id}_${k}`] || 0; });
+        const entered = sum > 0;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
           <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}</span>
-          <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? val : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
+          <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
       list.innerHTML = html || '<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">No stores yet</div>';
@@ -3151,23 +3172,44 @@ Or just card numbers:
       if (!target) { const idxs = inputs.map(i => parseInt(i.dataset.idx)); const clamped = Math.max(idxs[0], Math.min(targetIdx, idxs[idxs.length - 1])); target = inputs.find(i => parseInt(i.dataset.idx) === clamped) || inputs[inputs.length - 1]; }
       if (target) { target.focus(); target.select(); target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
+    async function persistRevenueDays(storeId, rows) {
+      let ok = true;
+      for (const r of rows) {
+        try {
+          const { error } = await supabaseClient.from('daily_revenue').upsert(
+            { store_id: String(storeId), date: r.date, amount: r.amount }, { onConflict: 'store_id,date' });
+          if (error) { ok = false; console.error('revenue save error:', error); }
+        } catch (e) { ok = false; console.error(e); }
+      }
+      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Not saved');
+    }
     function revQuickSave(input) {
       const storeId = input.dataset.store;
       const raw = input.value.trim();
       const row = input.closest('.rev-quick-row');
       const dot = row.querySelector('.rev-quick-dot');
-      const dateKey = revQuickDateKey();
+      const keys = revQuickRangeKeys();
       if (raw === '') {
         input.dataset.entered = 'false';
         row.style.borderLeftColor = 'var(--border-light)';
         dot.style.background = 'var(--text-muted)'; dot.style.opacity = '0.4';
-        saveRevenue(storeId, dateKey, 0);
+        keys.forEach(k => { delete dailyRevenue[`${storeId}_${k}`]; });
+        persistRevenueDays(storeId, keys.map(k => ({ date: k, amount: 0 })));
       } else {
         input.dataset.entered = 'true';
         row.style.borderLeftColor = 'var(--success)';
         dot.style.background = 'var(--success)'; dot.style.opacity = '1';
-        saveRevenue(storeId, dateKey, parseFloat(raw) || 0);
+        const total = parseFloat(raw) || 0;
+        const cents = Math.round(total * 100), base = Math.floor(cents / keys.length);
+        const rows = keys.map((k, i) => {
+          const c = (i === keys.length - 1) ? (cents - base * (keys.length - 1)) : base;
+          const amount = c / 100;
+          dailyRevenue[`${storeId}_${k}`] = amount;
+          return { date: k, amount };
+        });
+        persistRevenueDays(storeId, rows);
       }
+      renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
       updateRevQuickTotals();
     }
     function updateRevQuickTotals() {
