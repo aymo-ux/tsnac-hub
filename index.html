@@ -697,6 +697,21 @@
     .zero-row-name { font-weight: 600; font-size: 0.83rem; }
     .zero-row-sub { color: var(--text-muted); font-size: 0.78rem; }
     .zero-row-days { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+    .analyze-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.1rem; }
+    .kpi {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+      padding: 0.95rem 1rem; box-shadow: var(--shadow-sm); transition: var(--transition);
+    }
+    .kpi:hover { box-shadow: var(--shadow-md); border-color: var(--border-light); }
+    .kpi-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--text-muted); }
+    .kpi-value { font-size: 1.4rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; margin-top: 0.35rem; line-height: 1.15; }
+    .kpi-delta { font-size: 0.75rem; font-weight: 600; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.25rem; }
+    .kpi-prev { color: var(--text-muted); font-weight: 400; }
+    .analyze-movers { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .an-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+    .an-sort:hover { color: var(--accent); }
+    @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
     .trend-mini { cursor: pointer; opacity: 0.5; margin-left: 0.4rem; font-size: 0.9rem; transition: opacity 0.15s; }
     .trend-mini:hover { opacity: 1; }
     .form-group { margin-bottom: 1.1rem; }
@@ -1230,14 +1245,14 @@
         </div>
         <div class="nav-section" id="ownerNavSection" style="display: none;">
           <div class="nav-title">Private</div>
+          <div class="nav-item" data-section="analyze" onclick="showSection('analyze')">
+            <span>📊</span> Analyze
+          </div>
           <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
             <span>💰</span> Revenue
           </div>
           <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
             <span>📒</span> P&amp;L
-          </div>
-          <div class="nav-item" data-section="trends" onclick="showSection('trends')">
-            <span>📈</span> Trends
           </div>
         </div>
         <div class="nav-section">
@@ -1607,54 +1622,65 @@
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Revenue comes from the Revenue page (per store) · Ad spend from Daily Tracking. You only fill <strong>COGS</strong> and <strong>Refunds</strong>. Shopify = Revenue − Refunds · Fee = Fee% × Shopify · Gross = Revenue − COGS · Profit = Gross − Fee − Ad spend.</p>
       </section>
 
-      <section class="section" id="section-trends">
+      <section class="section" id="section-analyze">
         <div class="header">
           <div>
-            <h1 class="page-title">Performance Trends</h1>
-            <p class="page-subtitle">Revenue, profit, and ROAS over time</p>
+            <h1 class="page-title">Analyze</h1>
+            <p class="page-subtitle" id="analyzeSubtitle">Your performance at a glance</p>
           </div>
-          <div class="header-actions" style="display: flex; gap: 0.4rem;">
-            <button class="btn btn-sm btn-secondary" id="trend14" onclick="setTrendPeriod(14)">14d</button>
-            <button class="btn btn-sm btn-secondary" id="trend30" onclick="setTrendPeriod(30)">30d</button>
-            <button class="btn btn-sm btn-secondary" id="trend90" onclick="setTrendPeriod(90)">90d</button>
+          <div class="header-actions" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-secondary" id="an7" onclick="setAnalyzePeriod(7)">7D</button>
+            <button class="btn btn-sm btn-secondary" id="an14" onclick="setAnalyzePeriod(14)">14D</button>
+            <button class="btn btn-sm btn-secondary" id="an30" onclick="setAnalyzePeriod(30)">30D</button>
+            <button class="btn btn-sm btn-secondary" id="an90" onclick="setAnalyzePeriod(90)">90D</button>
           </div>
+        </div>
+
+        <div id="analyzeKpis" class="analyze-kpis"></div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Revenue vs Ad Spend</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 0.9rem;">
+              <span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--accent); margin-right:0.3rem;"></span>Revenue</span>
+              <span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--text-muted); margin-right:0.3rem;"></span>Ad spend</span>
+            </span>
+          </div>
+          <div id="analyzeRevSpendChart"></div>
         </div>
 
         <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">Revenue</span>
-            <span id="trendRevSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Net Profit</span>
+            <span id="analyzeProfitSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
           </div>
-          <div id="trendRevChart"></div>
+          <div id="analyzeProfitChart"></div>
         </div>
 
-        <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">Total Profit</span>
-            <span id="trendProfitSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem 0.75rem;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Store breakdown</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Click a column to sort</span>
           </div>
-          <div id="trendProfitChart"></div>
+          <div style="overflow-x: auto;">
+            <table class="table" id="analyzeStoreTable" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead id="analyzeStoreHead"></thead>
+              <tbody id="analyzeStoreBody"></tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.85rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">ROAS</span>
-            <span id="trendRoasSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
-          </div>
-          <div id="trendRoasChart"></div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" id="trendMoversGrid">
+        <div class="analyze-movers" id="analyzeMoversGrid">
           <div class="card" style="padding: 1.1rem 1.3rem;">
-            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">📈 Top risers <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">last 7d vs prior 7d</span></div>
-            <div id="trendRisers"></div>
+            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">Top risers <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">vs previous period</span></div>
+            <div id="analyzeRisers"></div>
           </div>
           <div class="card" style="padding: 1.1rem 1.3rem;">
-            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">📉 Declining <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">last 7d vs prior 7d</span></div>
-            <div id="trendDecliners"></div>
+            <div style="font-weight: 650; font-size: 0.95rem; margin-bottom: 0.75rem;">Declining <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">vs previous period</span></div>
+            <div id="analyzeDecliners"></div>
           </div>
         </div>
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Revenue, profit &amp; ROAS are built from your Revenue and P&amp;L data. Risers/decliners compare each store's revenue over the last 7 days against the 7 days before.</p>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Net profit = revenue − COGS − fees − ad spend, using the COGS, refunds and fee rate from your P&amp;L. Store rows show revenue minus that store's ad spend (COGS and fees are entered at the business level, so they are not split per store).</p>
       </section>
     </main>
   </div>
@@ -2127,6 +2153,29 @@ Or just card numbers:
       savedAccounts: { google: [], tiktok: [], facebook: [] },
       notifications: []
     };
+    // ===== Archive =====
+    // Archiving hides a store/account from the working lists but KEEPS its history,
+    // so past spend and revenue stay counted in every total, chart and P&L.
+    let archivedStores = new Set();
+    let archivedAccounts = new Set();
+    let showArchived = false;
+    function loadArchivedLocal() {
+      try {
+        const s = localStorage.getItem('tsnac_archived');
+        if (s) { const o = JSON.parse(s) || {}; archivedStores = new Set((o.stores || []).map(String)); archivedAccounts = new Set((o.accounts || []).map(String)); }
+      } catch (e) {}
+    }
+    function saveArchivedLocal() {
+      try { localStorage.setItem('tsnac_archived', JSON.stringify({ stores: [...archivedStores], accounts: [...archivedAccounts] })); } catch (e) {}
+    }
+    function isStoreArchived(id) { return archivedStores.has(String(id)); }
+    function isAccountArchived(id) { return archivedAccounts.has(String(id)); }
+    // An account is hidden if it is archived OR its store is archived
+    function isAccountHidden(a) { return isAccountArchived(a.id) || (a.storeId != null && isStoreArchived(a.storeId)); }
+    // Lists of things you still work with day to day (archived excluded)
+    function liveStores() { return (data.stores || []).filter(s => !isStoreArchived(s.id)); }
+    function liveAccounts(channel) { return (data.accounts[channel || currentChannel] || []).filter(a => !isAccountHidden(a)); }
+    loadArchivedLocal();
     async function loadDataFromSupabase() {
       try {
         const { data: stores } = await supabaseClient.from('stores').select('*').order('created_at', { ascending: true });
@@ -2138,6 +2187,8 @@ Or just card numbers:
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
+          stores.forEach(s => { if (s.archived) archivedStores.add(String(s.id)); });
+          saveArchivedLocal();
         }
         const { data: vccs } = await supabaseClient.from('vccs').select('*').order('created_at', { ascending: true });
         if (vccs) {
@@ -2190,6 +2241,8 @@ Or just card numbers:
               });
             }
           });
+          accounts.forEach(a => { if (a.archived) archivedAccounts.add(String(a.id)); });
+          saveArchivedLocal();
         }
         const { data: savedAccounts } = await supabaseClient.from('saved_accounts').select('*').order('saved_at', { ascending: true });
         if (savedAccounts) {
@@ -2468,7 +2521,7 @@ Or just card numbers:
     function showSection(sectionId) {
       if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
-      if (sectionId === 'trends' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2489,7 +2542,7 @@ Or just card numbers:
         case 'alerts': renderAlerts(); break;
         case 'revenue': openRevenueSection(); break;
         case 'pnl': openPnlSection(); break;
-        case 'trends': openTrendsSection(); break;
+        case 'analyze': openAnalyzeSection(); break;
       }
     }
     function switchUser(userId) {
@@ -2562,12 +2615,16 @@ Or just card numbers:
         const yesterdaySpend = dailySpendHistory[`${a.id}_${yesterdayKey}`] ?? 0;
         return sum + (parseFloat(yesterdaySpend) || 0);
       }, 0);
-      const activeAds = accounts.filter(a => a.adsStatus === 'active').length;
-      const performers = data.stores.filter(s => s.isPerformer).length;
-      const trackingStores = data.stores.filter(s => s.hasTracking).length;
-      const needsAttention = accounts.filter(a => ['needs_verif', 'payment_issue'].includes(a.adsStatus)).length;
-      const suspended = accounts.filter(a => a.adsStatus === 'suspended').length;
-      const newStores = data.stores.filter(store => {
+      // Counts describe what you're actively managing, so archived items are excluded.
+      // Money totals above/below still include archived accounts so history stays accurate.
+      const visibleAccounts = accounts.filter(a => !isAccountHidden(a));
+      const visibleStores = liveStores();
+      const activeAds = visibleAccounts.filter(a => a.adsStatus === 'active').length;
+      const performers = visibleStores.filter(s => s.isPerformer).length;
+      const trackingStores = visibleStores.filter(s => s.hasTracking).length;
+      const needsAttention = visibleAccounts.filter(a => ['needs_verif', 'payment_issue'].includes(a.adsStatus)).length;
+      const suspended = visibleAccounts.filter(a => a.adsStatus === 'suspended').length;
+      const newStores = visibleStores.filter(store => {
         const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
                            data.accounts.tiktok.some(a => a.storeId === store.id) ||
                            data.accounts.facebook.some(a => a.storeId === store.id);
@@ -2585,7 +2642,7 @@ Or just card numbers:
       document.getElementById('dashboardAlerts').innerHTML =
         (dashAlertsHtml || (dashZeroHtml ? '' : '<div class="empty-state"><p>No alerts</p></div>')) + dashZeroHtml;
       const storeGroups = {};
-      accounts.forEach(account => {
+      visibleAccounts.forEach(account => {
         const storeId = account.storeId;
         if (!storeGroups[storeId]) storeGroups[storeId] = [];
         storeGroups[storeId].push(account);
@@ -2733,7 +2790,15 @@ Or just card numbers:
     function renderStores() {
       const perms = permissions[currentUser];
       let html = '';
-      const sortedStores = [...data.stores].sort((a, b) => {
+      const archivedCount = (data.stores || []).filter(s => isStoreArchived(s.id)).length;
+      if (archivedCount > 0) {
+        html += `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; margin-bottom:0.9rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem;">
+          <span style="color:var(--text-secondary);">${archivedCount} archived store${archivedCount > 1 ? 's' : ''} — their spend and revenue are still counted in your totals.</span>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="toggleShowArchived()">${showArchived ? 'Hide archived' : 'Show archived'}</button>
+        </div>`;
+      }
+      const baseStores = showArchived ? [...(data.stores || [])] : liveStores();
+      const sortedStores = baseStores.sort((a, b) => {
         const aAccounts = data.accounts.google.filter(acc => acc.storeId === a.id).length +
                           data.accounts.tiktok.filter(acc => acc.storeId === a.id).length +
                           data.accounts.facebook.filter(acc => acc.storeId === a.id).length;
@@ -2751,7 +2816,27 @@ Or just card numbers:
         const tiktokAccounts = data.accounts.tiktok.filter(a => a.storeId === store.id);
         const fbAccounts = data.accounts.facebook.filter(a => a.storeId === store.id);
         const totalAccounts = googleAccounts.length + tiktokAccounts.length + fbAccounts.length;
-        const isNew = totalAccounts === 0;
+        const archived = isStoreArchived(store.id);
+        const isNew = totalAccounts === 0 && !archived;
+        if (archived) {
+          html += `
+            <div class="store-card" data-store-id="${store.id}" style="opacity:0.75;">
+              <div class="store-header">
+                <div>
+                  <div class="store-name">${escapeHtml(store.name)}
+                    <span style="background: var(--bg-tertiary); color: var(--text-secondary); border:1px solid var(--border-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem;">ARCHIVED</span>
+                  </div>
+                  <div class="store-url">${escapeHtml(store.url || '')}</div>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                  <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</button>
+                  <button class="btn btn-sm btn-secondary" onclick="restoreStore('${store.id}')">↩︎ Restore</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStoreForever('${store.id}')" title="Permanently delete — removes its numbers from all totals">Delete forever</button>
+                </div>
+              </div>
+            </div>`;
+          return;
+        }
         html += `
           <div class="store-card ${store.isPerformer ? "performer" : ""}" data-store-id="${store.id}" style="${isNew ? 'border: 1px solid var(--info); background: var(--info-bg);' : ''}">
             <div class="store-header">
@@ -2785,7 +2870,7 @@ Or just card numbers:
       document.getElementById('storesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">🏪</div><p>No stores yet — add your first store to start tracking spend and revenue.</p></div>';
     }
     function renderTracking() {
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
+      const accounts = liveAccounts().filter(a => a.status === 'active');
       let html = '';
       const dateKey = selectedTrackingDate;
       const todayKey = getThailandDate();
@@ -3131,7 +3216,7 @@ Or just card numbers:
       if (info) info.textContent = '';
       const storeSel = document.getElementById('rangeStore');
       if (storeSel) {
-        const opts = (data.stores || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        const opts = liveStores().slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
           .map(s => `<option value="${escapeHtml(String(s.id))}">${escapeHtml(s.name)}</option>`).join('');
         storeSel.innerHTML = `<option value="${MANUAL_REV_STORE}">All stores — one daily total</option>` + opts;
       }
@@ -3206,7 +3291,7 @@ Or just card numbers:
       const keys = revQuickRangeKeys();
       const note = document.getElementById('revQuickRangeNote');
       if (note) note.textContent = keys.length > 1 ? `Range of ${keys.length} days — each amount is split evenly across them.` : '';
-      const stores = (data.stores || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      const stores = liveStores().slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       let html = '';
       stores.forEach((store, idx) => {
         let sum = 0; keys.forEach(k => { sum += dailyRevenue[`${store.id}_${k}`] || 0; });
@@ -3352,21 +3437,26 @@ Or just card numbers:
       const rowsData = (data.stores || []).map(store => {
         const rev = revenueView === 'day' ? (dailyRevenue[`${store.id}_${dateKey}`] || 0) : storeRevenueForMonth(store.id, yy, monthIdx);
         const spend = revenueView === 'day' ? storeSpendForDate(store.id, dateKey) : storeSpendForMonth(store.id, yy, monthIdx);
-        return { store, rev, spend };
-      }).sort((a, b) => (b.rev - a.rev) || (b.spend - a.spend));
+        return { store, rev, spend, archived: isStoreArchived(store.id) };
+      })
+      // Archived stores still count — they stay listed for any period where they have numbers,
+      // so the rows always add up to the totals. Empty archived stores are hidden.
+      .filter(r => !r.archived || r.rev > 0 || r.spend > 0)
+      .sort((a, b) => (b.rev - a.rev) || (b.spend - a.spend));
       let rowsHtml = '';
-      rowsData.forEach(({ store, rev, spend }) => {
+      rowsData.forEach(({ store, rev, spend, archived }) => {
         totRev += rev; totSpend += spend;
         const profit = rev - spend;
         const roas = spend > 0 ? rev / spend : null;
         const margin = rev > 0 ? profit / rev * 100 : null;
         const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
         const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
-        const revCell = revenueView === 'day'
+        const archTag = archived ? ' <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.1rem 0.35rem;">ARCHIVED</span>' : '';
+        const revCell = (revenueView === 'day' && !archived)
           ? `<input type="number" step="0.01" min="0" class="form-input" style="width:110px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${rev || ''}" placeholder="0" onchange="saveRevenue('${store.id}','${dateKey}',this.value)">`
           : `<span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(rev)}</span>`;
-        rowsHtml += `<tr>
-          <td style="padding:0.5rem 0.6rem; font-weight:500; white-space:nowrap;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></td>
+        rowsHtml += `<tr${archived ? ' style="opacity:0.75;"' : ''}>
+          <td style="padding:0.5rem 0.6rem; font-weight:500; white-space:nowrap;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}${archTag}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></td>
           <td style="text-align:right; padding:0.5rem 0.6rem;">${revCell}</td>
           <td style="text-align:right; padding:0.5rem 0.6rem; font-family:'JetBrains Mono',monospace; color:var(--text-secondary);">${fmtMoney(spend)}</td>
           <td style="text-align:right; padding:0.5rem 0.6rem; font-weight:600; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</td>
@@ -3549,128 +3639,213 @@ Or just card numbers:
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
     }
-    // ===== Trends (owner only) =====
-    let trendPeriod = 30;
-    function setTrendPeriod(p) { trendPeriod = p; renderTrends(); }
-    async function openTrendsSection() {
+    // ===== Analyze (owner only) — summary hub =====
+    let analyzePeriod = 30;
+    let analyzeSort = 'revenue';
+    function setAnalyzePeriod(p) { analyzePeriod = p; renderAnalyze(); }
+    function setAnalyzeSort(col) { analyzeSort = col; renderAnalyze(); }
+    async function openAnalyzeSection() {
       if (!isOwner()) { showSection('dashboard'); return; }
       if (!revenueLoaded) await loadRevenue();
       if (!pnlLoaded) await loadPnl();
-      renderTrends();
+      try { const f = localStorage.getItem('tsnac_pnl_feerate'); if (f !== null) pnlFeeRate = parseFloat(f) || 7; } catch (e) {}
+      renderAnalyze();
     }
-    function trendDateKeys(n) {
-      const keys = [];
+    // date keys for the N days ending today, plus the N days immediately before that
+    function analyzeRanges(n) {
       const base = new Date(getThailandDate() + 'T12:00:00');
-      for (let i = n - 1; i >= 0; i--) { const d = new Date(base); d.setDate(d.getDate() - i); keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); }
-      return keys;
+      const mk = (offset) => { const d = new Date(base); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+      const cur = [], prev = [];
+      for (let i = n - 1; i >= 0; i--) cur.push(mk(i));
+      for (let i = 2 * n - 1; i >= n; i--) prev.push(mk(i));
+      return { cur, prev };
     }
-    function renderTrendSVG(el, series, opts) {
-      if (!el) return;
-      opts = opts || {};
-      const fmt = opts.format || (v => String(Math.round(v)));
-      const vals = series.map(s => (s.value == null ? 0 : s.value));
-      const maxVal = Math.max(...vals, 1);
-      const n = series.length;
-      const W = Math.max(340, n * 22), H = 180, padL = 6, padR = 6, padT = 20, padB = 22;
-      const innerW = W - padL - padR, innerH = H - padT - padB;
-      const slot = innerW / n, barW = Math.min(26, slot * 0.6);
-      const showLabels = n <= 14;
-      const drawn = vals.filter((v, i) => series[i].value != null);
-      const avg = drawn.length ? drawn.reduce((a, b) => a + b, 0) / drawn.length : 0;
-      const every = Math.max(1, Math.ceil(n / 6));
-      let bars = '', labels = '';
-      series.forEach((s, i) => {
-        const v = s.value == null ? 0 : s.value;
-        const x = padL + slot * i + (slot - barW) / 2;
-        const h = Math.max(2, (v / maxVal) * innerH);
-        const y = padT + innerH - h;
-        const isToday = i === n - 1;
-        const op = (s.value == null || v === 0) ? 0.18 : (isToday ? 1 : 0.82);
-        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${opts.color || 'var(--accent)'}" opacity="${op}"><title>${s.label || ''}: ${s.value == null ? '—' : fmt(s.value)}</title></rect>`;
-        if (showLabels && s.value != null && v > 0) bars += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${opts.shortFmt ? opts.shortFmt(v) : fmt(s.value)}</text>`;
-        if (i % every === 0 || isToday) labels += `<text x="${(x + barW / 2).toFixed(1)}" y="${(H - 7).toFixed(1)}" text-anchor="middle" font-size="9" fill="${isToday ? 'var(--accent)' : 'var(--text-muted)'}" font-weight="${isToday ? 600 : 400}">${isToday ? 'Today' : s.short}</text>`;
-      });
-      const avgY = padT + innerH - (avg / maxVal) * innerH;
-      const avgLine = avg > 0 ? `<line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="4 4" opacity="0.45"/>` : '';
-      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${avgLine}${bars}${labels}</svg>`;
-    }
-    function wowDelta(vals) {
-      // recent 7 vs prior 7 (sums)
-      if (vals.length < 14) return null;
-      const recent = vals.slice(-7).reduce((a, b) => a + (b || 0), 0);
-      const prior = vals.slice(-14, -7).reduce((a, b) => a + (b || 0), 0);
-      if (prior === 0) return recent > 0 ? 100 : null;
-      return (recent - prior) / prior * 100;
-    }
-    function deltaTag(pct, goodUp) {
-      if (pct == null) return '';
-      const up = pct >= 0;
-      const good = goodUp ? up : !up;
-      const color = good ? 'var(--success)' : 'var(--danger)';
-      return `<span style="color:${color}; font-weight:600;">${up ? '▲' : '▼'} ${Math.abs(Math.round(pct))}%</span> vs prior 7d`;
-    }
-    function renderTrends() {
-      if (!isOwner()) return;
-      ['trend14', 'trend30', 'trend90'].forEach(id => { const b = document.getElementById(id); if (b) b.className = 'btn btn-sm ' + (('trend' + trendPeriod) === id ? 'btn-primary' : 'btn-secondary'); });
-      const keys = trendDateKeys(trendPeriod);
-      const rate = pnlFeeRate / 100;
-      const revSeries = [], profitSeries = [], roasSeries = [];
+    // all the money metrics for a set of days
+    function analyzeMetrics(keys) {
+      const rate = (pnlFeeRate || 0) / 100;
+      let revenue = 0, adSpend = 0, cogs = 0, refunds = 0;
       keys.forEach(k => {
-        const d = new Date(k + 'T12:00:00');
-        const rev = dayTotalRevenue(k);
-        const ads = dayTotalAdSpend(k);
-        const p = pnlData[k] || { cogs: 0, refunds: 0 };
-        const fee = rate * (rev - (p.refunds || 0));
-        const profit = (rev - (p.cogs || 0)) - fee - ads;
-        const roas = ads > 0 ? rev / ads : null;
-        const short = String(d.getDate());
-        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        revSeries.push({ value: rev, short, label });
-        profitSeries.push({ value: (rev || ads || p.cogs) ? profit : 0, short, label });
-        roasSeries.push({ value: roas, short, label });
+        revenue += dayTotalRevenue(k);
+        adSpend += dayTotalAdSpend(k);
+        const p = pnlData[k] || {};
+        cogs += parseFloat(p.cogs) || 0;
+        refunds += parseFloat(p.refunds) || 0;
       });
-      const moneyFmt = v => fmtMoney(v);
-      const shortMoney = v => (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v)));
-      renderTrendSVG(document.getElementById('trendRevChart'), revSeries, { color: 'var(--success)', format: moneyFmt, shortFmt: shortMoney });
-      renderTrendSVG(document.getElementById('trendProfitChart'), profitSeries, { color: 'var(--accent)', format: moneyFmt, shortFmt: shortMoney });
-      renderTrendSVG(document.getElementById('trendRoasChart'), roasSeries.map(s => ({ ...s, value: s.value })), { color: 'var(--purple)', format: v => v.toFixed(2) + 'x', shortFmt: v => v.toFixed(1) });
-      // summaries
-      const revVals = revSeries.map(s => s.value), profVals = profitSeries.map(s => s.value);
-      const revTot = revVals.reduce((a, b) => a + b, 0), profTot = profVals.reduce((a, b) => a + b, 0);
-      const roasVals = roasSeries.map(s => s.value).filter(v => v != null);
-      const roasAvg = roasVals.length ? roasVals.reduce((a, b) => a + b, 0) / roasVals.length : null;
-      const setHtml = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
-      setHtml('trendRevSummary', `Total <strong style="color:var(--text-primary);">${fmtMoney(revTot)}</strong> · Avg <strong style="color:var(--text-primary);">${fmtMoney(revTot / trendPeriod)}</strong>/day · ${deltaTag(wowDelta(revVals), true)}`);
-      setHtml('trendProfitSummary', `Total <strong style="color:var(--text-primary);">${fmtMoney(profTot)}</strong> · Avg <strong style="color:var(--text-primary);">${fmtMoney(profTot / trendPeriod)}</strong>/day · ${deltaTag(wowDelta(profVals), true)}`);
-      setHtml('trendRoasSummary', roasAvg == null ? 'No ad spend yet' : `Avg <strong style="color:var(--text-primary);">${roasAvg.toFixed(2)}x</strong> · ${deltaTag(wowDelta(roasSeries.map(s => s.value || 0)), true)}`);
-      // top / declining stores (revenue, last 7 vs prior 7)
-      const last7 = trendDateKeys(14).slice(-7), prev7 = trendDateKeys(14).slice(0, 7);
-      const stats = (data.stores || []).map(store => {
-        const rNow = last7.reduce((s, k) => s + (dailyRevenue[`${store.id}_${k}`] || 0), 0);
-        const rPrev = prev7.reduce((s, k) => s + (dailyRevenue[`${store.id}_${k}`] || 0), 0);
-        const spendNow = last7.reduce((s, k) => s + storeSpendForDate(store.id, k), 0);
-        const roasNow = spendNow > 0 ? rNow / spendNow : null;
-        let delta = null;
-        if (rPrev > 0) delta = (rNow - rPrev) / rPrev * 100;
-        else if (rNow > 0) delta = 100;
-        return { store, rNow, rPrev, delta, roasNow };
-      });
-      const rowHtml = (st, isRiser) => {
-        const d = st.delta;
-        const color = d == null ? 'var(--text-muted)' : (d >= 0 ? 'var(--success)' : 'var(--danger)');
-        const arrow = d == null ? '' : (d >= 0 ? '▲' : '▼');
-        const deltaTxt = d == null ? 'new' : `${arrow} ${Math.abs(Math.round(d))}%`;
-        return `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0; border-bottom:1px solid var(--border);">
-          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.store.name)}</span>
-          <span style="font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:var(--text-secondary);">${fmtMoney(st.rNow)}</span>
-          <span style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--text-muted); width:52px; text-align:right;">${st.roasNow == null ? '—' : st.roasNow.toFixed(1) + 'x'}</span>
-          <span style="color:${color}; font-weight:600; font-size:0.82rem; width:64px; text-align:right;">${deltaTxt}</span>
-        </div>`;
+      const fees = rate * (revenue - refunds);
+      const netProfit = revenue - cogs - fees - adSpend;
+      return {
+        revenue, adSpend, cogs, refunds, fees, netProfit,
+        roas: adSpend > 0 ? revenue / adSpend : null,
+        margin: revenue > 0 ? (netProfit / revenue) * 100 : null
       };
-      const risers = stats.filter(s => s.rNow > 0 && (s.delta == null || s.delta >= 0)).sort((a, b) => (b.delta ?? 999) - (a.delta ?? 999)).slice(0, 6);
-      const decliners = stats.filter(s => s.rPrev > 0 && s.delta != null && s.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 6);
-      setHtml('trendRisers', risers.length ? risers.map(s => rowHtml(s, true)).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Not enough data yet.</div>');
-      setHtml('trendDecliners', decliners.length ? decliners.map(s => rowHtml(s, false)).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Nothing declining — nice.</div>');
+    }
+    function pctChange(cur, prev) {
+      if (prev === 0 || prev == null) return null;
+      return ((cur - prev) / Math.abs(prev)) * 100;
+    }
+    function kpiCard(label, valueStr, cur, prev, goodUp, prevStr) {
+      const pct = pctChange(cur, prev);
+      let delta = '<span class="kpi-delta kpi-prev">— no prior data</span>';
+      if (pct !== null) {
+        const up = pct >= 0;
+        const good = goodUp ? up : !up;
+        const color = Math.abs(pct) < 0.05 ? 'var(--text-muted)' : (good ? 'var(--success)' : 'var(--danger)');
+        delta = `<span class="kpi-delta" style="color:${color};">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% <span class="kpi-prev">vs ${prevStr}</span></span>`;
+      }
+      return `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${valueStr}</div>${delta}</div>`;
+    }
+    // grouped bars: revenue vs ad spend
+    function renderRevSpendChart(el, keys) {
+      if (!el) return;
+      const rev = keys.map(k => dayTotalRevenue(k));
+      const spend = keys.map(k => dayTotalAdSpend(k));
+      const max = Math.max(...rev, ...spend, 1);
+      if (rev.every(v => v === 0) && spend.every(v => v === 0)) {
+        el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No data in this period yet.</p></div>';
+        return;
+      }
+      const W = 900, H = 220, padL = 8, padR = 8, padT = 12, padB = 26;
+      const innerW = W - padL - padR, innerH = H - padT - padB;
+      const slot = innerW / keys.length;
+      const bw = Math.max(2, Math.min(14, slot * 0.36));
+      let bars = '', labels = '';
+      keys.forEach((k, i) => {
+        const x = padL + slot * i + (slot - bw * 2 - 2) / 2;
+        const hr = (rev[i] / max) * innerH, hs = (spend[i] / max) * innerH;
+        const d = new Date(k + 'T12:00:00');
+        bars += `<rect x="${x.toFixed(1)}" y="${(padT + innerH - hr).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, hr).toFixed(1)}" rx="2" fill="var(--accent)"><title>${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · Revenue ${fmtMoney(rev[i])}</title></rect>`;
+        bars += `<rect x="${(x + bw + 2).toFixed(1)}" y="${(padT + innerH - hs).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, hs).toFixed(1)}" rx="2" fill="var(--text-muted)" opacity="0.55"><title>${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · Ad spend ${fmtMoney(spend[i])}</title></rect>`;
+        const every = Math.ceil(keys.length / 10);
+        if (i % every === 0 || i === keys.length - 1) {
+          labels += `<text x="${(x + bw).toFixed(1)}" y="${(H - 8).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${d.getDate()}</text>`;
+        }
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${bars}${labels}</svg>`;
+    }
+    // net profit per day: green above zero, red below
+    function renderProfitChart(el, keys) {
+      if (!el) return;
+      const rate = (pnlFeeRate || 0) / 100;
+      const vals = keys.map(k => {
+        const rev = dayTotalRevenue(k), ads = dayTotalAdSpend(k);
+        const p = pnlData[k] || {};
+        const cogs = parseFloat(p.cogs) || 0, refunds = parseFloat(p.refunds) || 0;
+        return rev - cogs - (rate * (rev - refunds)) - ads;
+      });
+      if (vals.every(v => v === 0)) {
+        el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No data in this period yet.</p></div>';
+        return;
+      }
+      const maxAbs = Math.max(...vals.map(v => Math.abs(v)), 1);
+      const W = 900, H = 200, padL = 8, padR = 8, padT = 12, padB = 24;
+      const innerW = W - padL - padR, innerH = H - padT - padB;
+      const zeroY = padT + innerH / 2;
+      const slot = innerW / keys.length;
+      const bw = Math.max(2, Math.min(20, slot * 0.6));
+      let bars = '', labels = '';
+      keys.forEach((k, i) => {
+        const v = vals[i];
+        const h = (Math.abs(v) / maxAbs) * (innerH / 2);
+        const x = padL + slot * i + (slot - bw) / 2;
+        const y = v >= 0 ? zeroY - h : zeroY;
+        const d = new Date(k + 'T12:00:00');
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, h).toFixed(1)}" rx="2" fill="${v >= 0 ? 'var(--success)' : 'var(--danger)'}" opacity="${v === 0 ? 0.25 : 0.9}"><title>${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${fmtMoney(v)}</title></rect>`;
+        const every = Math.ceil(keys.length / 10);
+        if (i % every === 0 || i === keys.length - 1) labels += `<text x="${(x + bw / 2).toFixed(1)}" y="${(H - 6).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${d.getDate()}</text>`;
+      });
+      const zeroLine = `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="var(--border-light)" stroke-width="1"/>`;
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${zeroLine}${bars}${labels}</svg>`;
+    }
+    function storeStatsFor(keys) {
+      return (data.stores || []).map(store => {
+        let rev = 0, spend = 0;
+        keys.forEach(k => {
+          rev += dailyRevenue[`${store.id}_${k}`] || 0;
+          spend += storeSpendForDate(store.id, k);
+        });
+        return { store, rev, spend, profit: rev - spend, roas: spend > 0 ? rev / spend : null, archived: isStoreArchived(store.id) };
+      });
+    }
+    function renderAnalyze() {
+      if (!isOwner()) return;
+      const { cur, prev } = analyzeRanges(analyzePeriod);
+      [7, 14, 30, 90].forEach(p => { const b = document.getElementById('an' + p); if (b) b.className = 'btn btn-sm ' + (analyzePeriod === p ? 'btn-primary' : 'btn-secondary'); });
+      const sub = document.getElementById('analyzeSubtitle');
+      if (sub) sub.textContent = `Last ${analyzePeriod} days · compared with the previous ${analyzePeriod} days`;
+      const m = analyzeMetrics(cur), pm = analyzeMetrics(prev);
+      const prevStr = `prev ${analyzePeriod}d`;
+      const kpis = document.getElementById('analyzeKpis');
+      if (kpis) {
+        kpis.innerHTML =
+          kpiCard('Net Profit', fmtMoney(m.netProfit), m.netProfit, pm.netProfit, true, prevStr) +
+          kpiCard('Revenue', fmtMoney(m.revenue), m.revenue, pm.revenue, true, prevStr) +
+          kpiCard('Ad Spend', fmtMoney(m.adSpend), m.adSpend, pm.adSpend, false, prevStr) +
+          kpiCard('Blended ROAS', m.roas === null ? '—' : m.roas.toFixed(2) + 'x', m.roas || 0, pm.roas || 0, true, prevStr) +
+          kpiCard('Margin', m.margin === null ? '—' : m.margin.toFixed(1) + '%', m.margin || 0, pm.margin || 0, true, prevStr) +
+          kpiCard('COGS', fmtMoney(m.cogs), m.cogs, pm.cogs, false, prevStr);
+      }
+      renderRevSpendChart(document.getElementById('analyzeRevSpendChart'), cur);
+      renderProfitChart(document.getElementById('analyzeProfitChart'), cur);
+      const ps = document.getElementById('analyzeProfitSummary');
+      if (ps) {
+        const pct = pctChange(m.netProfit, pm.netProfit);
+        const tag = pct === null ? '' : `<span style="color:${pct >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span> vs ${prevStr}`;
+        ps.innerHTML = `Total <strong style="color:var(--text-primary);">${fmtMoney(m.netProfit)}</strong> &nbsp;·&nbsp; Avg <strong style="color:var(--text-primary);">${fmtMoney(m.netProfit / analyzePeriod)}</strong>/day ${tag ? '&nbsp;·&nbsp; ' + tag : ''}`;
+      }
+      // ---- store breakdown table ----
+      const head = document.getElementById('analyzeStoreHead'), body = document.getElementById('analyzeStoreBody');
+      const cols = [['name', 'Store', 'left'], ['revenue', 'Revenue', 'right'], ['spend', 'Ad Spend', 'right'], ['roas', 'ROAS', 'right'], ['profit', 'Rev − Ads', 'right'], ['share', 'Share', 'right']];
+      if (head) head.innerHTML = '<tr>' + cols.map(([k, lbl, al]) =>
+        `<th class="an-sort" onclick="setAnalyzeSort('${k}')" style="text-align:${al}; padding:0.55rem 0.7rem; ${analyzeSort === k ? 'color:var(--accent);' : ''}">${lbl}${analyzeSort === k ? ' ▼' : ''}</th>`).join('') + '</tr>';
+      let stats = storeStatsFor(cur).filter(s => s.rev > 0 || s.spend > 0);
+      const sorters = {
+        name: (a, b) => (a.store.name || '').localeCompare(b.store.name || ''),
+        revenue: (a, b) => b.rev - a.rev,
+        spend: (a, b) => b.spend - a.spend,
+        roas: (a, b) => (b.roas ?? -1) - (a.roas ?? -1),
+        profit: (a, b) => b.profit - a.profit,
+        share: (a, b) => b.rev - a.rev
+      };
+      stats.sort(sorters[analyzeSort] || sorters.revenue);
+      const totalRev = stats.reduce((s, x) => s + x.rev, 0);
+      if (body) {
+        body.innerHTML = stats.length ? stats.map(s => {
+          const share = totalRev > 0 ? (s.rev / totalRev) * 100 : 0;
+          const roasColor = s.roas === null ? 'var(--text-muted)' : (s.roas >= 1 ? 'var(--success)' : 'var(--danger)');
+          const pColor = s.profit > 0 ? 'var(--success)' : (s.profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
+          const mono = "font-family:'JetBrains Mono',monospace;";
+          return `<tr${s.archived ? ' style="opacity:0.7;"' : ''}>
+            <td style="padding:0.5rem 0.7rem; font-weight:500; white-space:nowrap;">${escapeHtml(s.store.name)}${s.store.isPerformer ? ' ⭐' : ''}${s.archived ? ' <span style="font-size:0.62rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.05rem 0.3rem;">ARCHIVED</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${s.store.id}')" title="14-day spend">📈</span></td>
+            <td style="text-align:right; padding:0.5rem 0.7rem; ${mono}">${fmtMoney(s.rev)}</td>
+            <td style="text-align:right; padding:0.5rem 0.7rem; color:var(--text-secondary); ${mono}">${fmtMoney(s.spend)}</td>
+            <td style="text-align:right; padding:0.5rem 0.7rem; font-weight:600; color:${roasColor};">${s.roas === null ? '—' : s.roas.toFixed(2) + 'x'}</td>
+            <td style="text-align:right; padding:0.5rem 0.7rem; color:${pColor}; ${mono}">${fmtMoney(s.profit)}</td>
+            <td style="text-align:right; padding:0.5rem 0.7rem; color:var(--text-muted);">${share.toFixed(1)}%</td></tr>`;
+        }).join('') : '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No store data in this period yet.</td></tr>';
+      }
+      // ---- risers & decliners (revenue, current vs previous period) ----
+      const now = storeStatsFor(cur), before = storeStatsFor(prev);
+      const prevMap = {};
+      before.forEach(s => { prevMap[s.store.id] = s; });
+      const movers = now.map(s => {
+        const p = prevMap[s.store.id] || { rev: 0 };
+        return { ...s, prevRev: p.rev, delta: pctChange(s.rev, p.rev) };
+      });
+      const rowHtml = (s) => {
+        const up = (s.delta ?? 0) >= 0;
+        const tag = s.delta === null
+          ? '<span style="color:var(--success); font-weight:600; font-size:0.8rem;">NEW</span>'
+          : `<span style="color:${up ? 'var(--success)' : 'var(--danger)'}; font-weight:600; font-size:0.8rem;">${up ? '▲' : '▼'} ${Math.abs(s.delta).toFixed(0)}%</span>`;
+        return `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0; border-bottom:1px solid var(--border);">
+          <span style="flex:1; font-weight:500; font-size:0.86rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(s.store.name)}</span>
+          <span style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${fmtMoney(s.rev)}</span>
+          ${tag}</div>`;
+      };
+      const risers = movers.filter(s => s.rev > 0 && (s.delta === null || s.delta > 0)).sort((a, b) => (b.delta ?? 9999) - (a.delta ?? 9999)).slice(0, 6);
+      const decliners = movers.filter(s => s.prevRev > 0 && s.delta !== null && s.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 6);
+      const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+      setHtml('analyzeRisers', risers.length ? risers.map(rowHtml).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Not enough data yet.</div>');
+      setHtml('analyzeDecliners', decliners.length ? decliners.map(rowHtml).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Nothing declining.</div>');
     }
     function addNotification(notification) {
       notification.id = Date.now();
@@ -3835,7 +4010,7 @@ Or just card numbers:
     function renderQuickEntry() {
       const listEl = document.getElementById('quickEntryList');
       if (!listEl) return;
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
+      const accounts = liveAccounts().filter(a => a.status === 'active');
       const dateKey = selectedTrackingDate;
       // group by store, ordered by account type, same as the card view
       const storeGroups = {};
@@ -3987,7 +4162,7 @@ Or just card numbers:
       renderTrackingCalendar();
     }
     function renderTrackingCalendar() {
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
+      const accounts = liveAccounts().filter(a => a.status === 'active');
       const daysInMonth = getDaysInMonth(currentTrackingMonth, currentTrackingYear);
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
       const days = [];
@@ -4302,7 +4477,7 @@ Or just card numbers:
     }
     function renderAccounts() {
       const perms = permissions[currentUser];
-      const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
+      const accounts = liveAccounts().filter(a => a.status === 'active');
       const todayKey = getThailandDate();
       const todayDate = new Date(todayKey + 'T12:00:00');
       todayDate.setDate(todayDate.getDate() - 1);
@@ -4406,6 +4581,30 @@ Or just card numbers:
       else { body.style.display = 'none'; arrow.textContent = '▶'; }
     }
     async function deleteAdAccount(accountId) {
+      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
+      if (!account) return;
+      const store = getStore(account.storeId);
+      let confirmMsg = `Remove this ad account from your lists?`;
+      if (store) confirmMsg += `\nStore: ${store.name}`;
+      confirmMsg += `\n\nAll its past spend stays counted in your totals, P&L and trends.`;
+      if (!confirm(confirmMsg)) return;
+      archivedAccounts.add(String(accountId));
+      saveArchivedLocal();
+      try { await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId); } catch (e) { console.warn('archive column missing?', e); }
+      showAutoSaveIndicator('✓ Account archived');
+      showToast('Account archived — its spend stays in your totals');
+      renderAccounts();
+      renderDashboard();
+      updateBadges();
+    }
+    async function restoreAdAccount(accountId) {
+      archivedAccounts.delete(String(accountId));
+      saveArchivedLocal();
+      try { await supabaseClient.from('ad_accounts').update({ archived: false }).eq('id', accountId); } catch (e) {}
+      showToast('Account restored');
+      renderAccounts(); renderDashboard(); updateBadges();
+    }
+    async function deleteAdAccount_old(accountId) {
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
       const store = getStore(account.storeId);
@@ -4979,9 +5178,9 @@ Or just card numbers:
     }
     function generateAlertsHtml(limit = null) {
       const perms = permissions[currentUser];
-      const accounts = data.accounts[currentChannel];
+      const accounts = liveAccounts();
       let alerts = [];
-      data.stores.forEach(store => {
+      liveStores().forEach(store => {
         const hasAccounts = data.accounts.google.some(a => a.storeId === store.id) ||
                            data.accounts.tiktok.some(a => a.storeId === store.id) ||
                            data.accounts.facebook.some(a => a.storeId === store.id);
@@ -5371,6 +5570,62 @@ Or just card numbers:
       }
     }
     async function deleteStore(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (!store) return;
+      const linked = ['google', 'tiktok', 'facebook']
+        .reduce((n, ch) => n + data.accounts[ch].filter(a => a.storeId === storeId || a.storeId == storeId).length, 0);
+      let confirmMsg = `Remove "${store.name}" from your stores?`;
+      if (linked > 0) confirmMsg += `\n\nIts ${linked} ad account(s) will be removed from your lists too.`;
+      confirmMsg += `\n\nAll past spend and revenue stay counted in your totals, P&L and trends. You can restore it any time from "Show archived".`;
+      if (!confirm(confirmMsg)) return;
+      archivedStores.add(String(storeId));
+      saveArchivedLocal();
+      // Best effort cloud sync (needs the "archived" column; harmless if it isn't there yet)
+      try { await supabaseClient.from('stores').update({ archived: true }).eq('id', storeId); } catch (e) { console.warn('archive column missing?', e); }
+      showAutoSaveIndicator('✓ Store archived');
+      showToast(`"${store.name}" archived — its numbers stay in your totals`);
+      renderStores();
+      renderAccounts();
+      renderDashboard();
+      updateBadges();
+    }
+    async function restoreStore(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      archivedStores.delete(String(storeId));
+      saveArchivedLocal();
+      try { await supabaseClient.from('stores').update({ archived: false }).eq('id', storeId); } catch (e) {}
+      showToast(`"${store?.name || 'Store'}" restored`);
+      renderStores();
+      renderAccounts();
+      renderDashboard();
+      updateBadges();
+    }
+    function toggleShowArchived() {
+      showArchived = !showArchived;
+      renderStores();
+    }
+    async function deleteStoreForever(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (!store) return;
+      if (!confirm(`Permanently delete "${store.name}"?\n\nThis ERASES it from the database and its spend/revenue will no longer be counted in your totals. This cannot be undone.\n\nTo keep the numbers, use archive instead.`)) return;
+      try {
+        const { data: deleted, error } = await supabaseClient.from('stores').delete().eq('id', storeId).select();
+        if (error) throw error;
+        if (!deleted || deleted.length === 0) {
+          alert('⚠️ Not deleted from the database — Supabase RLS is blocking deletes on "stores".');
+          return;
+        }
+        data.stores = data.stores.filter(s => s.id !== storeId && s.id != storeId);
+        archivedStores.delete(String(storeId));
+        saveArchivedLocal();
+        showToast(`"${store.name}" permanently deleted`);
+        renderStores(); renderAccounts(); renderDashboard(); updateBadges();
+      } catch (error) {
+        console.error('Error deleting store:', error);
+        alert('Delete failed: ' + (error.message || error));
+      }
+    }
+    async function deleteStore_old(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       const linkedGoogleAccounts = data.accounts.google.filter(a => a.storeId === storeId || a.storeId == storeId);
