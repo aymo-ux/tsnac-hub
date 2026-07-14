@@ -697,7 +697,32 @@
     .zero-row-name { font-weight: 600; font-size: 0.83rem; }
     .zero-row-sub { color: var(--text-muted); font-size: 0.78rem; }
     .zero-row-days { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
-    .analyze-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.1rem; }
+    .analyze-top { display: grid; grid-template-columns: 1.05fr 2fr; gap: 0.75rem; margin-bottom: 1.1rem; align-items: stretch; }
+    .analyze-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    /* Hero: one number leads, everything else supports it */
+    .hero-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 1.3rem 1.4rem; box-shadow: var(--shadow-md); display: flex; flex-direction: column; height: 100%;
+      position: relative; overflow: hidden;
+    }
+    .hero-card::before { content: ''; position: absolute; inset: 0 auto auto 0; width: 100%; height: 3px; background: var(--accent); opacity: 0.9; }
+    .hero-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--text-muted); }
+    .hero-value { font-size: 2.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.045em; line-height: 1.05; margin-top: 0.4rem; font-variant-numeric: tabular-nums; }
+    .hero-delta { font-size: 0.9rem; font-weight: 650; margin-top: 0.45rem; }
+    .hero-spark { margin-top: auto; padding-top: 0.9rem; }
+    .hero-foot { display: flex; gap: 1.1rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+    .hero-foot div { font-size: 0.72rem; color: var(--text-muted); }
+    .hero-foot strong { display: block; font-size: 0.92rem; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-weight: 650; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+    /* Insight: the app tells you what happened, in words */
+    .insight-bar {
+      display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.85rem 1.1rem; margin-bottom: 1rem;
+      background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-md);
+      font-size: 0.88rem; line-height: 1.5; color: var(--text-primary);
+    }
+    .insight-bar:empty { display: none; }
+    .insight-icon { font-size: 1rem; line-height: 1.4; flex-shrink: 0; }
+    .kpi-spark { margin-top: 0.55rem; height: 30px; }
+    .kpi-value { font-variant-numeric: tabular-nums; }
     .kpi {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
       padding: 0.95rem 1rem; box-shadow: var(--shadow-sm); transition: var(--transition);
@@ -1636,7 +1661,20 @@
           </div>
         </div>
 
-        <div id="analyzeKpis" class="analyze-kpis"></div>
+        <div id="analyzeInsight" class="insight-bar"></div>
+
+        <div class="analyze-top">
+          <div id="analyzeHero"></div>
+          <div id="analyzeKpis" class="analyze-kpis"></div>
+        </div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Where the money goes</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Revenue → costs → net profit</span>
+          </div>
+          <div id="analyzeWaterfall"></div>
+        </div>
 
         <div class="card" style="padding: 1.1rem 1.3rem;">
           <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
@@ -3155,7 +3193,8 @@ Or just card numbers:
     }
     function fmtMoney(n) {
       const v = Math.round((n + Number.EPSILON) * 100) / 100;
-      return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const abs = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      return (v < 0 ? '-$' : '$') + abs;
     }
     function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
     function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
@@ -3683,7 +3722,134 @@ Or just card numbers:
       if (prev === 0 || prev == null) return null;
       return ((cur - prev) / Math.abs(prev)) * 100;
     }
-    function kpiCard(label, valueStr, cur, prev, goodUp, prevStr) {
+    // Tiny sparkline — shows the SHAPE of a metric, not just its number
+    function sparkline(vals, color, filled) {
+      if (!vals || !vals.length) return '';
+      const W = 200, H = 30, min = Math.min(...vals, 0), max = Math.max(...vals, 1);
+      const span = (max - min) || 1;
+      const pts = vals.map((v, i) => {
+        const x = (i / Math.max(1, vals.length - 1)) * W;
+        const y = H - ((v - min) / span) * (H - 3) - 1.5;
+        return [x, y];
+      });
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      const area = filled ? `<path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.1"/>` : '';
+      const last = pts[pts.length - 1];
+      return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block; overflow:visible;">
+        ${area}<path d="${line}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.4" fill="${color}"/></svg>`;
+    }
+    function dailySeries(keys, kind) {
+      const rate = (pnlFeeRate || 0) / 100;
+      return keys.map(k => {
+        const rev = dayTotalRevenue(k), ads = dayTotalAdSpend(k);
+        const p = pnlData[k] || {};
+        const cogs = parseFloat(p.cogs) || 0, refunds = parseFloat(p.refunds) || 0;
+        if (kind === 'revenue') return rev;
+        if (kind === 'adSpend') return ads;
+        if (kind === 'cogs') return cogs;
+        if (kind === 'fees') return rate * (rev - refunds);
+        if (kind === 'roas') return ads > 0 ? rev / ads : 0;
+        const profit = rev - cogs - (rate * (rev - refunds)) - ads;
+        if (kind === 'margin') return rev > 0 ? (profit / rev) * 100 : 0;
+        return profit;
+      });
+    }
+    // Hero: the one number that matters, with its trend and what feeds it
+    function renderHero(el, m, pm, keys, prevStr) {
+      if (!el) return;
+      const pct = pctChange(m.netProfit, pm.netProfit);
+      const up = (pct ?? 0) >= 0;
+      const color = m.netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
+      const deltaHtml = pct === null
+        ? '<span class="hero-delta" style="color:var(--text-muted);">No prior data to compare</span>'
+        : `<span class="hero-delta" style="color:${up ? 'var(--success)' : 'var(--danger)'};">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% <span style="color:var(--text-muted); font-weight:400;">vs ${prevStr}</span></span>`;
+      el.innerHTML = `<div class="hero-card">
+        <div class="hero-label">Net Profit · last ${analyzePeriod} days</div>
+        <div class="hero-value" style="color:${color};">${fmtMoney(m.netProfit)}</div>
+        ${deltaHtml}
+        <div class="hero-spark">${sparkline(dailySeries(keys, 'profit'), m.netProfit >= 0 ? 'var(--success)' : 'var(--danger)', true)}</div>
+        <div class="hero-foot">
+          <div>Revenue<strong>${fmtMoney(m.revenue)}</strong></div>
+          <div>Total costs<strong>${fmtMoney(m.cogs + m.fees + m.adSpend)}</strong></div>
+          <div>Margin<strong>${m.margin === null ? '—' : m.margin.toFixed(1) + '%'}</strong></div>
+        </div>
+      </div>`;
+    }
+    // Plain-English summary — the thing dashboards never tell you
+    function renderInsight(el, m, pm, movers, prevStr) {
+      if (!el) return;
+      if (m.revenue === 0 && m.adSpend === 0) { el.innerHTML = ''; return; }
+      const parts = [];
+      const pct = pctChange(m.netProfit, pm.netProfit);
+      if (pct === null) {
+        parts.push(`Net profit is <strong>${fmtMoney(m.netProfit)}</strong> on <strong>${fmtMoney(m.revenue)}</strong> revenue.`);
+      } else {
+        const dir = pct >= 0 ? 'up' : 'down';
+        parts.push(`Net profit is <strong>${dir} ${Math.abs(pct).toFixed(1)}%</strong> vs the ${prevStr}, at <strong>${fmtMoney(m.netProfit)}</strong>.`);
+      }
+      const best = movers.filter(s => s.rev > 0 && s.delta !== null && s.delta > 0).sort((a, b) => (b.rev - b.prevRev) - (a.rev - a.prevRev))[0];
+      const worst = movers.filter(s => s.prevRev > 0 && s.delta !== null && s.delta < 0).sort((a, b) => (a.rev - a.prevRev) - (b.rev - b.prevRev))[0];
+      if (best) parts.push(`<strong>${escapeHtml(best.store.name)}</strong> gained the most (+${fmtMoney(best.rev - best.prevRev)}).`);
+      if (worst) parts.push(`<strong>${escapeHtml(worst.store.name)}</strong> dropped the most (${fmtMoney(worst.rev - worst.prevRev)} revenue).`);
+      if (m.roas !== null) {
+        const weak = movers.filter(s => s.spend > 0 && s.roas !== null && s.roas < 1).length;
+        parts.push(weak > 0
+          ? `Blended ROAS is <strong>${m.roas.toFixed(2)}x</strong> — but ${weak} store${weak > 1 ? 's are' : ' is'} below 1x and losing money on ads.`
+          : `Blended ROAS is <strong>${m.roas.toFixed(2)}x</strong>, and every store is above breakeven.`);
+      }
+      const worrying = m.netProfit < 0 || (pct !== null && pct <= -20);
+      el.innerHTML = `<span class="insight-icon">${worrying ? '⚠️' : '✨'}</span><span>${parts.join(' ')}</span>`;
+    }
+    // Waterfall: revenue, then each cost knocked off it, ending at net profit
+    function renderWaterfall(el, m) {
+      if (!el) return;
+      if (m.revenue === 0 && m.adSpend === 0 && m.cogs === 0) {
+        el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No data in this period yet.</p></div>';
+        return;
+      }
+      const steps = [
+        { label: 'Revenue', value: m.revenue, type: 'total' },
+        { label: 'COGS', value: -m.cogs, type: 'cost' },
+        { label: 'Fees', value: -m.fees, type: 'cost' },
+        { label: 'Ad spend', value: -m.adSpend, type: 'cost' },
+        { label: 'Net profit', value: m.netProfit, type: 'result' }
+      ];
+      const W = 900, H = 240, padT = 24, padB = 44, padL = 10, padR = 10;
+      const innerH = H - padT - padB, innerW = W - padL - padR;
+      const slot = innerW / steps.length;
+      const bw = Math.min(96, slot * 0.55);
+      const peak = Math.max(m.revenue, Math.abs(m.netProfit), 1);
+      const scale = innerH / peak;
+      let running = 0, bars = '', conns = '', labels = '';
+      steps.forEach((st, i) => {
+        const x = padL + slot * i + (slot - bw) / 2;
+        let top, height, fill;
+        if (st.type === 'total' || st.type === 'result') {
+          const v = Math.abs(st.value);
+          height = Math.max(2, v * scale);
+          top = padT + innerH - height;
+          fill = st.type === 'total' ? 'var(--accent)' : (st.value >= 0 ? 'var(--success)' : 'var(--danger)');
+          running = st.type === 'total' ? st.value : running;
+        } else {
+          const start = running, end = running + st.value;
+          height = Math.max(2, Math.abs(st.value) * scale);
+          top = padT + innerH - Math.max(start, end) * scale;
+          fill = 'var(--danger)';
+          running = end;
+        }
+        bars += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${height.toFixed(1)}" rx="4" fill="${fill}" opacity="${st.type === 'cost' ? 0.72 : 0.95}"><title>${st.label}: ${fmtMoney(st.value)}</title></rect>`;
+        bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${(top - 7).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace" fill="var(--text-primary)">${st.type === 'cost' ? '−' : ''}${fmtMoney(Math.abs(st.value))}</text>`;
+        labels += `<text x="${(x + bw / 2).toFixed(1)}" y="${(H - 22).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--text-secondary)" font-weight="600">${st.label}</text>`;
+        if (i < steps.length - 1) {
+          const y = padT + innerH - running * scale;
+          conns += `<line x1="${(x + bw).toFixed(1)}" y1="${y.toFixed(1)}" x2="${(padL + slot * (i + 1) + (slot - bw) / 2).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border-hover)" stroke-width="1" stroke-dasharray="3 3"/>`;
+        }
+      });
+      const base = `<line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="var(--border-light)" stroke-width="1"/>`;
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${base}${conns}${bars}${labels}</svg>`;
+    }
+    function kpiCard(label, valueStr, cur, prev, goodUp, prevStr, sparkVals, sparkColor) {
       const pct = pctChange(cur, prev);
       let delta = '<span class="kpi-delta kpi-prev">— no prior data</span>';
       if (pct !== null) {
@@ -3692,7 +3858,8 @@ Or just card numbers:
         const color = Math.abs(pct) < 0.05 ? 'var(--text-muted)' : (good ? 'var(--success)' : 'var(--danger)');
         delta = `<span class="kpi-delta" style="color:${color};">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% <span class="kpi-prev">vs ${prevStr}</span></span>`;
       }
-      return `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${valueStr}</div>${delta}</div>`;
+      const spark = sparkVals ? `<div class="kpi-spark">${sparkline(sparkVals, sparkColor || 'var(--text-muted)', false)}</div>` : '';
+      return `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${valueStr}</div>${delta}${spark}</div>`;
     }
     // grouped bars: revenue vs ad spend
     function renderRevSpendChart(el, keys) {
@@ -3774,16 +3941,18 @@ Or just card numbers:
       if (sub) sub.textContent = `Last ${analyzePeriod} days · compared with the previous ${analyzePeriod} days`;
       const m = analyzeMetrics(cur), pm = analyzeMetrics(prev);
       const prevStr = `prev ${analyzePeriod}d`;
+      renderHero(document.getElementById('analyzeHero'), m, pm, cur, prevStr);
       const kpis = document.getElementById('analyzeKpis');
       if (kpis) {
         kpis.innerHTML =
-          kpiCard('Net Profit', fmtMoney(m.netProfit), m.netProfit, pm.netProfit, true, prevStr) +
-          kpiCard('Revenue', fmtMoney(m.revenue), m.revenue, pm.revenue, true, prevStr) +
-          kpiCard('Ad Spend', fmtMoney(m.adSpend), m.adSpend, pm.adSpend, false, prevStr) +
-          kpiCard('Blended ROAS', m.roas === null ? '—' : m.roas.toFixed(2) + 'x', m.roas || 0, pm.roas || 0, true, prevStr) +
-          kpiCard('Margin', m.margin === null ? '—' : m.margin.toFixed(1) + '%', m.margin || 0, pm.margin || 0, true, prevStr) +
-          kpiCard('COGS', fmtMoney(m.cogs), m.cogs, pm.cogs, false, prevStr);
+          kpiCard('Revenue', fmtMoney(m.revenue), m.revenue, pm.revenue, true, prevStr, dailySeries(cur, 'revenue'), 'var(--accent)') +
+          kpiCard('Ad Spend', fmtMoney(m.adSpend), m.adSpend, pm.adSpend, false, prevStr, dailySeries(cur, 'adSpend'), 'var(--info)') +
+          kpiCard('Blended ROAS', m.roas === null ? '—' : m.roas.toFixed(2) + 'x', m.roas || 0, pm.roas || 0, true, prevStr, dailySeries(cur, 'roas'), 'var(--purple)') +
+          kpiCard('Margin', m.margin === null ? '—' : m.margin.toFixed(1) + '%', m.margin || 0, pm.margin || 0, true, prevStr, dailySeries(cur, 'margin'), 'var(--teal)') +
+          kpiCard('COGS', fmtMoney(m.cogs), m.cogs, pm.cogs, false, prevStr, dailySeries(cur, 'cogs'), 'var(--orange)') +
+          kpiCard('Fees', fmtMoney(m.fees), m.fees, pm.fees, false, prevStr, dailySeries(cur, 'fees'), 'var(--text-muted)');
       }
+      renderWaterfall(document.getElementById('analyzeWaterfall'), m);
       renderRevSpendChart(document.getElementById('analyzeRevSpendChart'), cur);
       renderProfitChart(document.getElementById('analyzeProfitChart'), cur);
       const ps = document.getElementById('analyzeProfitSummary');
@@ -3846,6 +4015,8 @@ Or just card numbers:
       const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
       setHtml('analyzeRisers', risers.length ? risers.map(rowHtml).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Not enough data yet.</div>');
       setHtml('analyzeDecliners', decliners.length ? decliners.map(rowHtml).join('') : '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">Nothing declining.</div>');
+      // Plain-English takeaway, now that we know the movers
+      renderInsight(document.getElementById('analyzeInsight'), m, pm, movers, prevStr);
     }
     function addNotification(notification) {
       notification.id = Date.now();
