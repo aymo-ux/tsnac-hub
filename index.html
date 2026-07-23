@@ -737,6 +737,18 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .metric-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+    .metric-chip {
+      display: flex; align-items: center; gap: 0.45rem;
+      background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 9px;
+      padding: 0.4rem 0.7rem; cursor: pointer; font-family: inherit; transition: var(--transition);
+    }
+    .metric-chip:hover { border-color: var(--border-hover); background: var(--bg-tertiary); }
+    .metric-chip.on { background: var(--bg-card); box-shadow: var(--shadow-sm); }
+    .metric-chip:not(.on) { opacity: 0.6; }
+    .metric-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .metric-name { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+    .metric-total { font-size: 0.78rem; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
     .search-acts { display: flex; gap: 0.3rem; flex-shrink: 0; }
     .search-act {
       background: var(--bg-secondary); border: 1px solid var(--border-light); color: var(--text-secondary);
@@ -1664,11 +1676,17 @@
             <h1 class="page-title">Analyze</h1>
             <p class="page-subtitle" id="analyzeSubtitle">Your performance at a glance</p>
           </div>
-          <div class="header-actions" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+          <div class="header-actions" style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
             <button class="btn btn-sm btn-secondary" id="an7" onclick="setAnalyzePeriod(7)">7D</button>
             <button class="btn btn-sm btn-secondary" id="an14" onclick="setAnalyzePeriod(14)">14D</button>
             <button class="btn btn-sm btn-secondary" id="an30" onclick="setAnalyzePeriod(30)">30D</button>
             <button class="btn btn-sm btn-secondary" id="an90" onclick="setAnalyzePeriod(90)">90D</button>
+            <button class="btn btn-sm btn-secondary" id="anMTD" onclick="setAnalyzeQuick('mtd')">MTD</button>
+            <button class="btn btn-sm btn-secondary" id="anLM" onclick="setAnalyzeQuick('lastmonth')">Last month</button>
+            <span style="width:1px; height:22px; background:var(--border-light); margin:0 0.2rem;"></span>
+            <input type="date" id="anFrom" class="form-input" style="width:auto; padding:0.35rem 0.5rem; font-size:0.8rem;" onchange="applyAnalyzeCustom()">
+            <span style="font-size:0.8rem; color:var(--text-muted);">to</span>
+            <input type="date" id="anTo" class="form-input" style="width:auto; padding:0.35rem 0.5rem; font-size:0.8rem;" onchange="applyAnalyzeCustom()">
           </div>
         </div>
 
@@ -1688,23 +1706,14 @@
         </div>
 
         <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">Revenue vs Ad Spend</span>
-            <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 0.9rem;">
-              <span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--accent); margin-right:0.3rem;"></span>Revenue</span>
-              <span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--text-muted); margin-right:0.3rem;"></span>Ad spend</span>
-            </span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Performance over time</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Click a metric to show or hide it</span>
           </div>
-          <div id="analyzeRevSpendChart"></div>
+          <div id="analyzeMetricChips" class="metric-chips"></div>
+          <div id="analyzeComboChart"></div>
         </div>
 
-        <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">Net Profit</span>
-            <span id="analyzeProfitSummary" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
-          </div>
-          <div id="analyzeProfitChart"></div>
-        </div>
 
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem 0.75rem;">
@@ -4270,7 +4279,58 @@ Or just card numbers:
     // ===== Analyze (owner only) — summary hub =====
     let analyzePeriod = 30;
     let analyzeSort = 'revenue';
-    function setAnalyzePeriod(p) { analyzePeriod = p; renderAnalyze(); }
+    let analyzeFrom = null, analyzeTo = null;   // custom range (null = use the preset)
+    let analyzeMetricSel = ['revenue', 'adSpend', 'profit'];
+    const ANALYZE_METRICS = {
+      revenue:  { label: 'Revenue',   color: 'var(--accent)',  kind: 'money' },
+      adSpend:  { label: 'Ad Spend',  color: 'var(--info)',    kind: 'money' },
+      profit:   { label: 'Net Profit',color: 'var(--success)', kind: 'money' },
+      cogs:     { label: 'COGS',      color: 'var(--orange)',  kind: 'money' },
+      fees:     { label: 'Fees',      color: 'var(--purple)',  kind: 'money' },
+      roas:     { label: 'ROAS',      color: 'var(--pink)',    kind: 'ratio' },
+      margin:   { label: 'Margin %',  color: 'var(--teal)',    kind: 'ratio' }
+    };
+    function setAnalyzePeriod(p) { analyzePeriod = p; analyzeFrom = analyzeTo = null; syncAnalyzeDateInputs(); renderAnalyze(); }
+    function toggleAnalyzeMetric(key) {
+      const i = analyzeMetricSel.indexOf(key);
+      if (i >= 0) { if (analyzeMetricSel.length > 1) analyzeMetricSel.splice(i, 1); }
+      else analyzeMetricSel.push(key);
+      renderAnalyze();
+    }
+    function dOffset(base, n) {
+      const d = new Date(base + 'T12:00:00'); d.setDate(d.getDate() - n);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function syncAnalyzeDateInputs() {
+      const f = document.getElementById('anFrom'), t = document.getElementById('anTo');
+      const { cur } = analyzeRanges(analyzePeriod);
+      if (f) f.value = analyzeFrom || cur[0];
+      if (t) t.value = analyzeTo || cur[cur.length - 1];
+    }
+    function applyAnalyzeCustom() {
+      const f = document.getElementById('anFrom'), t = document.getElementById('anTo');
+      if (!f || !t || !f.value || !t.value) return;
+      analyzeFrom = f.value <= t.value ? f.value : t.value;
+      analyzeTo   = f.value <= t.value ? t.value : f.value;
+      analyzePeriod = null;
+      renderAnalyze();
+    }
+    function setAnalyzeQuick(which) {
+      const today = getThailandDate();
+      const [y, m] = today.split('-').map(Number);
+      if (which === 'mtd') {
+        analyzeFrom = `${y}-${String(m).padStart(2, '0')}-01`;
+        analyzeTo = today;
+      } else {
+        const pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y;
+        const last = new Date(py, pm, 0).getDate();
+        analyzeFrom = `${py}-${String(pm).padStart(2, '0')}-01`;
+        analyzeTo = `${py}-${String(pm).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+      }
+      analyzePeriod = null;
+      syncAnalyzeDateInputs();
+      renderAnalyze();
+    }
     function setAnalyzeSort(col) { analyzeSort = col; renderAnalyze(); }
     async function openAnalyzeSection() {
       if (!isOwner()) { showSection('dashboard'); return; }
@@ -4281,6 +4341,17 @@ Or just card numbers:
     }
     // date keys for the N days ending today, plus the N days immediately before that
     function analyzeRanges(n) {
+      // Custom range wins: build the days between From and To, and compare with the
+      // equally long stretch immediately before it.
+      if (analyzeFrom && analyzeTo) {
+        const cur = [], prev = [];
+        let d = new Date(analyzeFrom + 'T12:00:00');
+        const end = new Date(analyzeTo + 'T12:00:00');
+        while (d <= end) { cur.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); d.setDate(d.getDate() + 1); }
+        const len = cur.length || 1;
+        for (let i = len; i >= 1; i--) prev.push(dOffset(cur[0], i));
+        return { cur, prev };
+      }
       const base = new Date(getThailandDate() + 'T12:00:00');
       const mk = (offset) => { const d = new Date(base); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
       const cur = [], prev = [];
@@ -4354,7 +4425,7 @@ Or just card numbers:
         ? '<span class="hero-delta" style="color:var(--text-muted);">No prior data to compare</span>'
         : `<span class="hero-delta" style="color:${up ? 'var(--success)' : 'var(--danger)'};">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% <span style="color:var(--text-muted); font-weight:400;">vs ${prevStr}</span></span>`;
       el.innerHTML = `<div class="hero-card">
-        <div class="hero-label">Net Profit · last ${analyzePeriod} days</div>
+        <div class="hero-label">Net Profit · ${keys.length} days</div>
         <div class="hero-value" style="color:${color};">${fmtMoney(m.netProfit)}</div>
         ${deltaHtml}
         <div class="hero-spark">${sparkline(dailySeries(keys, 'profit'), m.netProfit >= 0 ? 'var(--success)' : 'var(--danger)', true)}</div>
@@ -4512,6 +4583,104 @@ Or just card numbers:
       const zeroLine = `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="var(--border-light)" stroke-width="1"/>`;
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${zeroLine}${bars}${labels}</svg>`;
     }
+    // One chart, many metrics — money on the left axis, ratios (ROAS/margin) on the right.
+    function renderComboChart(el, keys) {
+      if (!el) return;
+      const sel = analyzeMetricSel.filter(k => ANALYZE_METRICS[k]);
+      if (!sel.length) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>Pick at least one metric above.</p></div>'; return; }
+      const series = {};
+      sel.forEach(k => series[k] = dailySeries(keys, k === 'profit' ? 'profit' : k));
+      const anyData = sel.some(k => series[k].some(v => v !== 0));
+      if (!anyData) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No data in this period yet.</p></div>'; return; }
+      const moneyKeys = sel.filter(k => ANALYZE_METRICS[k].kind === 'money');
+      const ratioKeys = sel.filter(k => ANALYZE_METRICS[k].kind === 'ratio');
+      const allMoney = moneyKeys.flatMap(k => series[k]);
+      const allRatio = ratioKeys.flatMap(k => series[k]);
+      const mMax = Math.max(...allMoney, 0), mMin = Math.min(...allMoney, 0);
+      const rMax = Math.max(...allRatio, 0), rMin = Math.min(...allRatio, 0);
+      const W = 900, H = 300, padL = 62, padR = ratioKeys.length ? 54 : 14, padT = 16, padB = 34;
+      const innerW = W - padL - padR, innerH = H - padT - padB;
+      const spanM = (mMax - mMin) || 1, spanR = (rMax - rMin) || 1;
+      const n = keys.length;
+      const xAt = i => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+      const yMoney = v => padT + innerH - ((v - mMin) / spanM) * innerH;
+      const yRatio = v => padT + innerH - ((v - rMin) / spanR) * innerH;
+      // gridlines + left axis labels
+      let grid = '', axis = '';
+      for (let g = 0; g <= 4; g++) {
+        const y = padT + (innerH / 4) * g;
+        grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1" opacity="0.7"/>`;
+        if (moneyKeys.length) {
+          const v = mMax - (spanM / 4) * g;
+          axis += `<text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono',monospace">${fmtMoney(v)}</text>`;
+        }
+        if (ratioKeys.length) {
+          const v = rMax - (spanR / 4) * g;
+          const isMargin = ratioKeys.includes('margin') && !ratioKeys.includes('roas');
+          axis += `<text x="${W - padR + 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono',monospace">${isMargin ? v.toFixed(0) + '%' : v.toFixed(1) + 'x'}</text>`;
+        }
+      }
+      // zero line when a money series goes negative
+      let zero = '';
+      if (moneyKeys.length && mMin < 0) {
+        const zy = yMoney(0);
+        zero = `<line x1="${padL}" y1="${zy.toFixed(1)}" x2="${W - padR}" y2="${zy.toFixed(1)}" stroke="var(--border-hover)" stroke-width="1" stroke-dasharray="3 3"/>`;
+      }
+      // lines
+      let lines = '', dots = '';
+      sel.forEach(k => {
+        const meta = ANALYZE_METRICS[k], vals = series[k];
+        const yf = meta.kind === 'money' ? yMoney : yRatio;
+        const pts = vals.map((v, i) => [xAt(i), yf(v)]);
+        const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+        if (k === 'revenue' && moneyKeys.length) {
+          lines += `<path d="${d} L${xAt(n - 1).toFixed(1)},${(padT + innerH).toFixed(1)} L${xAt(0).toFixed(1)},${(padT + innerH).toFixed(1)} Z" fill="${meta.color}" opacity="0.07"/>`;
+        }
+        lines += `<path d="${d}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+        const last = pts[pts.length - 1];
+        dots += `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3.2" fill="${meta.color}"/>`;
+      });
+      // hover columns with a tooltip listing every selected metric for that day
+      let hovers = '';
+      keys.forEach((k, i) => {
+        const d = new Date(k + 'T12:00:00');
+        const title = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '\n' +
+          sel.map(mk => {
+            const v = series[mk][i], meta = ANALYZE_METRICS[mk];
+            const txt = meta.kind === 'money' ? fmtMoney(v) : (mk === 'margin' ? v.toFixed(1) + '%' : v.toFixed(2) + 'x');
+            return meta.label + ': ' + txt;
+          }).join('\n');
+        const w = innerW / Math.max(1, n);
+        hovers += `<rect x="${(xAt(i) - w / 2).toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${innerH}" fill="transparent"><title>${title}</title></rect>`;
+      });
+      // x labels
+      let xl = '';
+      const every = Math.ceil(n / 12);
+      keys.forEach((k, i) => {
+        if (i % every && i !== n - 1) return;
+        const d = new Date(k + 'T12:00:00');
+        xl += `<text x="${xAt(i).toFixed(1)}" y="${(H - 12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${d.getDate()}/${d.getMonth() + 1}</text>`;
+      });
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${grid}${zero}${axis}${lines}${dots}${hovers}${xl}</svg>`;
+    }
+    function renderMetricChips(el, keys) {
+      if (!el) return;
+      el.innerHTML = Object.keys(ANALYZE_METRICS).map(k => {
+        const meta = ANALYZE_METRICS[k], on = analyzeMetricSel.includes(k);
+        const vals = dailySeries(keys, k);
+        let tot;
+        if (meta.kind === 'money') tot = fmtMoney(vals.reduce((a, b) => a + b, 0));
+        else {
+          const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+          tot = k === 'margin' ? avg.toFixed(1) + '%' : avg.toFixed(2) + 'x';
+        }
+        return `<button class="metric-chip${on ? ' on' : ''}" onclick="toggleAnalyzeMetric('${k}')" style="${on ? `border-color:${meta.color};` : ''}">
+          <span class="metric-dot" style="background:${on ? meta.color : 'var(--text-muted)'}; opacity:${on ? 1 : 0.35};"></span>
+          <span class="metric-name">${meta.label}</span>
+          <span class="metric-total">${tot}</span>
+        </button>`;
+      }).join('');
+    }
     function storeStatsFor(keys) {
       return (data.stores || []).map(store => {
         let rev = 0, spend = 0;
@@ -4525,11 +4694,17 @@ Or just card numbers:
     function renderAnalyze() {
       if (!isOwner()) return;
       const { cur, prev } = analyzeRanges(analyzePeriod);
+      const nDays = cur.length;
       [7, 14, 30, 90].forEach(p => { const b = document.getElementById('an' + p); if (b) b.className = 'btn btn-sm ' + (analyzePeriod === p ? 'btn-primary' : 'btn-secondary'); });
+      ['anMTD', 'anLM'].forEach(id => { const b = document.getElementById(id); if (b) b.className = 'btn btn-sm btn-secondary'; });
+      syncAnalyzeDateInputs();
+      const fmtD = k => new Date(k + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const sub = document.getElementById('analyzeSubtitle');
-      if (sub) sub.textContent = `Last ${analyzePeriod} days · compared with the previous ${analyzePeriod} days`;
+      if (sub) sub.textContent = (analyzeFrom && analyzeTo)
+        ? `${fmtD(cur[0])} – ${fmtD(cur[nDays - 1])} (${nDays} days) · compared with the ${nDays} days before`
+        : `Last ${nDays} days · compared with the previous ${nDays} days`;
       const m = analyzeMetrics(cur), pm = analyzeMetrics(prev);
-      const prevStr = `prev ${analyzePeriod}d`;
+      const prevStr = `prev ${nDays}d`;
       renderHero(document.getElementById('analyzeHero'), m, pm, cur, prevStr);
       const kpis = document.getElementById('analyzeKpis');
       if (kpis) {
@@ -4542,14 +4717,8 @@ Or just card numbers:
           kpiCard('Fees', fmtMoney(m.fees), m.fees, pm.fees, false, prevStr, dailySeries(cur, 'fees'), 'var(--text-muted)');
       }
       renderWaterfall(document.getElementById('analyzeWaterfall'), m);
-      renderRevSpendChart(document.getElementById('analyzeRevSpendChart'), cur);
-      renderProfitChart(document.getElementById('analyzeProfitChart'), cur);
-      const ps = document.getElementById('analyzeProfitSummary');
-      if (ps) {
-        const pct = pctChange(m.netProfit, pm.netProfit);
-        const tag = pct === null ? '' : `<span style="color:${pct >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span> vs ${prevStr}`;
-        ps.innerHTML = `Total <strong style="color:var(--text-primary);">${fmtMoney(m.netProfit)}</strong> &nbsp;·&nbsp; Avg <strong style="color:var(--text-primary);">${fmtMoney(m.netProfit / analyzePeriod)}</strong>/day ${tag ? '&nbsp;·&nbsp; ' + tag : ''}`;
-      }
+      renderMetricChips(document.getElementById('analyzeMetricChips'), cur);
+      renderComboChart(document.getElementById('analyzeComboChart'), cur);
       // ---- store breakdown table ----
       const head = document.getElementById('analyzeStoreHead'), body = document.getElementById('analyzeStoreBody');
       const cols = [['name', 'Store', 'left'], ['revenue', 'Revenue', 'right'], ['spend', 'Ad Spend', 'right'], ['roas', 'ROAS', 'right'], ['profit', 'Rev − Ads', 'right'], ['share', 'Share', 'right']];
