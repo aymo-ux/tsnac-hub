@@ -737,6 +737,14 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .search-acts { display: flex; gap: 0.3rem; flex-shrink: 0; }
+    .search-act {
+      background: var(--bg-secondary); border: 1px solid var(--border-light); color: var(--text-secondary);
+      border-radius: 7px; padding: 0.3rem 0.55rem; font-size: 0.78rem; font-family: inherit; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: var(--transition); line-height: 1.2;
+    }
+    .search-act:hover { background: var(--bg-hover); border-color: var(--border-hover); color: var(--text-primary); }
+    .search-act.danger:hover { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
     .trend-mini { cursor: pointer; opacity: 0.5; margin-left: 0.4rem; font-size: 0.9rem; transition: opacity 0.15s; }
     .trend-mini:hover { opacity: 1; }
     .form-group { margin-bottom: 1.1rem; }
@@ -1276,6 +1284,9 @@
           <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
             <span>💰</span> Revenue
           </div>
+          <div class="nav-item" data-section="suppliers" onclick="showSection('suppliers')">
+            <span>🧾</span> Suppliers
+          </div>
           <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
             <span>📒</span> P&amp;L
           </div>
@@ -1720,6 +1731,49 @@
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Net profit = revenue − COGS − fees − ad spend, using the COGS, refunds and fee rate from your P&amp;L. Store rows show revenue minus that store's ad spend (COGS and fees are entered at the business level, so they are not split per store).</p>
       </section>
+
+      <section class="section" id="section-suppliers">
+        <div class="header">
+          <div>
+            <h1 class="page-title">Suppliers</h1>
+            <p class="page-subtitle">Daily supplier invoices — your cost of goods, and what you still owe</p>
+          </div>
+          <div class="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="shiftSupplierMonth(-1)">◀</button>
+            <span id="supMonthLabel" style="font-weight: 650; min-width: 145px; text-align: center;"></span>
+            <button class="btn btn-secondary btn-sm" onclick="shiftSupplierMonth(1)">▶</button>
+            <button class="btn btn-primary" onclick="openPasteSheet()">📥 Import from sheet</button>
+            <button class="btn btn-secondary" onclick="addSupplier()">+ Supplier</button>
+          </div>
+        </div>
+
+        <div id="supSyncBar" style="margin-bottom: 1rem;"></div>
+        <div id="supKpis" class="analyze-kpis" style="margin-bottom: 1.1rem;"></div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem 0.6rem;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Daily invoices</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Enter each supplier's amount · click a status to change it</span>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+              <thead id="supTableHead"></thead>
+              <tbody id="supTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="padding: 1rem 1.3rem 0.6rem; font-weight: 650; font-size: 0.98rem;">Annual summary</div>
+          <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+              <thead id="supAnnualHead"></thead>
+              <tbody id="supAnnualBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">These daily amounts feed your COGS automatically — your P&amp;L and Analyze pages use them, so you never type COGS twice. Outstanding = invoiced minus what is marked Paid + Confirmed.</p>
+      </section>
     </main>
   </div>
   <!-- Add Store Modal -->
@@ -1992,6 +2046,59 @@ Or just card numbers:
       </div>
     </div>
   </div>
+  <!-- Supplier Sheet Links Modal -->
+  <div class="modal-overlay" id="modal-sheetSettings">
+    <div class="modal" style="max-width: 560px;">
+      <div class="modal-header">
+        <span class="modal-title">🔗 Connect supplier sheets</span>
+        <button class="modal-close" onclick="closeModal('sheetSettings')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Your suppliers keep using their own Google Sheet — this reads it for you.<br><br>
+          In each supplier's sheet: <strong>File → Share → Publish to web</strong>, pick the month tab, choose <strong>Comma-separated values (.csv)</strong>, click Publish, then paste that link below.
+        </p>
+        <div id="sheetSettingsList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="openPasteSheet()">Paste data instead</button>
+        <button class="btn btn-primary" onclick="saveSheetSettings()">Save &amp; sync</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Sheet Data Modal -->
+  <div class="modal-overlay" id="modal-pasteSheet">
+    <div class="modal" style="max-width: 560px;">
+      <div class="modal-header">
+        <span class="modal-title">📥 Import from supplier sheet</span>
+        <button class="modal-close" onclick="closeModal('pasteSheet')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Supplier</label>
+          <select class="form-select" id="pasteSupplier"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Option 1 — upload their sheet file</label>
+          <input type="file" id="sheetFile" class="form-input" accept=".csv,.tsv,.txt" onchange="importSheetFile(this)">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">In their Google Sheet: File → Download → Comma-separated values (.csv), then choose that file here.</div>
+        </div>
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.78rem; margin: 0.5rem 0;">— or —</div>
+        <div class="form-group">
+          <label class="form-label">Option 2 — copy the rows and paste them</label>
+          <textarea class="form-textarea" id="pasteSheetData" style="min-height: 170px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;" placeholder="01 May (Fri)	$1,024.45	yes	yes&#10;03 May (Sun)	$832.06	yes	yes"></textarea>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">Select the rows in their sheet, copy, paste here. Dates like "01 May (Fri)" and amounts like "$1,024.45" are read automatically.</div>
+        </div>
+        <div id="importPreview" style="font-size: 0.82rem; margin-top: 0.5rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('pasteSheet')">Cancel</button>
+        <button class="btn btn-primary" onclick="applyPastedSheet()">Import</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Store Spend Trend Modal -->
   <div class="modal-overlay" id="modal-storeTrend">
     <div class="modal" style="max-width: 780px;">
@@ -2133,6 +2240,7 @@ Or just card numbers:
           const ownerNav = document.getElementById('ownerNavSection');
           if (ownerNav) ownerNav.style.display = '';
           loadRevenue();
+          loadSuppliers();
         }
         return true;
       } catch (e) {
@@ -2560,6 +2668,7 @@ Or just card numbers:
       if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'suppliers' && !isOwner()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2581,6 +2690,7 @@ Or just card numbers:
         case 'revenue': openRevenueSection(); break;
         case 'pnl': openPnlSection(); break;
         case 'analyze': openAnalyzeSection(); break;
+        case 'suppliers': openSuppliersSection(); break;
       }
     }
     function switchUser(userId) {
@@ -3337,7 +3447,7 @@ Or just card numbers:
         const entered = sum > 0;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}</span>
+          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -3630,7 +3740,8 @@ Or just card numbers:
         const autoRev = autoDayRevenue(key);
         const manualRev = manualDayRevenue(key);
         const p = pnlData[key] || { cogs: 0, refunds: 0 };
-        const refunds = p.refunds || 0, cogs = p.cogs || 0;
+        const refunds = p.refunds || 0, cogs = dayCogs(key);
+        const cogsFromSupplier = hasSupplierData(key);
         const shop = rev - refunds;
         const fee = rate * shop;
         const gross = rev - cogs;
@@ -3648,7 +3759,9 @@ Or just card numbers:
           <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:76px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${refunds || ''}" placeholder="0" onchange="savePnl('${key}','refunds',this.value)"></td>
           <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-secondary); ${mono}">${rev ? fmtMoney(shop) : '—'}</td>
           <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--text-muted); ${mono}">${rev ? fmtMoney(fee) : '—'}</td>
-          <td style="text-align:right; padding:0.3rem;"><input type="number" step="0.01" min="0" class="form-input" style="width:86px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${cogs || ''}" placeholder="0" onchange="savePnl('${key}','cogs',this.value)"></td>
+          <td style="text-align:right; padding:0.3rem;">${cogsFromSupplier
+            ? `<span title="From supplier invoices — edit on the Suppliers page" style="${mono} cursor:help;">${fmtMoney(cogs)} <span style="font-size:0.6rem; color:var(--text-muted);">SUP</span></span>`
+            : `<input type="number" step="0.01" min="0" class="form-input" style="width:86px; text-align:right; padding:0.25rem; font-size:0.78rem;" value="${cogs || ''}" placeholder="0" onchange="savePnl('${key}','cogs',this.value)">`}</td>
           <td style="text-align:right; padding:0.4rem 0.5rem; ${mono}">${(rev || cogs) ? fmtMoney(gross) : '—'}</td>
           <td style="text-align:right; padding:0.4rem 0.5rem; color:var(--info); ${mono}">${ads ? fmtMoney(ads) : '—'}</td>
           <td style="text-align:right; padding:0.4rem 0.5rem; font-weight:600; color:${profitColor}; ${mono}">${(rev || cogs || ads) ? fmtMoney(profit) : '—'}</td>
@@ -3677,6 +3790,482 @@ Or just card numbers:
       set('pnlSumProfit', fmtMoney(tProfit));
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
+    }
+    // ===== Suppliers / COGS (owner only) =====
+    // Suppliers invoice you a daily amount — that IS your cost of goods.
+    // P&L and Analyze read COGS from here automatically.
+    let suppliers = ['Tina', 'Kevin'];
+    let supplierInvoices = {};   // `${supplier}_${date}` -> { amount, paid, confirmed }
+    let suppliersLoaded = false;
+    let supMonth = null, supYear = null;
+    function supKey(supplier, dateKey) { return supplier + '_' + dateKey; }
+    function saveSuppliersLocal() {
+      try { localStorage.setItem('tsnac_suppliers', JSON.stringify({ list: suppliers, invoices: supplierInvoices })); } catch (e) {}
+    }
+    function loadSuppliersLocal() {
+      try {
+        const s = localStorage.getItem('tsnac_suppliers');
+        if (s) { const o = JSON.parse(s) || {}; if (Array.isArray(o.list) && o.list.length) suppliers = o.list; supplierInvoices = o.invoices || {}; }
+      } catch (e) {}
+    }
+    async function loadSuppliers() {
+      if (!isOwner()) return;
+      loadSuppliersLocal();
+      loadSheetsLocal();
+      try {
+        const { data: rows, error } = await supabaseClient.from('supplier_invoices').select('*');
+        if (error) { console.error('supplier_invoices load error:', error); }
+        else if (rows) {
+          rows.forEach(r => {
+            supplierInvoices[supKey(r.supplier, r.date)] = { amount: parseFloat(r.amount) || 0, paid: !!r.paid, confirmed: !!r.confirmed };
+            if (r.supplier && !suppliers.includes(r.supplier)) suppliers.push(r.supplier);
+          });
+          saveSuppliersLocal();
+        }
+      } catch (e) { console.error('supplier_invoices exception:', e); }
+      suppliersLoaded = true;
+    }
+    async function saveSupplierRow(supplier, dateKey) {
+      const row = supplierInvoices[supKey(supplier, dateKey)] || { amount: 0, paid: false, confirmed: false };
+      saveSuppliersLocal();
+      try {
+        const { error } = await supabaseClient.from('supplier_invoices').upsert(
+          { supplier: supplier, date: dateKey, amount: row.amount, paid: row.paid, confirmed: row.confirmed },
+          { onConflict: 'supplier,date' }
+        );
+        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
+        if (error) console.error('supplier save error:', error);
+      } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); }
+    }
+    function setSupplierAmount(supplier, dateKey, value) {
+      const k = supKey(supplier, dateKey);
+      const cur = supplierInvoices[k] || { amount: 0, paid: false, confirmed: false };
+      const amt = parseFloat(value) || 0;
+      if (!amt && !cur.paid && !cur.confirmed) delete supplierInvoices[k];
+      else { cur.amount = amt; supplierInvoices[k] = cur; }
+      saveSupplierRow(supplier, dateKey);
+      renderSuppliers();
+      if (typeof renderPnl === 'function') renderPnl();
+    }
+    // Unpaid -> Paid -> Paid + Confirmed -> Unpaid
+    function cycleSupplierStatus(supplier, dateKey) {
+      const k = supKey(supplier, dateKey);
+      const cur = supplierInvoices[k] || { amount: 0, paid: false, confirmed: false };
+      if (!cur.paid) { cur.paid = true; cur.confirmed = false; }
+      else if (!cur.confirmed) { cur.confirmed = true; }
+      else { cur.paid = false; cur.confirmed = false; }
+      supplierInvoices[k] = cur;
+      saveSupplierRow(supplier, dateKey);
+      renderSuppliers();
+    }
+    function addSupplier() {
+      const name = (prompt('Supplier name (e.g. Tina):') || '').trim();
+      if (!name) return;
+      if (suppliers.includes(name)) { showToast('That supplier already exists'); return; }
+      suppliers.push(name);
+      saveSuppliersLocal();
+      showToast('Supplier "' + name + '" added');
+      renderSuppliers();
+    }
+    function removeSupplier(name) {
+      if (!confirm('Remove supplier "' + name + '" from the sheet?\n\nTheir past invoice amounts stay counted in your COGS.')) return;
+      suppliers = suppliers.filter(s => s !== name);
+      saveSuppliersLocal();
+      renderSuppliers();
+    }
+    // The single source of COGS for a day: what the suppliers invoiced that day.
+    // Falls back to a manually typed P&L figure when there are no supplier rows.
+    function daySupplierCogs(dateKey) {
+      let total = 0;
+      Object.keys(supplierInvoices).forEach(k => {
+        if (k.endsWith('_' + dateKey)) total += parseFloat(supplierInvoices[k].amount) || 0;
+      });
+      return total;
+    }
+    function hasSupplierData(dateKey) {
+      return Object.keys(supplierInvoices).some(k => k.endsWith('_' + dateKey) && (parseFloat(supplierInvoices[k].amount) || 0) > 0);
+    }
+    function dayCogs(dateKey) {
+      if (hasSupplierData(dateKey)) return daySupplierCogs(dateKey);
+      const p = pnlData[dateKey] || {};
+      return parseFloat(p.cogs) || 0;
+    }
+    // ===== Google Sheet sync =====
+    // Suppliers keep filling their own sheet; we read it and pull the amounts in.
+    let supplierSheets = {};   // supplier -> sheet URL
+    let supplierSynced = {};   // supplier -> last sync text
+    let supSyncing = false;
+    function saveSheetsLocal() {
+      try { localStorage.setItem('tsnac_supplier_sheets', JSON.stringify({ sheets: supplierSheets, synced: supplierSynced })); } catch (e) {}
+    }
+    function loadSheetsLocal() {
+      try {
+        const s = localStorage.getItem('tsnac_supplier_sheets');
+        if (s) { const o = JSON.parse(s) || {}; supplierSheets = o.sheets || {}; supplierSynced = o.synced || {}; }
+      } catch (e) {}
+    }
+    // Turn any Google Sheet link into candidate CSV endpoints
+    function sheetCsvCandidates(url) {
+      const out = [];
+      if (!url) return out;
+      const u = url.trim();
+      const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1] || '0';
+      // Already a published-to-web link (this is the one browsers are allowed to read)
+      if (u.includes('/spreadsheets/d/e/')) {
+        const base = u.split('?')[0].replace(/\/(pubhtml|pub)$/, '/pub');
+        out.push(`${base}?output=csv&gid=${gid}`);
+        out.push(`${base}?output=csv`);
+        return out;
+      }
+      const id = (u.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/) || [])[1];
+      if (id) {
+        out.push(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`);
+        out.push(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`);
+      }
+      return out;
+    }
+    // CSV parser that handles quoted fields and embedded commas ("$1,024.45")
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], cell = '', inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (inQ) {
+          if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+          else cell += c;
+        } else if (c === '"') inQ = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (c !== '\r') cell += c;
+      }
+      if (cell.length || row.length) { row.push(cell); rows.push(row); }
+      return rows;
+    }
+    const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    function money(v) {
+      if (v == null) return null;
+      const t = String(v).replace(/[$,\s]/g, '');
+      if (!t || !/^-?\d*\.?\d+$/.test(t)) return null;
+      return parseFloat(t);
+    }
+    // Read a supplier month sheet: finds the date column, the amount, and paid/confirmed
+    function parseSupplierSheet(text, fallbackYear) {
+      const rows = parseCSV(text);
+      let year = fallbackYear;
+      for (const r of rows.slice(0, 6)) {
+        const m = r.join(' ').match(/(20\d\d)/);
+        if (m) { year = parseInt(m[1]); break; }
+      }
+      const out = [];
+      rows.forEach(cells => {
+        let dateIdx = -1, day = null, mon = null;
+        for (let i = 0; i < cells.length; i++) {
+          const m = String(cells[i]).trim().match(/^(\d{1,2})\s+([A-Za-z]{3,9})/);
+          if (m) {
+            const mi = MONTHS.indexOf(m[2].slice(0, 3).toLowerCase());
+            if (mi >= 0) { dateIdx = i; day = parseInt(m[1]); mon = mi; break; }
+          }
+        }
+        if (dateIdx < 0 || !day) return;
+        let amount = null, flags = [];
+        for (let i = dateIdx + 1; i < cells.length; i++) {
+          const raw = String(cells[i]).trim();
+          const v = money(raw);
+          if (amount === null && v !== null && raw !== '') { amount = v; continue; }
+          if (/^(yes|y|true|paid|✅)/i.test(raw) || raw.includes('✅')) flags.push(true);
+          else if (/^(no|n|false|unpaid|❌)/i.test(raw) || raw.includes('❌')) flags.push(false);
+        }
+        if (amount === null) amount = 0;
+        const dateKey = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        out.push({ date: dateKey, amount, paid: !!flags[0], confirmed: !!flags[1] });
+      });
+      return out;
+    }
+    async function fetchSheetCsv(url) {
+      const cands = sheetCsvCandidates(url);
+      let lastErr = null;
+      for (const c of cands) {
+        try {
+          const res = await fetch(c, { redirect: 'follow' });
+          if (!res.ok) { lastErr = new Error('HTTP ' + res.status); continue; }
+          const txt = await res.text();
+          if (txt && txt.length > 10 && !txt.trim().startsWith('<')) return txt;
+          lastErr = new Error('That link did not return a CSV.');
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr || new Error('Could not read that sheet.');
+    }
+    async function syncSupplierSheet(name, quiet) {
+      const url = supplierSheets[name];
+      if (!url) { if (!quiet) showToast(`No sheet connected for ${name}`); return false; }
+      try {
+        const csv = await fetchSheetCsv(url);
+        supEnsureMonth();
+        const rows = parseSupplierSheet(csv, supYear);
+        if (!rows.length) { if (!quiet) alert(`Read ${name}'s sheet, but found no dated rows with amounts.`); return false; }
+        let changed = 0;
+        rows.forEach(r => {
+          const k = supKey(name, r.date);
+          const prev = supplierInvoices[k];
+          if (!prev || prev.amount !== r.amount || prev.paid !== r.paid || prev.confirmed !== r.confirmed) changed++;
+          if (r.amount === 0 && !r.paid && !r.confirmed) { delete supplierInvoices[k]; return; }
+          supplierInvoices[k] = { amount: r.amount, paid: r.paid, confirmed: r.confirmed };
+        });
+        supplierSynced[name] = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        saveSuppliersLocal(); saveSheetsLocal();
+        // push to the cloud so it is not just on this device
+        for (const r of rows) {
+          if (r.amount === 0 && !r.paid && !r.confirmed) continue;
+          try {
+            await supabaseClient.from('supplier_invoices').upsert(
+              { supplier: name, date: r.date, amount: r.amount, paid: r.paid, confirmed: r.confirmed },
+              { onConflict: 'supplier,date' });
+          } catch (e) {}
+        }
+        renderSuppliers();
+        if (typeof renderPnl === 'function') renderPnl();
+        if (!quiet) showToast(`${name}: ${rows.length} days synced${changed ? ` · ${changed} updated` : ' · already up to date'}`);
+        return true;
+      } catch (e) {
+        console.error('sheet sync failed:', e);
+        if (!quiet) {
+          alert(`Could not read ${name}'s sheet.\n\nGoogle only lets a website read a sheet that is published.\n\nIn their sheet: File → Share → Publish to web → choose the month tab → CSV → Publish, then paste THAT link here.\n\n(You can also use "Paste data" to paste the sheet contents directly.)`);
+        }
+        return false;
+      }
+    }
+    async function syncAllSheets() {
+      const names = suppliers.filter(n => supplierSheets[n]);
+      if (!names.length) { openSheetSettings(); return; }
+      supSyncing = true; renderSuppliers();
+      for (const n of names) await syncSupplierSheet(n, true);
+      supSyncing = false;
+      renderSuppliers();
+      showToast(`Synced ${names.length} sheet${names.length > 1 ? 's' : ''}`);
+    }
+    function openSheetSettings() {
+      const box = document.getElementById('sheetSettingsList');
+      if (box) {
+        box.innerHTML = suppliers.map(n => `
+          <div class="form-group">
+            <label class="form-label">${escapeHtml(n)} — sheet link</label>
+            <input type="url" class="form-input sheet-url" data-supplier="${escapeHtml(n)}" value="${escapeHtml(supplierSheets[n] || '')}" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem;">${supplierSynced[n] ? 'Last synced ' + escapeHtml(supplierSynced[n]) : 'Never synced'}</div>
+          </div>`).join('');
+      }
+      openModal('sheetSettings');
+    }
+    function saveSheetSettings() {
+      document.querySelectorAll('.sheet-url').forEach(i => {
+        const n = i.dataset.supplier, v = i.value.trim();
+        if (v) supplierSheets[n] = v; else delete supplierSheets[n];
+      });
+      saveSheetsLocal();
+      closeModal('sheetSettings');
+      showToast('Sheet links saved');
+      syncAllSheets();
+    }
+    // Manual fallback: paste the sheet contents if Google blocks the fetch
+    function openPasteSheet() {
+      const sel = document.getElementById('pasteSupplier');
+      if (sel) sel.innerHTML = suppliers.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+      const ta = document.getElementById('pasteSheetData'); if (ta) ta.value = '';
+      const pv = document.getElementById('importPreview'); if (pv) pv.innerHTML = '';
+      const fi = document.getElementById('sheetFile'); if (fi) fi.value = '';
+      openModal('pasteSheet');
+    }
+    function importSheetFile(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const ta = document.getElementById('pasteSheetData');
+        if (ta) ta.value = String(reader.result || '');
+        const prev = document.getElementById('importPreview');
+        supEnsureMonth();
+        const rows = parseSupplierSheet(String(reader.result || ''), supYear).filter(r => r.amount > 0);
+        const total = rows.reduce((s, r) => s + r.amount, 0);
+        if (prev) prev.innerHTML = rows.length
+          ? `<span style="color:var(--success); font-weight:600;">✓ Found ${rows.length} days · ${fmtMoney(total)}</span> — click Import to add them.`
+          : '<span style="color:var(--danger);">No dated rows with amounts found in that file.</span>';
+      };
+      reader.readAsText(file);
+    }
+    async function applyPastedSheet() {
+      const name = document.getElementById('pasteSupplier').value;
+      const text = document.getElementById('pasteSheetData').value;
+      if (!text.trim()) { alert('Paste the sheet contents first.'); return; }
+      supEnsureMonth();
+      const rows = parseSupplierSheet(text.replace(/\t/g, ','), supYear);
+      if (!rows.length) { alert('No dated rows with amounts found. Copy the rows including the date column (e.g. "01 May (Fri)").'); return; }
+      rows.forEach(r => {
+        const k = supKey(name, r.date);
+        if (r.amount === 0 && !r.paid && !r.confirmed) { delete supplierInvoices[k]; return; }
+        supplierInvoices[k] = { amount: r.amount, paid: r.paid, confirmed: r.confirmed };
+      });
+      saveSuppliersLocal();
+      for (const r of rows) {
+        if (r.amount === 0 && !r.paid && !r.confirmed) continue;
+        try { await supabaseClient.from('supplier_invoices').upsert({ supplier: name, date: r.date, amount: r.amount, paid: r.paid, confirmed: r.confirmed }, { onConflict: 'supplier,date' }); } catch (e) {}
+      }
+      closeModal('pasteSheet');
+      renderSuppliers();
+      if (typeof renderPnl === 'function') renderPnl();
+      showToast(`${name}: imported ${rows.length} days`);
+    }
+    function supEnsureMonth() {
+      if (supMonth === null) { const t = getThailandDate().split('-').map(Number); supYear = t[0]; supMonth = t[1] - 1; }
+    }
+    function shiftSupplierMonth(delta) {
+      supEnsureMonth();
+      supMonth += delta;
+      if (supMonth < 0) { supMonth = 11; supYear--; }
+      if (supMonth > 11) { supMonth = 0; supYear++; }
+      renderSuppliers();
+    }
+    async function openSuppliersSection() {
+      if (!isOwner()) { showSection('dashboard'); return; }
+      supEnsureMonth();
+      if (!suppliersLoaded) await loadSuppliers();
+      renderSuppliers();
+    }
+    function statusChip(row, supplier, dateKey) {
+      const paid = row && row.paid, conf = row && row.confirmed;
+      let txt, bg, col;
+      if (paid && conf) { txt = 'Paid + Confirmed'; bg = 'var(--success-bg)'; col = 'var(--success)'; }
+      else if (paid) { txt = 'Paid'; bg = 'var(--warning-bg)'; col = 'var(--warning)'; }
+      else { txt = 'Unpaid'; bg = 'var(--danger-bg)'; col = 'var(--danger)'; }
+      return '<span onclick="cycleSupplierStatus(\'' + supplier + '\',\'' + dateKey + '\')" title="Click to change" style="cursor:pointer; white-space:nowrap; font-size:0.7rem; font-weight:600; padding:0.2rem 0.45rem; border-radius:5px; background:' + bg + '; color:' + col + ';">' + txt + '</span>';
+    }
+    function renderSuppliers() {
+      if (!isOwner()) return;
+      supEnsureMonth();
+      const head = document.getElementById('supTableHead'), body = document.getElementById('supTableBody');
+      if (!head || !body) return;
+      const label = document.getElementById('supMonthLabel');
+      if (label) label.textContent = new Date(supYear, supMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const dim = new Date(supYear, supMonth + 1, 0).getDate();
+      const todayKey = getThailandDate();
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      let th = '<tr><th style="text-align:left; padding:0.55rem 0.7rem;">Date</th>';
+      suppliers.forEach(sup => {
+        th += '<th colspan="2" style="text-align:center; padding:0.55rem 0.7rem; border-left:1px solid var(--border);">' + escapeHtml(sup) +
+          ' <span onclick="removeSupplier(\'' + sup + '\')" title="Remove supplier" style="cursor:pointer; color:var(--text-muted); font-weight:400;">&times;</span></th>';
+      });
+      th += '<th style="text-align:right; padding:0.55rem 0.7rem; background:var(--bg-tertiary);">Day total</th></tr>';
+      head.innerHTML = th;
+      const totals = {}; suppliers.forEach(s => totals[s] = { invoiced: 0, paid: 0 });
+      let grand = 0, rows = '';
+      for (let d = 1; d <= dim; d++) {
+        const key = supYear + '-' + String(supMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        const isToday = key === todayKey;
+        const dObj = new Date(key + 'T12:00:00');
+        let dayTotal = 0, cells = '';
+        suppliers.forEach(sup => {
+          const row = supplierInvoices[supKey(sup, key)];
+          const amt = row ? (parseFloat(row.amount) || 0) : 0;
+          dayTotal += amt;
+          totals[sup].invoiced += amt;
+          if (row && row.paid && row.confirmed) totals[sup].paid += amt;
+          cells += '<td style="text-align:right; padding:0.25rem 0.3rem; border-left:1px solid var(--border);"><input type="number" step="0.01" min="0" class="form-input" style="width:92px; text-align:right; padding:0.25rem; font-size:0.78rem; ' + mono + '" value="' + (amt || '') + '" placeholder="-" onchange="setSupplierAmount(\'' + sup + '\',\'' + key + '\',this.value)"></td>';
+          cells += '<td style="text-align:center; padding:0.25rem 0.3rem;">' + statusChip(row, sup, key) + '</td>';
+        });
+        grand += dayTotal;
+        rows += '<tr style="' + (isToday ? 'background:var(--accent-soft);' : '') + (dayTotal === 0 ? 'opacity:0.6;' : '') + '">' +
+          '<td style="padding:0.35rem 0.7rem; font-weight:600; white-space:nowrap;">' + d + ' ' + dObj.toLocaleDateString('en-US', { month: 'short' }) + ' <span style="font-weight:400; color:var(--text-muted);">' + dObj.toLocaleDateString('en-US', { weekday: 'short' }) + '</span></td>' +
+          cells +
+          '<td style="text-align:right; padding:0.35rem 0.7rem; font-weight:700; background:var(--bg-tertiary); ' + mono + '">' + (dayTotal ? fmtMoney(dayTotal) : '—') + '</td></tr>';
+      }
+      let foot = '<tr style="font-weight:700; border-top:2px solid var(--border-light); background:var(--bg-tertiary);"><td style="padding:0.55rem 0.7rem;">TOTAL</td>';
+      suppliers.forEach(sup => {
+        foot += '<td style="text-align:right; padding:0.55rem 0.7rem; border-left:1px solid var(--border); ' + mono + '">' + fmtMoney(totals[sup].invoiced) + '</td><td></td>';
+      });
+      foot += '<td style="text-align:right; padding:0.55rem 0.7rem; color:var(--accent); ' + mono + '">' + fmtMoney(grand) + '</td></tr>';
+      body.innerHTML = rows + foot;
+      const kpiEl = document.getElementById('supKpis');
+      if (kpiEl) {
+        let html = '';
+        let totInv = 0, totPaid = 0;
+        suppliers.forEach(sup => {
+          const inv = totals[sup].invoiced, paid = totals[sup].paid, out = inv - paid;
+          totInv += inv; totPaid += paid;
+          html += '<div class="kpi"><div class="kpi-label">' + escapeHtml(sup) + ' — invoiced</div>' +
+            '<div class="kpi-value">' + fmtMoney(inv) + '</div>' +
+            '<div class="kpi-delta" style="color:' + (out > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + (out > 0 ? fmtMoney(out) + ' outstanding' : 'All settled') + '</div></div>';
+        });
+        const outstanding = totInv - totPaid;
+        html += '<div class="kpi" style="border-color:var(--accent);"><div class="kpi-label">Combined total</div>' +
+          '<div class="kpi-value" style="color:var(--accent);">' + fmtMoney(totInv) + '</div>' +
+          '<div class="kpi-delta kpi-prev">Confirmed paid ' + fmtMoney(totPaid) + '</div></div>';
+        html += '<div class="kpi"><div class="kpi-label">Outstanding</div>' +
+          '<div class="kpi-value" style="color:' + (outstanding > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + fmtMoney(outstanding) + '</div>' +
+          '<div class="kpi-delta kpi-prev">' + (outstanding > 0 ? 'Still to pay' : 'Nothing owed') + '</div></div>';
+        kpiEl.innerHTML = html;
+      }
+      const bar = document.getElementById('supSyncBar');
+      if (bar) {
+        bar.innerHTML = '<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem; color:var(--text-secondary);">' +
+          'Keep using the suppliers\' sheets as normal — then paste or drop the file here and the month fills in.' +
+          '<button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openPasteSheet()">Import from sheet</button></div>';
+      }
+      const barOld = null;
+      if (barOld) {
+        const linked = suppliers.filter(n => supplierSheets[n]);
+        if (supSyncing) {
+          bar.innerHTML = '<div style="padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem; color:var(--text-secondary);">Syncing supplier sheets…</div>';
+        } else if (linked.length) {
+          bar.innerHTML = '<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem;">' +
+            '<span style="color:var(--success); font-weight:600;">🔗 Connected</span>' +
+            '<span style="color:var(--text-secondary);">' + linked.map(n => escapeHtml(n) + (supplierSynced[n] ? ' (synced ' + escapeHtml(supplierSynced[n]) + ')' : '')).join(' · ') + '</span>' +
+            '<button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="syncAllSheets()">Sync now</button></div>';
+        } else {
+          bar.innerHTML = '<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px dashed var(--border-light); border-radius:var(--radius-md); font-size:0.85rem; color:var(--text-secondary);">' +
+            'Connect your suppliers\' Google Sheets and their amounts flow in automatically.' +
+            '<button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openSheetSettings()">Connect sheets</button></div>';
+        }
+      }
+      renderSupplierAnnual();
+    }
+    function renderSupplierAnnual() {
+      const el = document.getElementById('supAnnualBody');
+      if (!el) return;
+      supEnsureMonth();
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      let html = '';
+      let yInv = 0, yPaid = 0;
+      for (let m = 0; m < 12; m++) {
+        const dim = new Date(supYear, m + 1, 0).getDate();
+        const per = {}; suppliers.forEach(s => per[s] = { inv: 0, paid: 0 });
+        let mInv = 0, mPaid = 0;
+        for (let d = 1; d <= dim; d++) {
+          const key = supYear + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+          suppliers.forEach(sup => {
+            const row = supplierInvoices[supKey(sup, key)];
+            if (!row) return;
+            const amt = parseFloat(row.amount) || 0;
+            per[sup].inv += amt; mInv += amt;
+            if (row.paid && row.confirmed) { per[sup].paid += amt; mPaid += amt; }
+          });
+        }
+        yInv += mInv; yPaid += mPaid;
+        const out = mInv - mPaid;
+        const isCur = m === supMonth;
+        html += '<tr style="' + (isCur ? 'background:var(--accent-soft);' : '') + (mInv === 0 ? 'opacity:0.5;' : '') + '">' +
+          '<td style="padding:0.4rem 0.7rem; font-weight:' + (isCur ? 700 : 500) + ';">' + new Date(supYear, m, 1).toLocaleDateString('en-US', { month: 'long' }) + '</td>' +
+          suppliers.map(sup => '<td style="text-align:right; padding:0.4rem 0.7rem; ' + mono + '">' + (per[sup].inv ? fmtMoney(per[sup].inv) : '—') + '</td>').join('') +
+          '<td style="text-align:right; padding:0.4rem 0.7rem; font-weight:600; ' + mono + '">' + (mInv ? fmtMoney(mInv) : '—') + '</td>' +
+          '<td style="text-align:right; padding:0.4rem 0.7rem; color:' + (out > 0 ? 'var(--danger)' : 'var(--text-muted)') + '; ' + mono + '">' + (out > 0 ? fmtMoney(out) : '—') + '</td></tr>';
+      }
+      html += '<tr style="font-weight:700; border-top:2px solid var(--border-light); background:var(--bg-tertiary);">' +
+        '<td style="padding:0.5rem 0.7rem;">YEAR ' + supYear + '</td>' +
+        suppliers.map(() => '<td></td>').join('') +
+        '<td style="text-align:right; padding:0.5rem 0.7rem; color:var(--accent); ' + mono + '">' + fmtMoney(yInv) + '</td>' +
+        '<td style="text-align:right; padding:0.5rem 0.7rem; color:' + ((yInv - yPaid) > 0 ? 'var(--danger)' : 'var(--text-muted)') + '; ' + mono + '">' + fmtMoney(yInv - yPaid) + '</td></tr>';
+      el.innerHTML = html;
+      const ah = document.getElementById('supAnnualHead');
+      if (ah) ah.innerHTML = '<tr><th style="text-align:left; padding:0.5rem 0.7rem;">Month</th>' +
+        suppliers.map(s => '<th style="text-align:right; padding:0.5rem 0.7rem;">' + escapeHtml(s) + '</th>').join('') +
+        '<th style="text-align:right; padding:0.5rem 0.7rem;">Combined</th><th style="text-align:right; padding:0.5rem 0.7rem;">Outstanding</th></tr>';
     }
     // ===== Analyze (owner only) — summary hub =====
     let analyzePeriod = 30;
@@ -3707,7 +4296,7 @@ Or just card numbers:
         revenue += dayTotalRevenue(k);
         adSpend += dayTotalAdSpend(k);
         const p = pnlData[k] || {};
-        cogs += parseFloat(p.cogs) || 0;
+        cogs += dayCogs(k);
         refunds += parseFloat(p.refunds) || 0;
       });
       const fees = rate * (revenue - refunds);
@@ -3744,7 +4333,7 @@ Or just card numbers:
       return keys.map(k => {
         const rev = dayTotalRevenue(k), ads = dayTotalAdSpend(k);
         const p = pnlData[k] || {};
-        const cogs = parseFloat(p.cogs) || 0, refunds = parseFloat(p.refunds) || 0;
+        const cogs = dayCogs(k), refunds = parseFloat(p.refunds) || 0;
         if (kind === 'revenue') return rev;
         if (kind === 'adSpend') return ads;
         if (kind === 'cogs') return cogs;
@@ -3896,7 +4485,7 @@ Or just card numbers:
       const vals = keys.map(k => {
         const rev = dayTotalRevenue(k), ads = dayTotalAdSpend(k);
         const p = pnlData[k] || {};
-        const cogs = parseFloat(p.cogs) || 0, refunds = parseFloat(p.refunds) || 0;
+        const cogs = dayCogs(k), refunds = parseFloat(p.refunds) || 0;
         return rev - cogs - (rate * (rev - refunds)) - ads;
       });
       if (vals.every(v => v === 0)) {
@@ -5532,6 +6121,46 @@ Or just card numbers:
       renderDashboard();
       updateBadges();
     }
+    // Open the Add Account form with a store already ticked
+    function addAccountForStore(storeId) {
+      hideSearchResults();
+      showSection('accounts');
+      openModal('addAccount');
+      setTimeout(() => {
+        const cb = document.querySelector(`.account-store-cb[value="${storeId}"]`);
+        if (cb) { cb.checked = true; onAccountStoresChange(); cb.closest('.account-store-opt')?.scrollIntoView({ block: 'nearest' }); }
+      }, 100);
+    }
+    // Archive a store straight from the search results
+    async function archiveStoreFromSearch(storeId) {
+      hideSearchResults();
+      const input = document.getElementById('globalSearch');
+      if (input) input.value = '';
+      await deleteStore(storeId);
+    }
+    // Archive an ad account straight from the search results (any channel)
+    async function archiveAccountFromSearch(accountId, channel) {
+      hideSearchResults();
+      const input = document.getElementById('globalSearch');
+      if (input) input.value = '';
+      let account = null;
+      ['google', 'tiktok', 'facebook'].forEach(ch => {
+        const hit = (data.accounts[ch] || []).find(a => a.id === accountId || a.id == accountId);
+        if (hit) account = hit;
+      });
+      if (!account) return;
+      const store = getStore(account.storeId);
+      let msg = 'Remove this ad account from your lists?';
+      if (store) msg += '\nStore: ' + store.name;
+      msg += '\n\nAll its past spend stays counted in your totals, P&L and trends.';
+      if (!confirm(msg)) return;
+      archivedAccounts.add(String(accountId));
+      saveArchivedLocal();
+      try { await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId); } catch (e) {}
+      showAutoSaveIndicator('✓ Account archived');
+      showToast('Account archived — its spend stays in your totals');
+      renderAccounts(); renderDashboard(); updateBadges();
+    }
     function handleGlobalSearch(query) {
       const resultsContainer = document.getElementById('searchResults');
       if (!query || query.trim().length < 2) { resultsContainer.style.display = 'none'; return; }
@@ -5592,7 +6221,12 @@ Or just card numbers:
             subtitle: subtitle,
             badge: badge,
             id: store.id,
-            action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); openStoreTrend(store.id); }
+            action: () => { showSection('stores'); hideSearchResults(); highlightItem('store', store.id, store.name); openStoreTrend(store.id); },
+            actions: [
+              { label: '➕ Account', title: 'Add an ad account for this store', call: `addAccountForStore('${store.id}')` },
+              { label: '📈', title: 'Last 14 days spend', call: `openStoreTrend('${store.id}')` },
+              { label: '🗑', title: 'Remove this store (its numbers stay counted)', call: `archiveStoreFromSearch('${store.id}')`, danger: true }
+            ]
           });
         }
       });
@@ -5618,7 +6252,10 @@ Or just card numbers:
               subtitle: `${channel.toUpperCase()}${account.accountGroup ? ' • 🔗 ' + account.accountGroup : ''} • 💳 VCC ••••${vcc?.number?.slice(-4) || account.pendingVCC || '????'} • Yesterday: $${yesterdaySpend} • Lifetime: $${account.lifetimeSpend}`,
               badge: account.adsStatus === 'active' ? '✓ Active' : account.adsStatus,
               id: account.id,
-              action: () => { showSection('accounts'); hideSearchResults(); highlightItem('account', account.id, store?.name); }
+              action: () => { showSection('accounts'); hideSearchResults(); highlightItem('account', account.id, store?.name); },
+              actions: [
+                { label: '🗑', title: 'Remove this ad account (its spend stays counted)', call: `archiveAccountFromSearch('${account.id}','${channel}')`, danger: true }
+              ]
             });
           }
         });
@@ -5664,16 +6301,21 @@ Or just card numbers:
           </div>
         `;
       } else {
-        resultsContainer.innerHTML = results.slice(0, 15).map(r => `
-          <div onclick="(${r.action.toString()})()" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: all 0.15s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='transparent'">
+        resultsContainer.innerHTML = results.slice(0, 15).map(r => {
+          const actionBtns = (r.actions || []).map(a =>
+            `<button class="search-act${a.danger ? ' danger' : ''}" title="${escapeHtml(a.title)}" onclick="event.stopPropagation(); ${a.call}">${a.label}</button>`
+          ).join('');
+          return `
+          <div class="search-row" onclick="(${r.action.toString()})()" style="padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: all 0.15s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='transparent'">
             <div style="font-size: 1.25rem; width: 32px; text-align: center;">${r.icon}</div>
             <div style="flex: 1; min-width: 0;">
               <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.title)}</div>
               <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.subtitle)}</div>
             </div>
             ${r.badge ? `<div style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--bg-tertiary); border-radius: 4px; white-space: nowrap;">${r.badge}</div>` : ''}
-          </div>
-        `).join('');
+            ${actionBtns ? `<div class="search-acts">${actionBtns}</div>` : ''}
+          </div>`;
+        }).join('');
       }
       resultsContainer.style.display = 'block';
     }
