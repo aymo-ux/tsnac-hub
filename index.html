@@ -1752,6 +1752,7 @@
             <span id="supMonthLabel" style="font-weight: 650; min-width: 145px; text-align: center;"></span>
             <button class="btn btn-secondary btn-sm" onclick="shiftSupplierMonth(1)">▶</button>
             <button class="btn btn-primary" onclick="openPasteSheet()">📥 Import from sheet</button>
+            <button class="btn btn-secondary" onclick="syncAllSheets()">🔄 Sync sheets</button>
             <button class="btn btn-secondary" onclick="addSupplier()">+ Supplier</button>
           </div>
         </div>
@@ -2089,13 +2090,22 @@ Or just card numbers:
           <select class="form-select" id="pasteSupplier"></select>
         </div>
         <div class="form-group">
-          <label class="form-label">Option 1 — upload their sheet file</label>
+          <label class="form-label">Option 1 — connect their Google Sheet link <span style="font-weight:400; color:var(--text-muted);">(then it updates on its own)</span></label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="url" id="importSheetUrl" class="form-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="flex:1;">
+            <button class="btn btn-primary" onclick="connectAndSyncSheet()">Connect</button>
+          </div>
+          <div id="importSheetNote" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">Paste the supplier's sheet link. Once connected, press "Sync sheets" any time to pull their latest numbers.</div>
+        </div>
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.78rem; margin: 0.5rem 0;">— or —</div>
+        <div class="form-group">
+          <label class="form-label">Option 2 — upload their sheet file</label>
           <input type="file" id="sheetFile" class="form-input" accept=".csv,.tsv,.txt" onchange="importSheetFile(this)">
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">In their Google Sheet: File → Download → Comma-separated values (.csv), then choose that file here.</div>
         </div>
         <div style="text-align: center; color: var(--text-muted); font-size: 0.78rem; margin: 0.5rem 0;">— or —</div>
         <div class="form-group">
-          <label class="form-label">Option 2 — copy the rows and paste them</label>
+          <label class="form-label">Option 3 — copy the rows and paste them</label>
           <textarea class="form-textarea" id="pasteSheetData" style="min-height: 170px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;" placeholder="01 May (Fri)	$1,024.45	yes	yes&#10;03 May (Sun)	$832.06	yes	yes"></textarea>
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">Select the rows in their sheet, copy, paste here. Dates like "01 May (Fri)" and amounts like "$1,024.45" are read automatically.</div>
         </div>
@@ -2112,7 +2122,7 @@ Or just card numbers:
   <div class="modal-overlay" id="modal-storeTrend">
     <div class="modal" style="max-width: 780px;">
       <div class="modal-header">
-        <span class="modal-title" id="storeTrendTitle">Spend Trend · Last 14 Days</span>
+        <span class="modal-title" id="storeTrendTitle">Store Trend · Last 14 Days</span>
         <button class="modal-close" onclick="closeModal('storeTrend')">&times;</button>
       </div>
       <div class="modal-body">
@@ -2864,6 +2874,81 @@ Or just card numbers:
         document.getElementById('spendTrendSummary')
       );
     }
+    // Store popup: spend + revenue bars with a ROAS line, last 14 days
+    function buildStoreTrend(storeId, accounts, chartEl, summaryEl) {
+      if (!chartEl) return;
+      const days = 14;
+      const today = getThailandDate();
+      const keys = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() - i);
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      const spend = keys.map(k => accounts.reduce((sum, a) => sum + (parseFloat(dailySpendHistory[`${a.id}_${k}`]) || 0), 0));
+      const rev = keys.map(k => dailyRevenue[`${storeId}_${k}`] || 0);
+      const roas = keys.map((k, i) => spend[i] > 0 ? rev[i] / spend[i] : 0);
+      const totSpend = spend.reduce((a, b) => a + b, 0);
+      const totRev = rev.reduce((a, b) => a + b, 0);
+      const avgRoas = totSpend > 0 ? totRev / totSpend : null;
+
+      if (summaryEl) {
+        const profit = totRev - totSpend;
+        summaryEl.innerHTML = `Revenue <strong style="color:var(--text-primary);">${fmtMoney(totRev)}</strong> &nbsp;·&nbsp; Ad spend <strong style="color:var(--text-primary);">${fmtMoney(totSpend)}</strong> &nbsp;·&nbsp; ROAS <strong style="color:${avgRoas && avgRoas >= 1 ? 'var(--success)' : 'var(--danger)'};">${avgRoas === null ? '—' : avgRoas.toFixed(2) + 'x'}</strong> &nbsp;·&nbsp; Rev − Ads <strong style="color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmtMoney(profit)}</strong>`;
+      }
+      if (totSpend === 0 && totRev === 0) {
+        chartEl.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No spend or revenue in the last 14 days.</p></div>';
+        return;
+      }
+      const W = 720, H = 300, padL = 58, padR = 46, padT = 18, padB = 46;
+      const innerW = W - padL - padR, innerH = H - padT - padB;
+      const moneyMax = Math.max(...spend, ...rev, 1);
+      const roasMax = Math.max(...roas, 1);
+      const slot = innerW / days;
+      const bw = Math.max(3, Math.min(13, slot * 0.34));
+      const xAt = i => padL + slot * i + slot / 2;
+      const yMoney = v => padT + innerH - (v / moneyMax) * innerH;
+      const yRoas = v => padT + innerH - (v / roasMax) * innerH;
+      // gridlines + axes
+      let grid = '', axis = '';
+      for (let g = 0; g <= 4; g++) {
+        const y = padT + (innerH / 4) * g;
+        grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1" opacity="0.7"/>`;
+        axis += `<text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono',monospace">${fmtMoney(moneyMax - (moneyMax / 4) * g)}</text>`;
+        axis += `<text x="${W - padR + 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="var(--pink)" font-family="'JetBrains Mono',monospace">${(roasMax - (roasMax / 4) * g).toFixed(1)}x</text>`;
+      }
+      // paired bars: revenue (accent) + spend (info)
+      let bars = '';
+      keys.forEach((k, i) => {
+        const xc = xAt(i);
+        const rx = xc - bw - 1, sx = xc + 1;
+        const rh = (rev[i] / moneyMax) * innerH, sh = (spend[i] / moneyMax) * innerH;
+        const d = new Date(k + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        bars += `<rect x="${rx.toFixed(1)}" y="${yMoney(rev[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, rh).toFixed(1)}" rx="2" fill="var(--accent)"><title>${d} · Revenue ${fmtMoney(rev[i])}</title></rect>`;
+        bars += `<rect x="${sx.toFixed(1)}" y="${yMoney(spend[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, sh).toFixed(1)}" rx="2" fill="var(--info)" opacity="0.85"><title>${d} · Ad spend ${fmtMoney(spend[i])}</title></rect>`;
+      });
+      // ROAS line + dots on the right axis
+      const pts = roas.map((v, i) => [xAt(i), yRoas(v)]);
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      let dots = '';
+      pts.forEach((p, i) => { dots += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--pink)"><title>ROAS ${roas[i].toFixed(2)}x</title></circle>`; });
+      // breakeven ROAS = 1x reference
+      const beY = yRoas(1);
+      const be = (1 <= roasMax) ? `<line x1="${padL}" y1="${beY.toFixed(1)}" x2="${W - padR}" y2="${beY.toFixed(1)}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 3" opacity="0.5"/><text x="${W - padR + 8}" y="${(beY - 3).toFixed(1)}" font-size="8" fill="var(--danger)">1x</text>` : '';
+      // x labels
+      let xl = '';
+      keys.forEach((k, i) => {
+        if (i % 2 && i !== days - 1) return;
+        const d = new Date(k + 'T12:00:00');
+        xl += `<text x="${xAt(i).toFixed(1)}" y="${(H - 22).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${d.getDate()}/${d.getMonth() + 1}</text>`;
+      });
+      // legend
+      const legend = `<g font-size="10" fill="var(--text-secondary)">
+        <rect x="${padL}" y="${H - 12}" width="9" height="9" rx="2" fill="var(--accent)"/><text x="${padL + 13}" y="${H - 4}">Revenue</text>
+        <rect x="${padL + 78}" y="${H - 12}" width="9" height="9" rx="2" fill="var(--info)"/><text x="${padL + 91}" y="${H - 4}">Ad spend</text>
+        <line x1="${padL + 168}" y1="${H - 7}" x2="${padL + 186}" y2="${H - 7}" stroke="var(--pink)" stroke-width="2"/><text x="${padL + 190}" y="${H - 4}">ROAS</text>
+      </g>`;
+      chartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${grid}${be}${axis}${bars}<path d="${line}" fill="none" stroke="var(--pink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${dots}${xl}${legend}</svg>`;
+    }
     function buildSpendTrend(accounts, chartEl, summaryEl) {
       if (!chartEl) return;
       // Build the last 14 day keys (oldest -> newest), based on the app's "today"
@@ -2936,12 +3021,12 @@ Or just card numbers:
       const store = getStore(storeId);
       if (!store) return;
       const titleEl = document.getElementById('storeTrendTitle');
-      if (titleEl) titleEl.textContent = `${store.name || 'Store'} · Spend Trend · Last 14 Days`;
+      if (titleEl) titleEl.textContent = `${store.name || 'Store'} · Last 14 Days`;
       // All active accounts for this store, across channels (spend history is keyed by account id)
       const accounts = ['google', 'tiktok', 'facebook']
         .flatMap(ch => data.accounts[ch])
         .filter(a => a.status === 'active' && a.storeId === storeId);
-      buildSpendTrend(accounts, document.getElementById('storeTrendChart'), document.getElementById('storeTrendSummary'));
+      buildStoreTrend(storeId, accounts, document.getElementById('storeTrendChart'), document.getElementById('storeTrendSummary'));
       openModal('storeTrend');
     }
     function renderStores() {
@@ -3934,7 +4019,8 @@ Or just card numbers:
       return out;
     }
     // CSV parser that handles quoted fields and embedded commas ("$1,024.45")
-    function parseCSV(text) {
+    function parseCSV(text, delim) {
+      const d = delim || ',';
       const rows = [];
       let row = [], cell = '', inQ = false;
       for (let i = 0; i < text.length; i++) {
@@ -3943,7 +4029,7 @@ Or just card numbers:
           if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
           else cell += c;
         } else if (c === '"') inQ = true;
-        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === d) { row.push(cell); cell = ''; }
         else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
         else if (c !== '\r') cell += c;
       }
@@ -3959,7 +4045,10 @@ Or just card numbers:
     }
     // Read a supplier month sheet: finds the date column, the amount, and paid/confirmed
     function parseSupplierSheet(text, fallbackYear) {
-      const rows = parseCSV(text);
+      // Copying rows out of Google Sheets gives tab-separated text. Splitting that on
+      // commas would cut "$1,024.45" in half, so detect tabs and use them instead.
+      const delim = text.indexOf('\t') !== -1 ? '\t' : ',';
+      const rows = parseCSV(text, delim);
       let year = fallbackYear;
       for (const r of rows.slice(0, 6)) {
         const m = r.join(' ').match(/(20\d\d)/);
@@ -3993,6 +4082,7 @@ Or just card numbers:
     async function fetchSheetCsv(url) {
       const cands = sheetCsvCandidates(url);
       let lastErr = null;
+      // 1) Try reading Google directly (works for "Publish to web" links)
       for (const c of cands) {
         try {
           const res = await fetch(c, { redirect: 'follow' });
@@ -4002,6 +4092,17 @@ Or just card numbers:
           lastErr = new Error('That link did not return a CSV.');
         } catch (e) { lastErr = e; }
       }
+      // 2) Fall back to the small reader on your own site (api/sheet.js).
+      //    The browser blocks reading google.com directly; your own server can do it.
+      try {
+        const res = await fetch('/api/sheet?url=' + encodeURIComponent(url));
+        if (res.ok) {
+          const txt = await res.text();
+          if (txt && txt.length > 10 && !txt.trim().startsWith('<')) return txt;
+        } else {
+          lastErr = new Error('Reader returned HTTP ' + res.status);
+        }
+      } catch (e) { lastErr = e; }
       throw lastErr || new Error('Could not read that sheet.');
     }
     async function syncSupplierSheet(name, quiet) {
@@ -4038,7 +4139,7 @@ Or just card numbers:
       } catch (e) {
         console.error('sheet sync failed:', e);
         if (!quiet) {
-          alert(`Could not read ${name}'s sheet.\n\nGoogle only lets a website read a sheet that is published.\n\nIn their sheet: File → Share → Publish to web → choose the month tab → CSV → Publish, then paste THAT link here.\n\n(You can also use "Paste data" to paste the sheet contents directly.)`);
+          alert(`Could not read ${name}'s sheet.\n\nTwo ways to fix it:\n\n1) In their sheet: File → Share → Publish to web → pick the month tab → Comma-separated values (.csv) → Publish. Paste THAT link here.\n\n2) Add the file api/sheet.js to your Vercel project (I gave it to you) — then any normal share link works, as long as the sheet is set to "Anyone with the link can view".\n\nOr just use Upload / Paste below — that always works.`);
         }
         return false;
       }
@@ -4081,6 +4182,11 @@ Or just card numbers:
       const ta = document.getElementById('pasteSheetData'); if (ta) ta.value = '';
       const pv = document.getElementById('importPreview'); if (pv) pv.innerHTML = '';
       const fi = document.getElementById('sheetFile'); if (fi) fi.value = '';
+      const su = document.getElementById('importSheetUrl');
+      const firstName = (suppliers[0] || '');
+      if (su) su.value = supplierSheets[firstName] || '';
+      const note = document.getElementById('importSheetNote');
+      if (note) { note.style.color = 'var(--text-muted)'; note.textContent = "Paste the supplier's sheet link. Once connected, press \"Sync sheets\" any time to pull their latest numbers."; }
       openModal('pasteSheet');
     }
     function importSheetFile(input) {
@@ -4100,12 +4206,25 @@ Or just card numbers:
       };
       reader.readAsText(file);
     }
+    function connectAndSyncSheet() {
+      const name = document.getElementById('pasteSupplier').value;
+      const url = (document.getElementById('importSheetUrl').value || '').trim();
+      const note = document.getElementById('importSheetNote');
+      if (!url) { if (note) { note.style.color = 'var(--danger)'; note.textContent = 'Paste the sheet link first.'; } return; }
+      supplierSheets[name] = url;
+      saveSheetsLocal();
+      if (note) { note.style.color = 'var(--text-muted)'; note.textContent = 'Connecting…'; }
+      syncSupplierSheet(name, false).then(ok => {
+        if (ok) { closeModal('pasteSheet'); }
+        else if (note) { note.style.color = 'var(--danger)'; note.textContent = 'Could not read it — use Upload or Paste below instead.'; }
+      });
+    }
     async function applyPastedSheet() {
       const name = document.getElementById('pasteSupplier').value;
       const text = document.getElementById('pasteSheetData').value;
       if (!text.trim()) { alert('Paste the sheet contents first.'); return; }
       supEnsureMonth();
-      const rows = parseSupplierSheet(text.replace(/\t/g, ','), supYear);
+      const rows = parseSupplierSheet(text, supYear);
       if (!rows.length) { alert('No dated rows with amounts found. Copy the rows including the date column (e.g. "01 May (Fri)").'); return; }
       rows.forEach(r => {
         const k = supKey(name, r.date);
