@@ -1811,7 +1811,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Store Tasks</h1>
-            <p class="page-subtitle">Shared board — visible to you and Mouad only</p>
+            <p class="page-subtitle">Shared board — visible to you and Elias only</p>
           </div>
           <div class="header-actions">
             <button class="btn btn-primary" onclick="addStoreTask()">+ Task</button>
@@ -2298,7 +2298,7 @@ Or just card numbers:
           loadRevenue();
           loadSuppliers();
         }
-        // Store Tasks board — only the owner and Mouad
+        // Store Tasks board — only the owner and Elias
         if (isStoreMgmtUser()) {
           const mgmtNav = document.getElementById('mgmtNavSection');
           if (mgmtNav) mgmtNav.style.display = '';
@@ -3593,7 +3593,7 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Mouad'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -3944,10 +3944,10 @@ Or just card numbers:
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
     }
-    // ===== Store Tasks (owner + Mouad only) =====
+    // ===== Store Tasks (owner + Elias only) =====
     // Replaces the WhatsApp workflow: a shared board for recreates, holds, fulfilment.
-    // NOTE: set Mouad's real login email here.
-    const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'MOUAD_EMAIL_HERE'];
+    // NOTE: set Elias's real login email here.
+    const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'ELIAS_EMAIL_HERE'];
     function isStoreMgmtUser() {
       return !!(authUser && authUser.email && STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()));
     }
@@ -4025,7 +4025,7 @@ Or just card numbers:
       const stores = liveStores();
       stores.forEach(store => {
         const accts = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id && !isAccountHidden(a));
-        // Payout hold: flagged by you (e.g. during Quick revenue entry) -> task for Mouad
+        // Payout hold: flagged by you (e.g. during Quick revenue entry) -> task for Elias
         if (store.payoutHold) {
           const id = 'auto_payout_' + store.id;
           activeKeys.add(id);
@@ -4036,13 +4036,6 @@ Or just card numbers:
           const id = 'auto_launch_' + store.id;
           activeKeys.add(id);
           upsertAutoTask(id, 'fulfill', `Launch ${store.name}`, 'New store — add an ad account');
-        }
-        // Rule E (chargeback app): performing well without it -> install task
-        const ramp = storeRecentSpend(store.id, 3, 1) >= 150;  // avg $50+/day over the last 3 days
-        if ((store.isPerformer || ramp) && !store.chargebackApp) {
-          const id = 'auto_cb_' + store.id;
-          activeKeys.add(id);
-          upsertAutoTask(id, 'fulfill', `Install chargeback app — ${store.name}`, store.isPerformer ? 'Marked performer ⭐ — cover the customer-service side' : 'Spend is ramping — cover the customer-service side');
         }
       });
       // Auto-resolve: any auto task whose condition no longer holds -> Done
@@ -6967,7 +6960,7 @@ Or just card numbers:
         assets.payoutHold = store.payoutHold;
         store.assets = assets;
         await updateStoreInSupabase(storeId, { assets: assets });
-        showToast(store.payoutHold ? `⏸ Payout hold marked on ${store.name} — task created for Mouad` : `▶ Payout hold cleared on ${store.name}`);
+        showToast(store.payoutHold ? `⏸ Payout hold marked on ${store.name} — task created for Elias` : `▶ Payout hold cleared on ${store.name}`);
         if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
         renderStores();
