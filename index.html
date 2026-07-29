@@ -3537,11 +3537,15 @@ Or just card numbers:
       const stores = liveStores().slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       let html = '';
       stores.forEach((store, idx) => {
-        let sum = 0; keys.forEach(k => { sum += dailyRevenue[`${store.id}_${k}`] || 0; });
+        let sum = 0, spend = 0;
+        keys.forEach(k => { sum += dailyRevenue[`${store.id}_${k}`] || 0; spend += storeSpendForDate(store.id, k); });
         const entered = sum > 0;
+        const roas = spend > 0 ? sum / spend : null;
+        const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
+        const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span></span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -3600,6 +3604,13 @@ Or just card numbers:
         persistRevenueDays(storeId, rows);
       }
       renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
+      // update this row's Spend · ROAS to reflect the amount just entered
+      const keys2 = revQuickRangeKeys();
+      let sum = 0, sp = 0;
+      keys2.forEach(k => { sum += dailyRevenue[`${storeId}_${k}`] || 0; sp += storeSpendForDate(storeId, k); });
+      const rs = sp > 0 ? sum / sp : null;
+      const meta = row.querySelector('.rev-quick-meta');
+      if (meta) meta.innerHTML = `Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(sp)}</span> · ROAS <span style="font-weight:700; color:${rs === null ? 'var(--text-muted)' : (rs >= 1 ? 'var(--success)' : 'var(--danger)')};">${rs === null ? '—' : rs.toFixed(2) + 'x'}</span>`;
       updateRevQuickTotals();
     }
     function updateRevQuickTotals() {
