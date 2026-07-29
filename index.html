@@ -737,6 +737,22 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; align-items: start; }
+    @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
+    .task-col { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.7rem; min-height: 180px; }
+    .task-col-head { display: flex; align-items: center; gap: 0.45rem; font-weight: 700; font-size: 0.85rem; margin-bottom: 0.7rem; padding: 0 0.2rem; }
+    .task-count { margin-left: auto; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 0.1rem 0.5rem; }
+    .task-card { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: 0.6rem 0.7rem; margin-bottom: 0.55rem; box-shadow: var(--shadow-sm); }
+    .task-title { font-weight: 600; font-size: 0.85rem; line-height: 1.35; word-break: break-word; }
+    .task-note { font-size: 0.76rem; color: var(--text-secondary); margin-top: 0.25rem; word-break: break-word; }
+    .task-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.35rem; }
+    .task-actions { display: flex; gap: 0.25rem; margin-top: 0.45rem; }
+    .task-btn { background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 6px; padding: 0.15rem 0.45rem; font-size: 0.75rem; cursor: pointer; color: var(--text-secondary); font-family: inherit; transition: var(--transition); }
+    .task-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
+    .task-btn.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+    .task-add { width: 100%; border: 1px dashed var(--border-light); background: none; border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-muted); cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: var(--transition); }
+    .task-add:hover { color: var(--accent); border-color: var(--accent); }
     .metric-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
     .metric-chip {
       display: flex; align-items: center; gap: 0.45rem;
@@ -1303,6 +1319,12 @@
             <span>📒</span> P&amp;L
           </div>
         </div>
+        <div class="nav-section" id="mgmtNavSection" style="display: none;">
+          <div class="nav-title">Team</div>
+          <div class="nav-item" data-section="storetasks" onclick="showSection('storetasks')">
+            <span>🗂</span> Store Tasks
+          </div>
+        </div>
         <div class="nav-section">
           <div class="nav-title">Management</div>
           <div class="nav-item" data-section="stores" onclick="showSection('stores')">
@@ -1784,6 +1806,21 @@
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">These daily amounts feed your COGS automatically — your P&amp;L and Analyze pages use them, so you never type COGS twice. Outstanding = invoiced minus what is marked Paid + Confirmed.</p>
       </section>
+
+      <section class="section" id="section-storetasks">
+        <div class="header">
+          <div>
+            <h1 class="page-title">Store Tasks</h1>
+            <p class="page-subtitle">Shared board — visible to you and Mouad only</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="addStoreTask()">+ Task</button>
+          </div>
+        </div>
+        <div id="taskDigest"></div>
+        <div class="task-board" id="taskBoard"></div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Use ◀ ▶ on a task to move it between columns. Both of you can add, edit, move, and delete — changes save automatically.</p>
+      </section>
     </main>
   </div>
   <!-- Add Store Modal -->
@@ -2261,6 +2298,12 @@ Or just card numbers:
           loadRevenue();
           loadSuppliers();
         }
+        // Store Tasks board — only the owner and Mouad
+        if (isStoreMgmtUser()) {
+          const mgmtNav = document.getElementById('mgmtNavSection');
+          if (mgmtNav) mgmtNav.style.display = '';
+          loadStoreTasks();
+        }
         return true;
       } catch (e) {
         console.error('Auth check failed:', e);
@@ -2349,6 +2392,8 @@ Or just card numbers:
             id: s.id, name: s.name, url: s.url,
             isPerformer: s.is_performer,
             hasTracking: s.assets?.hasTracking || false,
+            chargebackApp: s.assets?.chargebackApp || false,
+            payoutHold: s.assets?.payoutHold || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
@@ -2688,6 +2733,7 @@ Or just card numbers:
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'suppliers' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'storetasks' && !isStoreMgmtUser()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -2710,6 +2756,7 @@ Or just card numbers:
         case 'pnl': openPnlSection(); break;
         case 'analyze': openAnalyzeSection(); break;
         case 'suppliers': openSuppliersSection(); break;
+        case 'storetasks': openStoreTasksSection(); break;
       }
     }
     function switchUser(userId) {
@@ -3100,6 +3147,7 @@ Or just card numbers:
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
                 <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">📊</button>
+                <button class="btn btn-sm ${store.chargebackApp ? 'btn-success' : 'btn-secondary'}" onclick="toggleChargebackApp('${store.id}')" title="${store.chargebackApp ? 'Chargeback app installed — click to unmark' : 'Chargeback app NOT installed — click when installed'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">🛡</button>
                 ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">⭐</button>` : ''}
                 <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">📈</button>
                 <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View Assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">📋</button>
@@ -3545,7 +3593,7 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span></span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Mouad'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -3895,6 +3943,223 @@ Or just card numbers:
       set('pnlSumProfit', fmtMoney(tProfit));
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
+    }
+    // ===== Store Tasks (owner + Mouad only) =====
+    // Replaces the WhatsApp workflow: a shared board for recreates, holds, fulfilment.
+    // NOTE: set Mouad's real login email here.
+    const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'MOUAD_EMAIL_HERE'];
+    function isStoreMgmtUser() {
+      return !!(authUser && authUser.email && STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()));
+    }
+    const TASK_COLS = [
+      { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
+      { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
+      { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
+      { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
+      { id: 'done',     label: 'Done',         icon: '✅', color: 'var(--success)' }
+    ];
+    let storeTasks = [];   // { id, title, note, col, by, at }
+    let storeTasksLoaded = false;
+    function saveTasksLocal() { try { localStorage.setItem('tsnac_store_tasks', JSON.stringify(storeTasks)); } catch (e) {} }
+    function loadTasksLocal() { try { const s = localStorage.getItem('tsnac_store_tasks'); if (s) storeTasks = JSON.parse(s) || []; } catch (e) {} }
+    async function loadStoreTasks() {
+      if (!isStoreMgmtUser()) return;
+      loadTasksLocal();
+      try {
+        const { data: rows, error } = await supabaseClient.from('store_tasks').select('*');
+        if (error) { console.error('store_tasks load error:', error); }
+        else if (rows) {
+          const byId = {};
+          storeTasks.forEach(t => byId[t.id] = t);
+          rows.forEach(r => { byId[r.id] = { id: r.id, title: r.title || '', note: r.note || '', col: r.col || 'fulfill', by: r.created_by || '', at: r.updated_at || r.created_at || '' }; });
+          storeTasks = Object.values(byId);
+          saveTasksLocal();
+        }
+      } catch (e) { console.error('store_tasks exception:', e); }
+      storeTasksLoaded = true;
+      renderStoreTasks();
+    }
+    async function pushTask(t) {
+      saveTasksLocal();
+      try {
+        const { error } = await supabaseClient.from('store_tasks').upsert(
+          { id: t.id, title: t.title, note: t.note, col: t.col, created_by: t.by, updated_at: new Date().toISOString() },
+          { onConflict: 'id' });
+        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
+        if (error) console.error('store_tasks save error:', error);
+      } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); }
+    }
+    // ---- Automations: the board watches your accounts and files tasks by itself ----
+    // Auto tasks carry a stable id (auto_<rule>_<entity>) so they never duplicate.
+    function taskById(id) { return storeTasks.find(t => t.id === id); }
+    function upsertAutoTask(id, col, title, note) {
+      const existing = taskById(id);
+      if (existing) {
+        // condition is active again: reopen if it was completed
+        if (existing.col === 'done') { existing.col = col; existing.by = 'Auto'; existing.at = new Date().toISOString(); pushTask(existing); return 1; }
+        return 0;
+      }
+      const t = { id, title, note: note || '', col, by: 'Auto', at: new Date().toISOString() };
+      storeTasks.push(t);
+      pushTask(t);
+      return 1;
+    }
+    function resolveAutoTask(id) {
+      const t = taskById(id);
+      if (t && t.col !== 'done') { t.col = 'done'; t.by = 'Auto'; t.at = new Date().toISOString(); pushTask(t); return 1; }
+      return 0;
+    }
+    function storeRecentSpend(storeId, daysBack, from) {
+      // total spend for the `daysBack` days ending `from` days ago
+      let sum = 0;
+      for (let n = from; n < from + daysBack; n++) {
+        const d = new Date(getThailandDate() + 'T12:00:00'); d.setDate(d.getDate() - n);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        sum += storeSpendForDate(storeId, k);
+      }
+      return sum;
+    }
+    function runTaskAutomations() {
+      if (!isStoreMgmtUser()) return;
+      const activeKeys = new Set();
+      const stores = liveStores();
+      stores.forEach(store => {
+        const accts = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id && !isAccountHidden(a));
+        // Payout hold: flagged by you (e.g. during Quick revenue entry) -> task for Mouad
+        if (store.payoutHold) {
+          const id = 'auto_payout_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts paused — keep eyes on it');
+        }
+        // New store, no accounts -> launch task
+        if (!accts.length) {
+          const id = 'auto_launch_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'fulfill', `Launch ${store.name}`, 'New store — add an ad account');
+        }
+        // Rule E (chargeback app): performing well without it -> install task
+        const ramp = storeRecentSpend(store.id, 3, 1) >= 150;  // avg $50+/day over the last 3 days
+        if ((store.isPerformer || ramp) && !store.chargebackApp) {
+          const id = 'auto_cb_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'fulfill', `Install chargeback app — ${store.name}`, store.isPerformer ? 'Marked performer ⭐ — cover the customer-service side' : 'Spend is ramping — cover the customer-service side');
+        }
+      });
+      // Auto-resolve: any auto task whose condition no longer holds -> Done
+      storeTasks.filter(t => t.id.startsWith('auto_')).forEach(t => {
+        if (!activeKeys.has(t.id)) resolveAutoTask(t.id);
+      });
+      // Auto-clean: Done cards older than 7 days disappear
+      const cutoff = Date.now() - 7 * 86400000;
+      const stale = storeTasks.filter(t => t.col === 'done' && t.at && new Date(t.at).getTime() < cutoff);
+      if (stale.length) {
+        storeTasks = storeTasks.filter(t => !(t.col === 'done' && t.at && new Date(t.at).getTime() < cutoff));
+        saveTasksLocal();
+        stale.forEach(async t => { try { await supabaseClient.from('store_tasks').delete().eq('id', t.id); } catch (e) {} });
+      }
+      saveTasksLocal();
+    }
+    // ---- Digest: what changed since you last looked ----
+    function taskVisitKey() { return 'tsnac_tasks_visit_' + ((authUser && authUser.email) || ''); }
+    function renderTaskDigest() {
+      const el = document.getElementById('taskDigest');
+      if (!el) return;
+      let last = 0;
+      try { last = parseInt(localStorage.getItem(taskVisitKey())) || 0; } catch (e) {}
+      const changed = storeTasks.filter(t => t.at && new Date(t.at).getTime() > last);
+      if (!last || !changed.length) {
+        el.innerHTML = '';
+      } else {
+        const byCol = {};
+        changed.forEach(t => { const lbl = (TASK_COLS.find(c => c.id === t.col) || {}).label || t.col; byCol[lbl] = (byCol[lbl] || 0) + 1; });
+        const parts = Object.keys(byCol).map(k => `<strong>${byCol[k]}</strong> in ${k}`);
+        el.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.65rem 1rem; margin-bottom:1rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;">✨ Since your last visit: ${parts.join(' · ')}</div>`;
+      }
+      try { localStorage.setItem(taskVisitKey(), String(Date.now())); } catch (e) {}
+    }
+    async function openStoreTasksSection() {
+      if (!isStoreMgmtUser()) { showSection('dashboard'); return; }
+      if (!storeTasksLoaded) await loadStoreTasks();
+      runTaskAutomations();
+      renderTaskDigest();
+      renderStoreTasks();
+    }
+    function whoAmI() {
+      const e = (authUser && authUser.email) || '';
+      return e === 'aymo@maleistung.com' ? 'Aymo' : (e.split('@')[0] || 'user');
+    }
+    function addStoreTask(col) {
+      const title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
+      if (!title) return;
+      const note = (prompt('Note (optional — press OK to skip):') || '').trim();
+      const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: col || 'fulfill', by: whoAmI(), at: new Date().toISOString() };
+      storeTasks.push(t);
+      pushTask(t);
+      renderStoreTasks();
+    }
+    function editStoreTask(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      const title = prompt('Edit task:', t.title);
+      if (title === null) return;
+      if (title.trim()) t.title = title.trim();
+      const note = prompt('Edit note (empty to remove):', t.note || '');
+      if (note !== null) t.note = note.trim();
+      t.by = whoAmI(); t.at = new Date().toISOString();
+      pushTask(t);
+      renderStoreTasks();
+    }
+    function moveStoreTask(id, dir) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      const order = TASK_COLS.map(c => c.id);
+      const i = order.indexOf(t.col);
+      const ni = Math.max(0, Math.min(order.length - 1, i + dir));
+      if (ni === i) return;
+      t.col = order[ni]; t.by = whoAmI(); t.at = new Date().toISOString();
+      pushTask(t);
+      renderStoreTasks();
+    }
+    async function deleteStoreTask(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      if (!confirm(`Delete "${t.title}"?`)) return;
+      storeTasks = storeTasks.filter(x => x.id !== id);
+      saveTasksLocal();
+      try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {}
+      renderStoreTasks();
+    }
+    function taskTimeAgo(iso) {
+      if (!iso) return '';
+      const ms = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(ms / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.floor(h / 24) + 'd ago';
+    }
+    function renderStoreTasks() {
+      const board = document.getElementById('taskBoard');
+      if (!board || !isStoreMgmtUser()) return;
+      board.innerHTML = TASK_COLS.map((col, ci) => {
+        const tasks = storeTasks.filter(t => t.col === col.id)
+          .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+        const cards = tasks.map(t => `
+          <div class="task-card" style="border-left-color:${col.color};">
+            <div class="task-title">${escapeHtml(t.title)}</div>
+            ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
+            <div class="task-meta">${t.id.startsWith('auto_') ? '<span style="font-weight:700; color:var(--accent);">⚡ Auto</span> · ' : ''}${escapeHtml(t.by || '')}${t.at ? ' · ' + taskTimeAgo(t.at) : ''}${(() => { const d = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0; return (t.col !== 'done' && d >= 3) ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${d}d stale</span>` : ''; })()}</div>
+            <div class="task-actions">
+              ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
+              ${ci < TASK_COLS.length - 1 ? `<button class="task-btn" title="Move right" onclick="moveStoreTask('${t.id}', 1)">▶</button>` : ''}
+              <button class="task-btn" title="Edit" onclick="editStoreTask('${t.id}')">✎</button>
+              <button class="task-btn danger" title="Delete" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
+            </div>
+          </div>`).join('');
+        return `<div class="task-col">
+          <div class="task-col-head"><span>${col.icon}</span> ${col.label} <span class="task-count">${tasks.length}</span></div>
+          ${cards}
+          <button class="task-add" onclick="addStoreTask('${col.id}')">+ Add</button>
+        </div>`;
+      }).join('');
     }
     // ===== Suppliers / COGS (owner only) =====
     // Suppliers invoice you a daily amount — that IS your cost of goods.
@@ -6678,6 +6943,33 @@ Or just card numbers:
         assets.hasTracking = store.hasTracking;
         await updateStoreInSupabase(storeId, { assets: assets });
         showToast(store.hasTracking ? `📊 Tracking added to ${store.name}` : `📊 Tracking removed from ${store.name}`);
+        renderStores();
+      }
+    }
+    async function toggleChargebackApp(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (store) {
+        store.chargebackApp = !store.chargebackApp;
+        const assets = store.assets || {};
+        assets.chargebackApp = store.chargebackApp;
+        store.assets = assets;
+        await updateStoreInSupabase(storeId, { assets: assets });
+        showToast(store.chargebackApp ? `🛡 Chargeback app marked installed on ${store.name}` : `🛡 Chargeback app removed from ${store.name}`);
+        renderStores();
+        if (typeof runTaskAutomations === 'function' && isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
+      }
+    }
+    async function togglePayoutHold(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (store) {
+        store.payoutHold = !store.payoutHold;
+        const assets = store.assets || {};
+        assets.payoutHold = store.payoutHold;
+        store.assets = assets;
+        await updateStoreInSupabase(storeId, { assets: assets });
+        showToast(store.payoutHold ? `⏸ Payout hold marked on ${store.name} — task created for Mouad` : `▶ Payout hold cleared on ${store.name}`);
+        if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
+        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
         renderStores();
       }
     }
