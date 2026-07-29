@@ -2392,7 +2392,6 @@ Or just card numbers:
             id: s.id, name: s.name, url: s.url,
             isPerformer: s.is_performer,
             hasTracking: s.assets?.hasTracking || false,
-            chargebackApp: s.assets?.chargebackApp || false,
             payoutHold: s.assets?.payoutHold || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
@@ -3147,7 +3146,6 @@ Or just card numbers:
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
                 <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">📊</button>
-                <button class="btn btn-sm ${store.chargebackApp ? 'btn-success' : 'btn-secondary'}" onclick="toggleChargebackApp('${store.id}')" title="${store.chargebackApp ? 'Chargeback app installed — click to unmark' : 'Chargeback app NOT installed — click when installed'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">🛡</button>
                 ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">⭐</button>` : ''}
                 <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">📈</button>
                 <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View Assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">📋</button>
@@ -3947,7 +3945,7 @@ Or just card numbers:
     // ===== Store Tasks (owner + Elias only) =====
     // Replaces the WhatsApp workflow: a shared board for recreates, holds, fulfilment.
     // NOTE: set Elias's real login email here.
-    const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'ELIAS_EMAIL_HERE'];
+    const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'emoade4@gmail.com'];
     function isStoreMgmtUser() {
       return !!(authUser && authUser.email && STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()));
     }
@@ -4078,8 +4076,10 @@ Or just card numbers:
       renderStoreTasks();
     }
     function whoAmI() {
-      const e = (authUser && authUser.email) || '';
-      return e === 'aymo@maleistung.com' ? 'Aymo' : (e.split('@')[0] || 'user');
+      const e = ((authUser && authUser.email) || '').toLowerCase();
+      if (e === 'aymo@maleistung.com') return 'Aymo';
+      if (e === 'emoade4@gmail.com') return 'Elias';
+      return e.split('@')[0] || 'user';
     }
     function addStoreTask(col) {
       const title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
@@ -6937,19 +6937,6 @@ Or just card numbers:
         await updateStoreInSupabase(storeId, { assets: assets });
         showToast(store.hasTracking ? `📊 Tracking added to ${store.name}` : `📊 Tracking removed from ${store.name}`);
         renderStores();
-      }
-    }
-    async function toggleChargebackApp(storeId) {
-      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
-      if (store) {
-        store.chargebackApp = !store.chargebackApp;
-        const assets = store.assets || {};
-        assets.chargebackApp = store.chargebackApp;
-        store.assets = assets;
-        await updateStoreInSupabase(storeId, { assets: assets });
-        showToast(store.chargebackApp ? `🛡 Chargeback app marked installed on ${store.name}` : `🛡 Chargeback app removed from ${store.name}`);
-        renderStores();
-        if (typeof runTaskAutomations === 'function' && isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
       }
     }
     async function togglePayoutHold(storeId) {
