@@ -737,6 +737,17 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .notif-tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.1rem; }
+    .notif-tab { display: flex; align-items: center; gap: 0.4rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); transition: var(--transition); }
+    .notif-tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
+    .notif-tab.on { background: var(--accent); border-color: var(--accent); color: white; }
+    .notif-tab-count { background: rgba(127,127,127,0.18); border-radius: 999px; padding: 0.05rem 0.45rem; font-size: 0.72rem; font-weight: 700; }
+    .notif-tab.on .notif-tab-count { background: rgba(255,255,255,0.25); }
+    .alert-group-head { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin: 1.2rem 0 0.6rem; }
+    .alert-group-head:first-child { margin-top: 0; }
+    .alert-group-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .alert-group-count { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.72rem; }
+    .alert-group-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-muted); font-size: 0.76rem; margin-left: 0.25rem; }
     .task-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
@@ -1326,11 +1337,15 @@
           <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
             <span>📒</span> P&amp;L
           </div>
+          <div class="nav-item" onclick="exportBackup()" title="Download a copy of all your data">
+            <span>💾</span> Backup
+          </div>
         </div>
         <div class="nav-section" id="mgmtNavSection" style="display: none;">
           <div class="nav-title">Team</div>
           <div class="nav-item" data-section="storetasks" onclick="showSection('storetasks')">
             <span>🗂</span> Store Tasks
+            <span class="nav-badge" id="taskBadge" style="display: none;">0</span>
           </div>
         </div>
         <div class="nav-section">
@@ -2412,6 +2427,8 @@ Or just card numbers:
             isPerformer: s.is_performer,
             hasTracking: s.assets?.hasTracking || false,
             payoutHold: s.assets?.payoutHold || false,
+            fulfillNeeded: s.assets?.fulfillNeeded || false,
+            optimizeAds: s.assets?.optimizeAds || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
@@ -3617,13 +3634,27 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a board task'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span><span class="trend-mini" onclick="event.stopPropagation(); toggleOptimizeAds('${store.id}')" title="${store.optimizeAds ? 'Optimize ads is marked — click to clear' : 'Mark ads for optimization — creates a board task'}" style="${store.optimizeAds ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🎯</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}${store.optimizeAds ? '<span style="font-size:0.65rem; font-weight:700; color:var(--warning); margin-left:0.3rem;">OPTIMIZE</span>' : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
       list.innerHTML = html || '<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">No stores yet</div>';
       updateRevQuickTotals();
       const f = document.getElementById('revQuickFilter'); if (f && f.value) filterRevQuick(f.value);
+    }
+    // A gentle brake on typos: 10000 instead of 100 should ask before saving
+    function revenueLooksLikeTypo(storeId, perDayAmount) {
+      if (!perDayAmount || perDayAmount < 1000) return false;
+      const vals = [];
+      for (let n = 1; n <= 14; n++) {
+        const d = new Date(getThailandDate() + 'T12:00:00'); d.setDate(d.getDate() - n);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const v = dailyRevenue[`${storeId}_${k}`];
+        if (v) vals.push(v);
+      }
+      if (!vals.length) return perDayAmount >= 20000;
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      return perDayAmount > Math.max(1000, avg * 10);
     }
     function revQuickKey(e, idx) {
       if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); revQuickFocus(e.shiftKey ? idx - 1 : idx + 1); }
@@ -3666,6 +3697,11 @@ Or just card numbers:
         row.style.borderLeftColor = 'var(--success)';
         dot.style.background = 'var(--success)'; dot.style.opacity = '1';
         const total = parseFloat(raw) || 0;
+        if (revenueLooksLikeTypo(storeId, total / keys.length) &&
+            !confirm(`${fmtMoney(total)} is much higher than this store's usual revenue.\n\nSave anyway?`)) {
+          renderRevenueQuick();
+          return;
+        }
         const cents = Math.round(total * 100), base = Math.floor(cents / keys.length);
         const rows = keys.map((k, i) => {
           const c = (i === keys.length - 1) ? (cents - base * (keys.length - 1)) : base;
@@ -3968,6 +4004,32 @@ Or just card numbers:
       set('pnlSumRoas', tRoas === null ? '—' : tRoas.toFixed(2) + 'x');
       set('pnlSumMargin', tPct === null ? '—' : tPct.toFixed(1) + '%');
     }
+    // ===== Backup: one file with everything, kept by you =====
+    function buildBackup() {
+      return {
+        app: 'TSNAC Hub',
+        exportedAt: new Date().toISOString(),
+        stores: data.stores, accounts: data.accounts, profiles: data.profiles, vccs: data.vccs,
+        dailySpendHistory: dailySpendHistory,
+        dailyRevenue: typeof dailyRevenue !== 'undefined' ? dailyRevenue : {},
+        pnlData: typeof pnlData !== 'undefined' ? pnlData : {},
+        pnlFeeRate: typeof pnlFeeRate !== 'undefined' ? pnlFeeRate : null,
+        suppliers: typeof suppliers !== 'undefined' ? suppliers : [],
+        supplierInvoices: typeof supplierInvoices !== 'undefined' ? supplierInvoices : {},
+        storeTasks: typeof storeTasks !== 'undefined' ? storeTasks : [],
+        archivedStores: Array.from(archivedStores || []),
+        archivedAccounts: Array.from(archivedAccounts || [])
+      };
+    }
+    function exportBackup() {
+      const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `tsnac-backup-${getThailandDate()}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      showToast('💾 Backup downloaded — keep it somewhere safe');
+    }
     // ===== Store Tasks (owner + Elias only) =====
     // Replaces the WhatsApp workflow: a shared board for recreates, holds, fulfilment.
     // NOTE: set Elias's real login email here.
@@ -4002,6 +4064,7 @@ Or just card numbers:
       } catch (e) { console.error('store_tasks exception:', e); }
       storeTasksLoaded = true;
       renderStoreTasks();
+      updateTaskBadge();
     }
     async function pushTask(t) {
       saveTasksLocal();
@@ -4057,6 +4120,18 @@ Or just card numbers:
           activeKeys.add(id);
           upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts paused — keep eyes on it');
         }
+        // Fulfillment: flagged during Quick revenue entry
+        if (store.fulfillNeeded) {
+          const id = 'auto_fulfil_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'fulfill', `Fulfill — ${store.name}`, 'Orders waiting for fulfillment');
+        }
+        // Ads optimization: flagged during Quick revenue entry
+        if (store.optimizeAds) {
+          const id = 'auto_opt_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'fulfill', `Optimize ads — ${store.name}`, 'Check the campaigns and improve results');
+        }
         // New store, no accounts -> launch task
         if (!accts.length) {
           const id = 'auto_launch_' + store.id;
@@ -4109,6 +4184,16 @@ Or just card numbers:
       runTaskAutomations();
       renderTaskDigest();
       renderStoreTasks();
+      // Keep the board fresh: pull the latest every 45s while it's open,
+      // so each of you sees the other's changes without reloading.
+      if (window._taskPoll) clearInterval(window._taskPoll);
+      window._taskPoll = setInterval(async () => {
+        const sec = document.getElementById('section-storetasks');
+        if (!sec || !sec.classList.contains('active')) { clearInterval(window._taskPoll); window._taskPoll = null; return; }
+        await loadStoreTasks();
+        runTaskAutomations();
+        renderStoreTasks();
+      }, 45000);
     }
     function whoAmI() {
       const e = ((authUser && authUser.email) || '').toLowerCase();
@@ -4157,12 +4242,19 @@ Or just card numbers:
       renderStoreTasks();
     }
     async function clearPayoutFlagFromTask(taskId) {
-      if (!taskId.startsWith('auto_payout_')) return;
-      const sid = taskId.slice('auto_payout_'.length);
+      // "Handled" on a flag-driven task switches the store's flag off too
+      const map = [
+        { prefix: 'auto_payout_', flag: 'payoutHold' },
+        { prefix: 'auto_fulfil_', flag: 'fulfillNeeded' },
+        { prefix: 'auto_opt_', flag: 'optimizeAds' }
+      ];
+      const hit = map.find(m => taskId.startsWith(m.prefix));
+      if (!hit) return;
+      const sid = taskId.slice(hit.prefix.length);
       const st = (data.stores || []).find(x => String(x.id) === sid);
-      if (st && st.payoutHold) {
-        st.payoutHold = false;
-        const assets = st.assets || {}; assets.payoutHold = false; st.assets = assets;
+      if (st && st[hit.flag]) {
+        st[hit.flag] = false;
+        const assets = st.assets || {}; assets[hit.flag] = false; st.assets = assets;
         try { await updateStoreInSupabase(st.id, { assets: assets }); } catch (e) {}
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       }
@@ -4255,7 +4347,15 @@ Or just card numbers:
         doneEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;">${bars}</svg>`;
       }
     }
+    function updateTaskBadge() {
+      const el = document.getElementById('taskBadge');
+      if (!el) return;
+      const n = storeTasks.filter(t => t.col !== 'done' && t.col !== 'dismissed').length;
+      el.textContent = n;
+      el.style.display = n > 0 ? '' : 'none';
+    }
     function renderStoreTasks() {
+      updateTaskBadge();
       const board = document.getElementById('taskBoard');
       if (!board || !isStoreMgmtUser()) return;
       renderTaskStats();
@@ -6568,9 +6668,18 @@ Or just card numbers:
           <div class="zero-list">${rows}</div>
         </details>`;
     }
+    let alertFilter = 'all';
+    function setAlertFilter(f) { alertFilter = f; renderAlerts(); }
     function renderAlerts() {
-      const html = generateAlertsHtml();
-      document.getElementById('alertsList').innerHTML = (html || '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>All clear — nothing needs your attention right now.</p></div>') + zeroSpendDropdownHtml();
+      const all = buildAlerts();
+      const countOf = id => id === 'all' ? all.length : all.filter(a => alertGroupOf(a.type) === id).length;
+      const tabs = [{ id: 'all', label: 'All' }].concat(ALERT_GROUPS.map(g => ({ id: g.id, label: g.label })));
+      const chips = '<div class="notif-tabs">' + tabs.map(t => {
+        const c = countOf(t.id);
+        return `<button class="notif-tab${alertFilter === t.id ? ' on' : ''}" onclick="setAlertFilter('${t.id}')">${t.label}${c ? `<span class="notif-tab-count">${c}</span>` : ''}</button>`;
+      }).join('') + '</div>';
+      const html = generateAlertsHtml(null, alertFilter);
+      document.getElementById('alertsList').innerHTML = chips + (html || '<div class="empty-state"><div class="empty-state-icon">✅</div><p>All clear — nothing needs your attention right now.</p></div>') + zeroSpendDropdownHtml();
     }
     // Build the daily WhatsApp note Jeannie copies & pastes
     function generateDailyNote() {
@@ -6626,7 +6735,7 @@ Or just card numbers:
         fallback();
       }
     }
-    function generateAlertsHtml(limit = null) {
+    function buildAlerts() {
       const perms = permissions[currentUser];
       const accounts = liveAccounts();
       let alerts = [];
@@ -6635,7 +6744,7 @@ Or just card numbers:
                            data.accounts.tiktok.some(a => a.storeId === store.id) ||
                            data.accounts.facebook.some(a => a.storeId === store.id);
         if (!hasAccounts) {
-          alerts.push({ type: 'teal', icon: '🆕', title: 'New store - needs campaign', desc: `${store.name} is waiting for campaign launch`, action: 'Launch', storeId: store.id });
+          alerts.push({ type: 'teal', icon: '🚀', title: `${store.name} is ready to launch`, desc: 'No ad account yet — create one to go live.', action: 'Launch', storeId: store.id });
         }
       });
       if (perms.alertsFor.includes('needs_verif')) {
@@ -6644,7 +6753,7 @@ Or just card numbers:
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
-          alerts.push({ type: 'warning', icon: '⚠️', title: 'Verification needed', desc: `${store?.name} (${profile?.name})${vccInfo}`, action: 'Sent ✓', accountId: account.id });
+          alerts.push({ type: 'warning', icon: '🪪', title: `Verification — ${store?.name || 'account'}`, desc: `${profile?.name || 'N/A'}${vccInfo} · Submit the documents, then mark as sent.`, action: 'Sent ✓', accountId: account.id });
         });
         
         // Under Review accounts - only show alert after 2 days have passed
@@ -6664,8 +6773,8 @@ Or just card numbers:
             alerts.push({ 
               type: 'info', 
               icon: '🔍', 
-              title: `Check Google review (${daysSinceReview} days)`, 
-              desc: `${store?.name} (${profile?.name})${vccInfo} - Has Google verified yet?`, 
+              title: `In Google review — ${store?.name || 'account'}`, 
+              desc: `Waiting ${daysSinceReview} days · ${profile?.name || 'N/A'}${vccInfo} — check if it cleared.`, 
               action: 'Check', 
               accountId: account.id 
             });
@@ -6677,7 +6786,7 @@ Or just card numbers:
           const store = getStore(account.storeId);
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? `VCC ••••${vcc.number.slice(-4)}` : 'No VCC';
-          alerts.push({ type: 'orange', icon: '💳', title: 'Payment issue', desc: `${store?.name} - ${vccInfo} - card limit or payment failed`, action: 'Fix', accountId: account.id });
+          alerts.push({ type: 'orange', icon: '💳', title: `Payment failed — ${store?.name || 'account'}`, desc: `${vccInfo} · Update the card to get ads running again.`, action: 'Fix', accountId: account.id });
         });
       }
       if (perms.alertsFor.includes('suspended')) {
@@ -6686,9 +6795,9 @@ Or just card numbers:
           const vcc = getVCC(account.vccId);
           const vccInfo = vcc ? ` • VCC ••••${vcc.number.slice(-4)}` : '';
           if (store?.hasTracking) {
-            alerts.push({ type: 'danger', icon: '🚫', title: 'Suspended - Fix Tracking', desc: `${store?.name} suspended${vccInfo} • 📊 Has Tracking`, action: 'Fix Tr', accountId: account.id, storeId: account.storeId });
+            alerts.push({ type: 'danger', icon: '🚫', title: `Suspended — ${store?.name || 'account'}`, desc: `Tracking is likely the cause${vccInfo} — remove it to recover.`, action: 'Fix tracking', accountId: account.id, storeId: account.storeId });
           } else {
-            alerts.push({ type: 'danger', icon: '🚫', title: 'Account suspended', desc: `${store?.name} suspended${vccInfo}`, action: 'Review', accountId: account.id });
+            alerts.push({ type: 'danger', icon: '🚫', title: `Suspended — ${store?.name || 'account'}`, desc: `Google suspended this account${vccInfo} · Review it, then plan the recreate.`, action: 'Review', accountId: account.id });
           }
         });
       }
@@ -6702,7 +6811,7 @@ Or just card numbers:
           todayDate.setDate(todayDate.getDate() - 1);
           const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
           const yesterdaySpend = dailySpendHistory[`${account.id}_${yesterdayKey}`] ?? 0;
-          alerts.push({ type: 'warning', icon: '⏸️', title: `${store?.name} is DOWN`, desc: `${vccInfo} • Yesterday: $${yesterdaySpend} - Pause campaign now!`, action: 'Fix', accountId: account.id });
+          alerts.push({ type: 'warning', icon: '⏸️', title: `${store?.name || 'Store'} stopped`, desc: `$${yesterdaySpend} spent yesterday · ${vccInfo} — pause the campaign until it's fixed.`, action: 'Fix', accountId: account.id });
         });
       }
       // Barely spending: active, healthy accounts that logged <= $5 for 2+ days in a row.
@@ -6718,8 +6827,8 @@ Or just card numbers:
             alerts.push({
               type: 'warning',
               icon: '📉',
-              title: `${info.store?.name || 'Account'} barely spending`,
-              desc: `${info.profile?.name || 'N/A'} • ≤$5 for ${info.lowStreak} days in a row (yesterday $${info.yesterdayVal}) — check delivery`,
+              title: `${info.store?.name || 'Account'} is under-delivering`,
+              desc: `≤$5/day for ${info.lowStreak} days (yesterday $${info.yesterdayVal}) · ${info.profile?.name || 'N/A'} — check delivery.`,
               action: 'Check',
               accountId: account.id
             });
@@ -6728,14 +6837,29 @@ Or just card numbers:
       }
       if (perms.alertsFor.includes('unassigned_vcc')) {
         data.vccs[currentChannel].filter(v => v.status === 'available' || v.status === 'warming' || v.status === 'ready').forEach(vcc => {
-          alerts.push({ type: 'purple', icon: '💳', title: 'New VCC available', desc: `Card ••••${vcc.number.slice(-4)} ($${vcc.balance}) ready to use`, action: 'Use', vccId: vcc.id });
+          alerts.push({ type: 'purple', icon: '💳', title: `Card ••••${vcc.number.slice(-4)} is ready`, desc: `$${vcc.balance} available · Assign it to a new account.`, action: 'Use', vccId: vcc.id });
         });
       }
-      // Most urgent first, so the alerts that need action surface to the top
+      // Most urgent first, then drop exact repeats (duplicate stores create twin alerts)
       const severity = { danger: 0, orange: 1, warning: 2, info: 3, teal: 4, purple: 5 };
       alerts.sort((a, b) => (severity[a.type] ?? 9) - (severity[b.type] ?? 9));
-      if (limit) alerts = alerts.slice(0, limit);
-      return alerts.map(alert => `
+      const seen = new Set();
+      return alerts.filter(a => { const k = a.title + '|' + a.desc; if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+    function alertGroupOf(type) {
+      if (type === 'danger') return 'critical';
+      if (type === 'orange' || type === 'warning') return 'action';
+      if (type === 'info') return 'waiting';
+      return 'launch';
+    }
+    const ALERT_GROUPS = [
+      { id: 'critical', label: 'Critical', color: 'var(--danger)', hint: 'Money is blocked — handle these first' },
+      { id: 'action', label: 'Needs action', color: 'var(--warning)', hint: 'Something is off — a quick fix gets it moving' },
+      { id: 'waiting', label: 'Waiting on Google', color: 'var(--info)', hint: 'Nothing to do yet — just check in' },
+      { id: 'launch', label: 'Ready to grow', color: 'var(--teal)', hint: 'New stores and fresh cards to put to work' }
+    ];
+    function alertCard(alert) {
+      return `
         <div class="alert-item ${alert.type}">
           <div class="alert-icon">${alert.icon}</div>
           <div class="alert-content">
@@ -6743,8 +6867,17 @@ Or just card numbers:
             <div class="alert-desc" title="${escapeHtml(alert.desc)}">${escapeHtml(alert.desc)}</div>
           </div>
           <button class="alert-action${(alert.action || '').includes('✓') ? ' done' : ''}" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
-        </div>
-      `).join('');
+        </div>`;
+    }
+    function generateAlertsHtml(limit = null, filter = null) {
+      let alerts = buildAlerts();
+      if (filter && filter !== 'all') alerts = alerts.filter(a => alertGroupOf(a.type) === filter);
+      if (limit) return alerts.slice(0, limit).map(alertCard).join('');
+      return ALERT_GROUPS.map(g => {
+        const list = alerts.filter(a => alertGroupOf(a.type) === g.id);
+        if (!list.length) return '';
+        return `<div class="alert-group-head"><span class="alert-group-dot" style="background:${g.color};"></span><span>${g.label}</span><span class="alert-group-count">${list.length}</span><span class="alert-group-hint">${g.hint}</span></div>` + list.map(alertCard).join('');
+      }).join('');
     }
     async function handleAlertAction(accountId, vccId, storeId) {
       if (accountId) {
@@ -7076,6 +7209,24 @@ Or just card numbers:
         showToast(store.hasTracking ? `📊 Tracking added to ${store.name}` : `📊 Tracking removed from ${store.name}`);
         renderStores();
       }
+    }
+    async function toggleStoreTaskFlag(storeId, flag, onMsg, offMsg) {
+      const store = data.stores.find(x => x.id === storeId || x.id == storeId);
+      if (!store) return;
+      store[flag] = !store[flag];
+      const assets = store.assets || {};
+      assets[flag] = store[flag];
+      store.assets = assets;
+      await updateStoreInSupabase(storeId, { assets: assets });
+      showToast(store[flag] ? onMsg.replace('{s}', store.name) : offMsg.replace('{s}', store.name));
+      if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
+      if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+    }
+    async function toggleFulfillNeeded(storeId) {
+      await toggleStoreTaskFlag(storeId, 'fulfillNeeded', '🚚 Fulfillment marked on {s} — task created', '✓ Fulfillment cleared on {s}');
+    }
+    async function toggleOptimizeAds(storeId) {
+      await toggleStoreTaskFlag(storeId, 'optimizeAds', '🎯 Optimize ads marked on {s} — task created', '✓ Optimize cleared on {s}');
     }
     async function togglePayoutHold(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
