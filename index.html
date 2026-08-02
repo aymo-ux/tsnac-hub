@@ -2412,7 +2412,6 @@ Or just card numbers:
             isPerformer: s.is_performer,
             hasTracking: s.assets?.hasTracking || false,
             payoutHold: s.assets?.payoutHold || false,
-            fulfillNeeded: s.assets?.fulfillNeeded || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
@@ -3618,7 +3617,7 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a task for Elias'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}</span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -4055,12 +4054,6 @@ Or just card numbers:
           const id = 'auto_payout_' + store.id;
           activeKeys.add(id);
           upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts paused — keep eyes on it');
-        }
-        // Fulfillment: flagged during Quick revenue entry -> task for Elias
-        if (store.fulfillNeeded) {
-          const id = 'auto_fulfil_' + store.id;
-          activeKeys.add(id);
-          upsertAutoTask(id, 'fulfill', `Fulfill — ${store.name}`, 'Orders waiting for fulfillment');
         }
         // New store, no accounts -> launch task
         if (!accts.length) {
@@ -7040,19 +7033,6 @@ Or just card numbers:
         await updateStoreInSupabase(storeId, { assets: assets });
         showToast(store.hasTracking ? `📊 Tracking added to ${store.name}` : `📊 Tracking removed from ${store.name}`);
         renderStores();
-      }
-    }
-    async function toggleFulfillNeeded(storeId) {
-      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
-      if (store) {
-        store.fulfillNeeded = !store.fulfillNeeded;
-        const assets = store.assets || {};
-        assets.fulfillNeeded = store.fulfillNeeded;
-        store.assets = assets;
-        await updateStoreInSupabase(storeId, { assets: assets });
-        showToast(store.fulfillNeeded ? `🚚 Fulfillment marked on ${store.name} — task created for Elias` : `✓ Fulfillment cleared on ${store.name}`);
-        if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
-        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       }
     }
     async function togglePayoutHold(storeId) {
