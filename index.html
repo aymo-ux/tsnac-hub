@@ -752,7 +752,8 @@
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.9rem; align-items: start; }
+    .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
+    @media (max-width: 1400px) { .task-board { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
     .task-col { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 0.75rem; min-height: 160px; }
@@ -4039,6 +4040,7 @@ Or just card numbers:
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
+      { id: 'optimize', label: 'Optimize ads', icon: '🎯', color: 'var(--orange)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
       { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
@@ -4062,6 +4064,8 @@ Or just card numbers:
           saveTasksLocal();
         }
       } catch (e) { console.error('store_tasks exception:', e); }
+      // Optimize tasks used to land in "To fulfill" — move untouched ones to their own column
+      storeTasks.forEach(t => { if (t.id.startsWith('auto_opt_') && t.col === 'fulfill' && t.by === 'Auto') { t.col = 'optimize'; pushTask(t); } });
       storeTasksLoaded = true;
       renderStoreTasks();
       updateTaskBadge();
@@ -4130,7 +4134,7 @@ Or just card numbers:
         if (store.optimizeAds) {
           const id = 'auto_opt_' + store.id;
           activeKeys.add(id);
-          upsertAutoTask(id, 'fulfill', `Optimize ads — ${store.name}`, 'Check the campaigns and improve results');
+          upsertAutoTask(id, 'optimize', `Optimize ads — ${store.name}`, 'Check the campaigns and improve results');
         }
         // New store, no accounts -> launch task
         if (!accts.length) {
