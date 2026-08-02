@@ -737,22 +737,30 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; align-items: start; }
+    .task-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+    @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
+    .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+    @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
+    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.9rem; align-items: start; }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
-    .task-col { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.7rem; min-height: 180px; }
-    .task-col-head { display: flex; align-items: center; gap: 0.45rem; font-weight: 700; font-size: 0.85rem; margin-bottom: 0.7rem; padding: 0 0.2rem; }
-    .task-count { margin-left: auto; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 999px; padding: 0.1rem 0.5rem; }
-    .task-card { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: 0.6rem 0.7rem; margin-bottom: 0.55rem; box-shadow: var(--shadow-sm); }
+    .task-col { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 0.75rem; min-height: 160px; }
+    .task-col-head { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin-bottom: 0.75rem; padding: 0 0.2rem; }
+    .task-col-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .task-count { margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.55rem; }
+    .task-card { background: var(--bg-card); border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; padding: 0.65rem 0.75rem; margin-bottom: 0.55rem; box-shadow: var(--shadow-sm); transition: var(--transition); }
+    .task-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-hover); transform: translateY(-1px); }
     .task-title { font-weight: 600; font-size: 0.85rem; line-height: 1.35; word-break: break-word; }
     .task-note { font-size: 0.76rem; color: var(--text-secondary); margin-top: 0.25rem; word-break: break-word; }
-    .task-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.35rem; }
-    .task-actions { display: flex; gap: 0.25rem; margin-top: 0.45rem; }
+    .task-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.4rem; }
+    .task-actions { display: flex; gap: 0.25rem; margin-top: 0.5rem; opacity: 0; transition: opacity 0.15s; }
+    .task-card:hover .task-actions { opacity: 1; }
+    @media (hover: none) { .task-actions { opacity: 1; } }
     .task-btn { background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 6px; padding: 0.15rem 0.45rem; font-size: 0.75rem; cursor: pointer; color: var(--text-secondary); font-family: inherit; transition: var(--transition); }
     .task-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
     .task-btn.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
-    .task-add { width: 100%; border: 1px dashed var(--border-light); background: none; border-radius: var(--radius-sm); padding: 0.4rem; color: var(--text-muted); cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: var(--transition); }
-    .task-add:hover { color: var(--accent); border-color: var(--accent); }
+    .task-add { width: 100%; border: 1px dashed var(--border-light); background: none; border-radius: 8px; padding: 0.45rem; color: var(--text-muted); cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: var(--transition); }
+    .task-add:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
     .metric-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
     .metric-chip {
       display: flex; align-items: center; gap: 0.45rem;
@@ -1818,6 +1826,17 @@
           </div>
         </div>
         <div id="taskDigest"></div>
+        <div id="taskStats" class="task-stats"></div>
+        <div class="task-charts">
+          <div class="card" style="padding: 1rem 1.2rem;">
+            <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Open tasks by stage</div>
+            <div id="taskColChart"></div>
+          </div>
+          <div class="card" style="padding: 1rem 1.2rem;">
+            <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Completed — last 7 days</div>
+            <div id="taskDoneChart"></div>
+          </div>
+        </div>
         <div class="task-board" id="taskBoard"></div>
         <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Use ◀ ▶ on a task to move it between columns. Both of you can add, edit, move, and delete — changes save automatically.</p>
       </section>
@@ -2393,10 +2412,15 @@ Or just card numbers:
             isPerformer: s.is_performer,
             hasTracking: s.assets?.hasTracking || false,
             payoutHold: s.assets?.payoutHold || false,
+            fulfillNeeded: s.assets?.fulfillNeeded || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
-          stores.forEach(s => { if (s.archived) archivedStores.add(String(s.id)); });
+          // Cloud is the source of truth: archives AND restores made anywhere reach everyone.
+          stores.forEach(s => {
+            if (s.archived === true) archivedStores.add(String(s.id));
+            else if (s.archived === false) archivedStores.delete(String(s.id));
+          });
           saveArchivedLocal();
         }
         const { data: vccs } = await supabaseClient.from('vccs').select('*').order('created_at', { ascending: true });
@@ -2450,7 +2474,10 @@ Or just card numbers:
               });
             }
           });
-          accounts.forEach(a => { if (a.archived) archivedAccounts.add(String(a.id)); });
+          accounts.forEach(a => {
+            if (a.archived === true) archivedAccounts.add(String(a.id));
+            else if (a.archived === false) archivedAccounts.delete(String(a.id));
+          });
           saveArchivedLocal();
         }
         const { data: savedAccounts } = await supabaseClient.from('saved_accounts').select('*').order('saved_at', { ascending: true });
@@ -3591,7 +3618,7 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}</span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a task for Elias'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -4029,6 +4056,12 @@ Or just card numbers:
           activeKeys.add(id);
           upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts paused — keep eyes on it');
         }
+        // Fulfillment: flagged during Quick revenue entry -> task for Elias
+        if (store.fulfillNeeded) {
+          const id = 'auto_fulfil_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'fulfill', `Fulfill — ${store.name}`, 'Orders waiting for fulfillment');
+        }
         // New store, no accounts -> launch task
         if (!accts.length) {
           const id = 'auto_launch_' + store.id;
@@ -4129,9 +4162,69 @@ Or just card numbers:
       if (h < 24) return h + 'h ago';
       return Math.floor(h / 24) + 'd ago';
     }
+    function renderTaskStats() {
+      const el = document.getElementById('taskStats');
+      if (!el) return;
+      const open = storeTasks.filter(t => t.col !== 'done');
+      const holds = open.filter(t => t.col === 'hold').length;
+      const weekAgo = Date.now() - 7 * 86400000;
+      const doneWeek = storeTasks.filter(t => t.col === 'done' && t.at && new Date(t.at).getTime() >= weekAgo).length;
+      const oldest = open.reduce((m, t) => { const d = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0; return Math.max(m, d); }, 0);
+      const kpi = (label, val, color, sub) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value" style="${color ? 'color:' + color + ';' : ''}">${val}</div><div class="kpi-delta kpi-prev">${sub}</div></div>`;
+      el.innerHTML =
+        kpi('Open tasks', open.length, null, open.length ? 'Across all stages' : 'All clear') +
+        kpi('Payment holds', holds, holds > 0 ? 'var(--danger)' : 'var(--success)', holds > 0 ? 'Keep eyes on payouts' : 'None active') +
+        kpi('Done this week', doneWeek, 'var(--success)', 'Last 7 days') +
+        kpi('Oldest open', oldest + 'd', oldest >= 3 ? 'var(--danger)' : null, oldest >= 3 ? 'Needs attention' : 'Fresh');
+    }
+    function renderTaskCharts() {
+      const colEl = document.getElementById('taskColChart');
+      const doneEl = document.getElementById('taskDoneChart');
+      if (colEl) {
+        const cols = TASK_COLS.filter(c => c.id !== 'done');
+        const counts = cols.map(c => storeTasks.filter(t => t.col === c.id).length);
+        const max = Math.max(...counts, 1);
+        const W = 420, H = 150, padB = 26, padT = 16;
+        const slot = W / cols.length, bw = Math.min(64, slot * 0.55);
+        let bars = '';
+        cols.forEach((c, i) => {
+          const h = (counts[i] / max) * (H - padT - padB);
+          const x = slot * i + (slot - bw) / 2;
+          const y = H - padB - h;
+          bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${Math.max(2, h).toFixed(1)}" rx="5" fill="${c.color}" opacity="0.9"><title>${c.label}: ${counts[i]}</title></rect>`;
+          bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-primary)" font-family="'JetBrains Mono',monospace">${counts[i]}</text>`;
+          bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${c.label}</text>`;
+        });
+        colEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;">${bars}</svg>`;
+      }
+      if (doneEl) {
+        const keys = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(getThailandDate() + 'T12:00:00'); d.setDate(d.getDate() - i);
+          keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        }
+        const counts = keys.map(k => storeTasks.filter(t => t.col === 'done' && t.at && String(t.at).slice(0, 10) === k).length);
+        const max = Math.max(...counts, 1);
+        const W = 420, H = 150, padB = 26, padT = 16;
+        const slot = W / keys.length, bw = Math.min(40, slot * 0.55);
+        let bars = '';
+        keys.forEach((k, i) => {
+          const h = (counts[i] / max) * (H - padT - padB);
+          const x = slot * i + (slot - bw) / 2;
+          const y = H - padB - h;
+          const d = new Date(k + 'T12:00:00');
+          bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${Math.max(2, h).toFixed(1)}" rx="4" fill="var(--success)" opacity="${counts[i] ? 0.9 : 0.25}"><title>${d.toLocaleDateString('en-US', { weekday: 'short' })}: ${counts[i]} done</title></rect>`;
+          if (counts[i]) bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text-primary)" font-family="'JetBrains Mono',monospace">${counts[i]}</text>`;
+          bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${d.toLocaleDateString('en-US', { weekday: 'short' })}</text>`;
+        });
+        doneEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;">${bars}</svg>`;
+      }
+    }
     function renderStoreTasks() {
       const board = document.getElementById('taskBoard');
       if (!board || !isStoreMgmtUser()) return;
+      renderTaskStats();
+      renderTaskCharts();
       board.innerHTML = TASK_COLS.map((col, ci) => {
         const tasks = storeTasks.filter(t => t.col === col.id)
           .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
@@ -4148,7 +4241,7 @@ Or just card numbers:
             </div>
           </div>`).join('');
         return `<div class="task-col">
-          <div class="task-col-head"><span>${col.icon}</span> ${col.label} <span class="task-count">${tasks.length}</span></div>
+          <div class="task-col-head"><span class="task-col-dot" style="background:${col.color};"></span>${col.label}<span class="task-count">${tasks.length}</span></div>
           ${cards}
           <button class="task-add" onclick="addStoreTask('${col.id}')">+ Add</button>
         </div>`;
@@ -5907,8 +6000,13 @@ Or just card numbers:
       if (!confirm(confirmMsg)) return;
       archivedAccounts.add(String(accountId));
       saveArchivedLocal();
-      try { await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId); } catch (e) { console.warn('archive column missing?', e); }
-      showAutoSaveIndicator('✓ Account archived');
+      let syncedA = false;
+      try {
+        const { error } = await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId);
+        syncedA = !error;
+      } catch (e) {}
+      showAutoSaveIndicator(syncedA ? '✓ Account archived' : '⚠️ Archived on this device only');
+      if (!syncedA) alert('⚠️ Hidden on THIS device only — run the archive SQL in Supabase, then archive again.');
       showToast('Account archived — its spend stays in your totals');
       renderAccounts();
       renderDashboard();
@@ -6713,8 +6811,13 @@ Or just card numbers:
       if (!confirm(msg)) return;
       archivedAccounts.add(String(accountId));
       saveArchivedLocal();
-      try { await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId); } catch (e) {}
-      showAutoSaveIndicator('✓ Account archived');
+      let syncedS = false;
+      try {
+        const { error } = await supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', accountId);
+        syncedS = !error;
+      } catch (e) {}
+      showAutoSaveIndicator(syncedS ? '✓ Account archived' : '⚠️ Archived on this device only');
+      if (!syncedS) alert('⚠️ Hidden on THIS device only — run the archive SQL in Supabase, then archive again.');
       showToast('Account archived — its spend stays in your totals');
       renderAccounts(); renderDashboard(); updateBadges();
     }
@@ -6939,6 +7042,19 @@ Or just card numbers:
         renderStores();
       }
     }
+    async function toggleFulfillNeeded(storeId) {
+      const store = data.stores.find(s => s.id === storeId || s.id == storeId);
+      if (store) {
+        store.fulfillNeeded = !store.fulfillNeeded;
+        const assets = store.assets || {};
+        assets.fulfillNeeded = store.fulfillNeeded;
+        store.assets = assets;
+        await updateStoreInSupabase(storeId, { assets: assets });
+        showToast(store.fulfillNeeded ? `🚚 Fulfillment marked on ${store.name} — task created for Elias` : `✓ Fulfillment cleared on ${store.name}`);
+        if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
+        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+      }
+    }
     async function togglePayoutHold(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (store) {
@@ -6965,8 +7081,14 @@ Or just card numbers:
       archivedStores.add(String(storeId));
       saveArchivedLocal();
       // Best effort cloud sync (needs the "archived" column; harmless if it isn't there yet)
-      try { await supabaseClient.from('stores').update({ archived: true }).eq('id', storeId); } catch (e) { console.warn('archive column missing?', e); }
-      showAutoSaveIndicator('✓ Store archived');
+      let synced = false;
+      try {
+        const { error } = await supabaseClient.from('stores').update({ archived: true }).eq('id', storeId);
+        synced = !error;
+        if (error) console.warn('archive sync failed:', error);
+      } catch (e) { console.warn('archive sync failed:', e); }
+      showAutoSaveIndicator(synced ? '✓ Store archived' : '⚠️ Archived on this device only');
+      if (!synced) alert('⚠️ The store is hidden on THIS device only — other people will still see it.\n\nTo fix: run the archive SQL in Supabase (I gave it in the chat), then archive again.');
       showToast(`"${store.name}" archived — its numbers stay in your totals`);
       renderStores();
       renderAccounts();
@@ -7507,7 +7629,26 @@ Or just card numbers:
     function closeModal(modalId) {
       document.getElementById(`modal-${modalId}`).classList.remove('active');
     }
+    // Double-click protection: while a create is saving, extra clicks are ignored
+    // and the pressed button greys out until the save finishes.
+    const _createLocks = {};
+    function lockCreate(kind) {
+      if (_createLocks[kind]) return false;
+      _createLocks[kind] = true;
+      document.querySelectorAll(`[onclick="${kind}()"]`).forEach(b => { b.disabled = true; b.dataset.oldText = b.textContent; b.textContent = 'Saving…'; b.style.opacity = '0.6'; });
+      return true;
+    }
+    function unlockCreate(kind) {
+      _createLocks[kind] = false;
+      document.querySelectorAll(`[onclick="${kind}()"]`).forEach(b => { b.disabled = false; if (b.dataset.oldText) b.textContent = b.dataset.oldText; b.style.opacity = ''; });
+    }
     async function addStore() {
+      if (!lockCreate('addStore')) return;
+      try {
+        await _addStoreInner();
+      } finally { unlockCreate('addStore'); }
+    }
+    async function _addStoreInner() {
       const name = document.getElementById('storeName').value.trim();
       const url = document.getElementById('storeUrl').value.trim();
       if (!name) { alert('Please enter store name'); return; }
@@ -7643,6 +7784,10 @@ Or just card numbers:
       closeSidebarOnMobile();
     }
     async function addProfile() {
+      if (!lockCreate('addProfile')) return;
+      try { await _addProfileInner(); } finally { unlockCreate('addProfile'); }
+    }
+    async function _addProfileInner() {
       const name = document.getElementById('profileName').value.trim();
       if (!name) { alert('Please enter profile name'); return; }
       const newProfile = { name: name, createdBy: currentUser, createdAt: getThailandDate() };
@@ -7657,6 +7802,10 @@ Or just card numbers:
       document.getElementById('profileName').value = '';
     }
     async function addAccount() {
+      if (!lockCreate('addAccount')) return;
+      try { await _addAccountInner(); } finally { unlockCreate('addAccount'); }
+    }
+    async function _addAccountInner() {
       const selectedStoreIds = [...document.querySelectorAll('.account-store-cb:checked')].map(cb => cb.value);
       const profileId = document.getElementById('accountProfile').value;
       const last4 = document.getElementById('manualVCCLast4').value.trim();
