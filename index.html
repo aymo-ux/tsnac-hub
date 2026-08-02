@@ -4019,6 +4019,8 @@ Or just card numbers:
     function upsertAutoTask(id, col, title, note) {
       const existing = taskById(id);
       if (existing) {
+        // "dismissed" = the user said it's handled; stay gone even while the condition holds
+        if (existing.col === 'dismissed') return 0;
         // condition is active again: reopen if it was completed
         if (existing.col === 'done') { existing.col = col; existing.by = 'Auto'; existing.at = new Date().toISOString(); pushTask(existing); return 1; }
         return 0;
@@ -4062,9 +4064,16 @@ Or just card numbers:
           upsertAutoTask(id, 'fulfill', `Launch ${store.name}`, 'New store — add an ad account');
         }
       });
-      // Auto-resolve: any auto task whose condition no longer holds -> Done
+      // Auto-resolve: any auto task whose condition no longer holds -> Done.
+      // Dismissed ones are removed entirely once the condition clears, so a future
+      // occurrence of the same problem creates a fresh card.
       storeTasks.filter(t => t.id.startsWith('auto_')).forEach(t => {
-        if (!activeKeys.has(t.id)) resolveAutoTask(t.id);
+        if (activeKeys.has(t.id)) return;
+        if (t.col === 'dismissed') {
+          storeTasks = storeTasks.filter(x => x.id !== t.id);
+          saveTasksLocal();
+          (async () => { try { await supabaseClient.from('store_tasks').delete().eq('id', t.id); } catch (e) {} })();
+        } else resolveAutoTask(t.id);
       });
       // Auto-clean: Done cards older than 7 days disappear
       const cutoff = Date.now() - 7 * 86400000;
@@ -4083,7 +4092,7 @@ Or just card numbers:
       if (!el) return;
       let last = 0;
       try { last = parseInt(localStorage.getItem(taskVisitKey())) || 0; } catch (e) {}
-      const changed = storeTasks.filter(t => t.at && new Date(t.at).getTime() > last);
+      const changed = storeTasks.filter(t => t.col !== 'dismissed' && t.at && new Date(t.at).getTime() > last);
       if (!last || !changed.length) {
         el.innerHTML = '';
       } else {
@@ -4127,18 +4136,51 @@ Or just card numbers:
       pushTask(t);
       renderStoreTasks();
     }
-    function moveStoreTask(id, dir) {
+    async function moveStoreTask(id, dir) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
       const order = TASK_COLS.map(c => c.id);
       const i = order.indexOf(t.col);
       const ni = Math.max(0, Math.min(order.length - 1, i + dir));
       if (ni === i) return;
       t.col = order[ni]; t.by = whoAmI(); t.at = new Date().toISOString();
+      // Completing an auto task by hand also means "handled" — clear the flag and keep it gone
+      if (t.id.startsWith('auto_') && t.col === 'done') {
+        await clearPayoutFlagFromTask(t.id);
+        t.col = 'dismissed';
+        pushTask(t);
+        runTaskAutomations();
+        renderStoreTasks();
+        showToast('Marked as handled');
+        return;
+      }
       pushTask(t);
       renderStoreTasks();
     }
+    async function clearPayoutFlagFromTask(taskId) {
+      if (!taskId.startsWith('auto_payout_')) return;
+      const sid = taskId.slice('auto_payout_'.length);
+      const st = (data.stores || []).find(x => String(x.id) === sid);
+      if (st && st.payoutHold) {
+        st.payoutHold = false;
+        const assets = st.assets || {}; assets.payoutHold = false; st.assets = assets;
+        try { await updateStoreInSupabase(st.id, { assets: assets }); } catch (e) {}
+        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+      }
+    }
     async function deleteStoreTask(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
+      if (t.id.startsWith('auto_')) {
+        // For auto tasks, delete means "handled": it stays gone, and for payout
+        // holds the store's ⏸ flag is cleared too, so it truly resolves everywhere.
+        if (!confirm(`Mark "${t.title}" as handled?\n\nIt will disappear and only come back if the problem happens again later.`)) return;
+        await clearPayoutFlagFromTask(t.id);
+        t.col = 'dismissed'; t.by = whoAmI(); t.at = new Date().toISOString();
+        pushTask(t);
+        runTaskAutomations();
+        renderStoreTasks();
+        showToast('Marked as handled');
+        return;
+      }
       if (!confirm(`Delete "${t.title}"?`)) return;
       storeTasks = storeTasks.filter(x => x.id !== id);
       saveTasksLocal();
@@ -4158,7 +4200,7 @@ Or just card numbers:
     function renderTaskStats() {
       const el = document.getElementById('taskStats');
       if (!el) return;
-      const open = storeTasks.filter(t => t.col !== 'done');
+      const open = storeTasks.filter(t => t.col !== 'done' && t.col !== 'dismissed');
       const holds = open.filter(t => t.col === 'hold').length;
       const weekAgo = Date.now() - 7 * 86400000;
       const doneWeek = storeTasks.filter(t => t.col === 'done' && t.at && new Date(t.at).getTime() >= weekAgo).length;
