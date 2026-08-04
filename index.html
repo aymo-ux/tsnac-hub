@@ -755,7 +755,7 @@
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
+    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; align-items: start; }
     @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
@@ -2445,10 +2445,21 @@ Or just card numbers:
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
-          // Cloud is the source of truth: archives AND restores made anywhere reach everyone.
+          // Archive sync. On the FIRST load after the archived column exists, this device
+          // may hold archives the cloud never heard about (saved before the column was
+          // created) — push those UP instead of losing them. From then on the cloud is
+          // the source of truth, so restores made anywhere reach everyone.
+          const archPushed = (() => { try { return localStorage.getItem('tsnac_arch_pushed') === '1'; } catch (e) { return false; } })();
           stores.forEach(s => {
-            if (s.archived === true) archivedStores.add(String(s.id));
-            else if (s.archived === false) archivedStores.delete(String(s.id));
+            const sid = String(s.id);
+            if (s.archived === true) archivedStores.add(sid);
+            else if (s.archived === false) {
+              if (!archPushed && archivedStores.has(sid)) {
+                try { supabaseClient.from('stores').update({ archived: true }).eq('id', s.id); } catch (e) {}
+              } else if (archPushed) {
+                archivedStores.delete(sid);
+              }
+            }
           });
           saveArchivedLocal();
         }
@@ -2503,10 +2514,21 @@ Or just card numbers:
               });
             }
           });
+          const archPushedA = (() => { try { return localStorage.getItem('tsnac_arch_pushed') === '1'; } catch (e) { return false; } })();
           accounts.forEach(a => {
-            if (a.archived === true) archivedAccounts.add(String(a.id));
-            else if (a.archived === false) archivedAccounts.delete(String(a.id));
+            const aid = String(a.id);
+            if (a.archived === true) archivedAccounts.add(aid);
+            else if (a.archived === false) {
+              if (!archPushedA && archivedAccounts.has(aid)) {
+                try { supabaseClient.from('ad_accounts').update({ archived: true }).eq('id', a.id); } catch (e) {}
+              } else if (archPushedA) {
+                archivedAccounts.delete(aid);
+              }
+            }
           });
+          if (accounts.length > 0 && accounts[0].archived !== undefined) {
+            try { localStorage.setItem('tsnac_arch_pushed', '1'); } catch (e) {}
+          }
           saveArchivedLocal();
         }
         const { data: savedAccounts } = await supabaseClient.from('saved_accounts').select('*').order('saved_at', { ascending: true });
@@ -4071,7 +4093,6 @@ Or just card numbers:
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
-      { id: 'launch',   label: 'Launch',       icon: '🚀', color: 'var(--teal)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
       { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
@@ -4111,7 +4132,6 @@ Or just card numbers:
       storeTasks.forEach(t => {
         if (t.col === 'fulfill' && t.by === 'Auto') {
           if (t.id.startsWith('auto_opt_')) { t.col = 'optimize'; pushTask(t); }
-          if (t.id.startsWith('auto_launch_')) { t.col = 'launch'; pushTask(t); }
         }
       });
       storeTasksLoaded = true;
@@ -4187,12 +4207,6 @@ Or just card numbers:
           const id = 'auto_opt_' + store.id;
           activeKeys.add(id);
           upsertAutoTask(id, 'optimize', `Optimize ads — ${store.name}`, 'Check the campaigns and improve results');
-        }
-        // New store, no accounts -> launch task
-        if (!accts.length) {
-          const id = 'auto_launch_' + store.id;
-          activeKeys.add(id);
-          upsertAutoTask(id, 'launch', `Launch ${store.name}`, 'New store — add an ad account');
         }
       });
       // Auto-resolve: any auto task whose condition no longer holds -> Done.
