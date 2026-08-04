@@ -737,6 +737,9 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .task-card.bulk { cursor: pointer; user-select: none; }
+    .task-card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+    .task-check { color: var(--accent); font-weight: 700; }
     .notif-tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.1rem; }
     .notif-tab { display: flex; align-items: center; gap: 0.4rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); transition: var(--transition); }
     .notif-tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
@@ -753,7 +756,7 @@
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
     .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
-    @media (max-width: 1400px) { .task-board { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
     .task-col { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 0.75rem; min-height: 160px; }
@@ -1838,9 +1841,11 @@
             <p class="page-subtitle">Shared board — visible to you and Elias only</p>
           </div>
           <div class="header-actions">
+            <button class="btn btn-secondary" id="bulkBtn" onclick="toggleBulkMode()">☑ Select</button>
             <button class="btn btn-primary" onclick="addStoreTask()">+ Task</button>
           </div>
         </div>
+        <div id="bulkBar"></div>
         <div id="taskDigest"></div>
         <div id="taskStats" class="task-stats"></div>
         <div class="task-charts">
@@ -2339,6 +2344,13 @@ Or just card numbers:
           if (mgmtNav) mgmtNav.style.display = '';
           loadStoreTasks();
         }
+        // Refresh returns you to the page you were on (permission checks still apply)
+        try {
+          const last = localStorage.getItem('tsnac_last_section');
+          if (last && last !== 'dashboard' && document.getElementById('section-' + last)) {
+            showSection(last);
+          }
+        } catch (e) {}
         return true;
       } catch (e) {
         console.error('Auth check failed:', e);
@@ -2781,6 +2793,7 @@ Or just card numbers:
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
       document.querySelector(`.nav-item[data-section="${sectionId}"]`)?.classList.add('active');
+      try { localStorage.setItem('tsnac_last_section', sectionId); } catch (e) {}
       renderSection(sectionId);
       closeSidebarOnMobile();
     }
@@ -2894,10 +2907,28 @@ Or just card numbers:
       document.getElementById('statTracking').textContent = trackingStores;
       document.getElementById('statWarning').textContent = needsAttention;
       document.getElementById('statSuspended').textContent = suspended;
-      const dashAlertsHtml = generateAlertsHtml(10);
+      const dashAlerts = buildAlerts();
       const dashZeroHtml = zeroSpendDropdownHtml();
+      let dashAlertsHtml = '';
+      if (dashAlerts.length) {
+        const crit = dashAlerts.filter(a => alertGroupOf(a.type) === 'critical').length;
+        const act = dashAlerts.filter(a => alertGroupOf(a.type) === 'action').length;
+        const rest = dashAlerts.length - crit - act;
+        const bits = [];
+        if (crit) bits.push(`<span style="color:var(--danger); font-weight:700;">${crit} critical</span>`);
+        if (act) bits.push(`${act} need action`);
+        if (rest) bits.push(`${rest} more`);
+        let saved = null;
+        try { saved = localStorage.getItem('tsnac_dash_alerts_open'); } catch (e) {}
+        const open = saved === null ? crit > 0 : saved === '1';   // first visit: open only if something critical
+        dashAlertsHtml = `
+        <details class="zero-spend dash-alerts"${open ? ' open' : ''} ontoggle="try{localStorage.setItem('tsnac_dash_alerts_open', this.open ? '1' : '0')}catch(e){}">
+          <summary><span>🔔 Alerts <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:500;">${bits.join(' · ')}</span></span><span class="zero-count">${dashAlerts.length}</span></summary>
+          <div style="padding-top: 0.6rem;">${dashAlerts.slice(0, 10).map(alertCard).join('')}${dashAlerts.length > 10 ? `<div style="text-align:center; padding: 0.5rem 0 0.2rem;"><button class="btn btn-sm btn-secondary" onclick="showSection('alerts')">See all ${dashAlerts.length} in Notifications →</button></div>` : ''}</div>
+        </details>`;
+      }
       document.getElementById('dashboardAlerts').innerHTML =
-        (dashAlertsHtml || (dashZeroHtml ? '' : '<div class="empty-state"><p>No alerts</p></div>')) + dashZeroHtml;
+        (dashAlertsHtml || (dashZeroHtml ? '' : '<div class="empty-state"><p>All clear — no alerts right now.</p></div>')) + dashZeroHtml;
       const storeGroups = {};
       visibleAccounts.forEach(account => {
         const storeId = account.storeId;
@@ -4040,14 +4071,26 @@ Or just card numbers:
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
+      { id: 'launch',   label: 'Launch',       icon: '🚀', color: 'var(--teal)' },
       { id: 'optimize', label: 'Optimize ads', icon: '🎯', color: 'var(--orange)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
-      { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
-      { id: 'done',     label: 'Done',         icon: '✅', color: 'var(--success)' }
+      { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' }
     ];
     let storeTasks = [];   // { id, title, note, col, by, at }
     let storeTasksLoaded = false;
+    function logTaskDone() {
+      try {
+        const k = 'tsnac_task_done_log';
+        const arr = JSON.parse(localStorage.getItem(k) || '[]');
+        arr.push(new Date().toISOString());
+        const cut = Date.now() - 30 * 86400000;
+        localStorage.setItem(k, JSON.stringify(arr.filter(x => new Date(x).getTime() > cut)));
+      } catch (e) {}
+    }
+    function taskDoneLog() {
+      try { return JSON.parse(localStorage.getItem('tsnac_task_done_log') || '[]'); } catch (e) { return []; }
+    }
     function saveTasksLocal() { try { localStorage.setItem('tsnac_store_tasks', JSON.stringify(storeTasks)); } catch (e) {} }
     function loadTasksLocal() { try { const s = localStorage.getItem('tsnac_store_tasks'); if (s) storeTasks = JSON.parse(s) || []; } catch (e) {} }
     async function loadStoreTasks() {
@@ -4064,8 +4107,13 @@ Or just card numbers:
           saveTasksLocal();
         }
       } catch (e) { console.error('store_tasks exception:', e); }
-      // Optimize tasks used to land in "To fulfill" — move untouched ones to their own column
-      storeTasks.forEach(t => { if (t.id.startsWith('auto_opt_') && t.col === 'fulfill' && t.by === 'Auto') { t.col = 'optimize'; pushTask(t); } });
+      // Launch/Optimize tasks used to land in "To fulfill" — move untouched ones to their own columns
+      storeTasks.forEach(t => {
+        if (t.col === 'fulfill' && t.by === 'Auto') {
+          if (t.id.startsWith('auto_opt_')) { t.col = 'optimize'; pushTask(t); }
+          if (t.id.startsWith('auto_launch_')) { t.col = 'launch'; pushTask(t); }
+        }
+      });
       storeTasksLoaded = true;
       renderStoreTasks();
       updateTaskBadge();
@@ -4099,8 +4147,12 @@ Or just card numbers:
     }
     function resolveAutoTask(id) {
       const t = taskById(id);
-      if (t && t.col !== 'done') { t.col = 'done'; t.by = 'Auto'; t.at = new Date().toISOString(); pushTask(t); return 1; }
-      return 0;
+      if (!t || t.col === 'dismissed') return 0;
+      storeTasks = storeTasks.filter(x => x.id !== id);
+      saveTasksLocal();
+      (async () => { try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {} })();
+      logTaskDone();
+      return 1;
     }
     function storeRecentSpend(storeId, daysBack, from) {
       // total spend for the `daysBack` days ending `from` days ago
@@ -4140,7 +4192,7 @@ Or just card numbers:
         if (!accts.length) {
           const id = 'auto_launch_' + store.id;
           activeKeys.add(id);
-          upsertAutoTask(id, 'fulfill', `Launch ${store.name}`, 'New store — add an ad account');
+          upsertAutoTask(id, 'launch', `Launch ${store.name}`, 'New store — add an ad account');
         }
       });
       // Auto-resolve: any auto task whose condition no longer holds -> Done.
@@ -4171,7 +4223,7 @@ Or just card numbers:
       if (!el) return;
       let last = 0;
       try { last = parseInt(localStorage.getItem(taskVisitKey())) || 0; } catch (e) {}
-      const changed = storeTasks.filter(t => t.col !== 'dismissed' && t.at && new Date(t.at).getTime() > last);
+      const changed = storeTasks.filter(t => t.col !== 'dismissed' && t.col !== 'done' && t.at && new Date(t.at).getTime() > last);
       if (!last || !changed.length) {
         el.innerHTML = '';
       } else {
@@ -4232,16 +4284,6 @@ Or just card numbers:
       const ni = Math.max(0, Math.min(order.length - 1, i + dir));
       if (ni === i) return;
       t.col = order[ni]; t.by = whoAmI(); t.at = new Date().toISOString();
-      // Completing an auto task by hand also means "handled" — clear the flag and keep it gone
-      if (t.id.startsWith('auto_') && t.col === 'done') {
-        await clearPayoutFlagFromTask(t.id);
-        t.col = 'dismissed';
-        pushTask(t);
-        runTaskAutomations();
-        renderStoreTasks();
-        showToast('Marked as handled');
-        return;
-      }
       pushTask(t);
       renderStoreTasks();
     }
@@ -4263,25 +4305,44 @@ Or just card numbers:
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       }
     }
-    async function deleteStoreTask(id) {
+    async function completeTaskCore(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
       if (t.id.startsWith('auto_')) {
-        // For auto tasks, delete means "handled": it stays gone, and for payout
-        // holds the store's ⏸ flag is cleared too, so it truly resolves everywhere.
-        if (!confirm(`Mark "${t.title}" as handled?\n\nIt will disappear and only come back if the problem happens again later.`)) return;
+        // "Handled": stays gone, and the store's flag (⏸/🚚/🎯) switches off too
         await clearPayoutFlagFromTask(t.id);
         t.col = 'dismissed'; t.by = whoAmI(); t.at = new Date().toISOString();
         pushTask(t);
-        runTaskAutomations();
-        renderStoreTasks();
-        showToast('Marked as handled');
-        return;
+      } else {
+        storeTasks = storeTasks.filter(x => x.id !== id);
+        saveTasksLocal();
+        try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {}
       }
-      if (!confirm(`Delete "${t.title}"?`)) return;
-      storeTasks = storeTasks.filter(x => x.id !== id);
-      saveTasksLocal();
-      try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {}
+      logTaskDone();
+    }
+    async function deleteStoreTask(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      const msg = t.id.startsWith('auto_')
+        ? `Mark "${t.title}" as handled?\n\nIt will disappear and only come back if the problem happens again later.`
+        : `Delete "${t.title}"?`;
+      if (!confirm(msg)) return;
+      await completeTaskCore(id);
+      runTaskAutomations();
       renderStoreTasks();
+      showToast('Cleared');
+    }
+    let bulkMode = false;
+    const selectedTasks = new Set();
+    function toggleBulkMode() { bulkMode = !bulkMode; selectedTasks.clear(); renderStoreTasks(); }
+    function toggleTaskSel(id) { if (selectedTasks.has(id)) selectedTasks.delete(id); else selectedTasks.add(id); renderStoreTasks(); }
+    async function bulkClearTasks() {
+      if (!selectedTasks.size) { showToast('Tap the cards you want to clear first'); return; }
+      if (!confirm(`Clear ${selectedTasks.size} task${selectedTasks.size > 1 ? 's' : ''}?\n\nAuto tasks are marked handled (their flags switch off); manual ones are deleted.`)) return;
+      for (const id of Array.from(selectedTasks)) await completeTaskCore(id);
+      selectedTasks.clear();
+      bulkMode = false;
+      runTaskAutomations();
+      renderStoreTasks();
+      showToast('Cleared');
     }
     function taskTimeAgo(iso) {
       if (!iso) return '';
@@ -4299,7 +4360,7 @@ Or just card numbers:
       const open = storeTasks.filter(t => t.col !== 'done' && t.col !== 'dismissed');
       const holds = open.filter(t => t.col === 'hold').length;
       const weekAgo = Date.now() - 7 * 86400000;
-      const doneWeek = storeTasks.filter(t => t.col === 'done' && t.at && new Date(t.at).getTime() >= weekAgo).length;
+      const doneWeek = taskDoneLog().filter(x => new Date(x).getTime() >= weekAgo).length;
       const oldest = open.reduce((m, t) => { const d = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0; return Math.max(m, d); }, 0);
       const kpi = (label, val, color, sub) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value" style="${color ? 'color:' + color + ';' : ''}">${val}</div><div class="kpi-delta kpi-prev">${sub}</div></div>`;
       el.innerHTML =
@@ -4334,7 +4395,8 @@ Or just card numbers:
           const d = new Date(getThailandDate() + 'T12:00:00'); d.setDate(d.getDate() - i);
           keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
         }
-        const counts = keys.map(k => storeTasks.filter(t => t.col === 'done' && t.at && String(t.at).slice(0, 10) === k).length);
+        const log = taskDoneLog();
+        const counts = keys.map(k => log.filter(x => String(x).slice(0, 10) === k).length);
         const max = Math.max(...counts, 1);
         const W = 420, H = 150, padB = 26, padT = 16;
         const slot = W / keys.length, bw = Math.min(40, slot * 0.55);
@@ -4362,23 +4424,40 @@ Or just card numbers:
       updateTaskBadge();
       const board = document.getElementById('taskBoard');
       if (!board || !isStoreMgmtUser()) return;
+      const bb = document.getElementById('bulkBar');
+      if (bb) bb.innerHTML = bulkMode
+        ? `<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 1rem; margin-bottom:1rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;"><strong>${selectedTasks.size}</strong>&nbsp;selected — tap cards to select<span style="margin-left:auto; display:flex; gap:0.5rem;"><button class="btn btn-sm btn-primary" onclick="bulkClearTasks()">Clear selected</button><button class="btn btn-sm btn-secondary" onclick="toggleBulkMode()">Cancel</button></span></div>`
+        : '';
+      const bbtn = document.getElementById('bulkBtn');
+      if (bbtn) bbtn.textContent = bulkMode ? '✕ Cancel' : '☑ Select';
       renderTaskStats();
       renderTaskCharts();
       board.innerHTML = TASK_COLS.map((col, ci) => {
         const tasks = storeTasks.filter(t => t.col === col.id)
           .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-        const cards = tasks.map(t => `
-          <div class="task-card" style="border-left-color:${col.color};">
-            <div class="task-title">${escapeHtml(t.title)}</div>
-            ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
-            <div class="task-meta">${t.id.startsWith('auto_') ? '<span style="font-weight:700; color:var(--accent);">⚡ Auto</span> · ' : ''}${escapeHtml(t.by || '')}${t.at ? ' · ' + taskTimeAgo(t.at) : ''}${(() => { const d = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0; return (t.col !== 'done' && d >= 3) ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${d}d stale</span>` : ''; })()}</div>
-            <div class="task-actions">
+        const cards = tasks.map(t => {
+          const auto = t.id.startsWith('auto_');
+          const shown = auto ? t.title.replace(/^[^—]+—\s*/, '') : t.title;
+          const sel = selectedTasks.has(t.id);
+          const days = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0;
+          const stale = days >= 3 ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${days}d</span>` : '';
+          const meta = [];
+          if (auto) meta.push('<span style="font-weight:700; color:var(--accent);">⚡</span>');
+          if (t.by && !(auto && t.by === 'Auto')) meta.push(escapeHtml(t.by));
+          if (t.at) meta.push(taskTimeAgo(t.at));
+          return `
+          <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
+            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}</div>
+            ${!auto && t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
+            <div class="task-meta">${meta.join(' · ')}${stale}</div>
+            ${bulkMode ? '' : `<div class="task-actions">
               ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
               ${ci < TASK_COLS.length - 1 ? `<button class="task-btn" title="Move right" onclick="moveStoreTask('${t.id}', 1)">▶</button>` : ''}
               <button class="task-btn" title="Edit" onclick="editStoreTask('${t.id}')">✎</button>
-              <button class="task-btn danger" title="Delete" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
-            </div>
-          </div>`).join('');
+              <button class="task-btn danger" title="Clear" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
+            </div>`}
+          </div>`;
+        }).join('');
         return `<div class="task-col">
           <div class="task-col-head"><span class="task-col-dot" style="background:${col.color};"></span>${col.label}<span class="task-count">${tasks.length}</span></div>
           ${cards}
