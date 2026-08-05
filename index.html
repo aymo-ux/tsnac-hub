@@ -5960,6 +5960,12 @@ Or just card numbers:
         console.error('Failed to load daily_spend:', e);
       }
       recalculateAllLifetimeSpends();
+      // The page you restored to may have been drawn BEFORE this data arrived
+      // (e.g. refreshing straight onto P&L) — repaint it now that spend is here.
+      try {
+        const active = document.querySelector('.section.active');
+        if (active) renderSection(active.id.replace('section-', ''));
+      } catch (e) {}
     }
     async function migrateLocalStorageToSupabase() {
       const entries = Object.entries(dailySpendHistory);
