@@ -737,6 +737,7 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .task-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 5px; vertical-align: middle; }
     .task-card.bulk { cursor: pointer; user-select: none; }
     .task-card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
     .task-check { color: var(--accent); font-weight: 700; }
@@ -1787,7 +1788,7 @@
             <div id="analyzeDecliners"></div>
           </div>
         </div>
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Net profit = revenue − COGS − fees − ad spend, using the COGS, refunds and fee rate from your P&amp;L. Store rows show revenue minus that store's ad spend (COGS and fees are entered at the business level, so they are not split per store).</p>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Net profit = revenue − refunds − COGS − fees − ad spend, using the COGS, refunds and fee rate from your P&amp;L. Store rows show revenue minus that store's ad spend (COGS and fees are entered at the business level, so they are not split per store).</p>
       </section>
 
       <section class="section" id="section-suppliers">
@@ -2442,6 +2443,7 @@ Or just card numbers:
             payoutHold: s.assets?.payoutHold || false,
             fulfillNeeded: s.assets?.fulfillNeeded || false,
             optimizeAds: s.assets?.optimizeAds || false,
+            recreateNeeded: s.assets?.recreateNeeded || false,
             assets: s.assets || {},
             createdBy: s.created_by, createdAt: s.created_at
           }));
@@ -3688,7 +3690,7 @@ Or just card numbers:
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
-          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a board task'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span><span class="trend-mini" onclick="event.stopPropagation(); toggleOptimizeAds('${store.id}')" title="${store.optimizeAds ? 'Optimize ads is marked — click to clear' : 'Mark ads for optimization — creates a board task'}" style="${store.optimizeAds ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🎯</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}${store.optimizeAds ? '<span style="font-size:0.65rem; font-weight:700; color:var(--warning); margin-left:0.3rem;">OPTIMIZE</span>' : ''}</span>${meta}</span>
+          <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a board task'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span><span class="trend-mini" onclick="event.stopPropagation(); toggleRecreateNeeded('${store.id}')" title="${store.recreateNeeded ? 'Recreate is marked — click to clear' : 'Mark store for recreation — creates a board task'}" style="${store.recreateNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">♻️</span><span class="trend-mini" onclick="openOptimizeMenu(event, '${store.id}')" title="${store.optimizeAds ? 'Optimize (' + (OPT_LABEL[store.optimizeAds] || 'ads') + ') is marked — click to clear' : 'Optimize ads — choose budget, bid or other'}" style="${store.optimizeAds ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🎯</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}${store.recreateNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--warning); margin-left:0.3rem;">RECREATE</span>' : ''}${store.optimizeAds ? `<span style="font-size:0.65rem; font-weight:700; color:var(--orange); margin-left:0.3rem;">OPTIMIZE${OPT_LABEL[store.optimizeAds] ? ' · ' + OPT_LABEL[store.optimizeAds].toUpperCase() : ''}</span>` : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
         </div>`;
       });
@@ -4011,7 +4013,7 @@ Or just card numbers:
         const cogsFromSupplier = hasSupplierData(key);
         const shop = rev - refunds;
         const fee = rate * shop;
-        const gross = rev - cogs;
+        const gross = shop - cogs;
         const ads = dayTotalAdSpend(key);
         const profit = gross - fee - ads;
         const roas = ads > 0 ? rev / ads : null;
@@ -4202,11 +4204,17 @@ Or just card numbers:
           activeKeys.add(id);
           upsertAutoTask(id, 'fulfill', `Fulfill — ${store.name}`, 'Orders waiting for fulfillment');
         }
-        // Ads optimization: flagged during Quick revenue entry
+        // Recreate: flagged during Quick revenue entry
+        if (store.recreateNeeded) {
+          const id = 'auto_recreate_' + store.id;
+          activeKeys.add(id);
+          upsertAutoTask(id, 'recreate', `Recreate — ${store.name}`, '');
+        }
+        // Ads optimization: flagged during Quick revenue entry (note = what to optimize)
         if (store.optimizeAds) {
           const id = 'auto_opt_' + store.id;
           activeKeys.add(id);
-          upsertAutoTask(id, 'optimize', `Optimize ads — ${store.name}`, 'Check the campaigns and improve results');
+          upsertAutoTask(id, 'optimize', `Optimize ads — ${store.name}`, OPT_LABEL[store.optimizeAds] || '');
         }
       });
       // Auto-resolve: any auto task whose condition no longer holds -> Done.
@@ -4306,7 +4314,8 @@ Or just card numbers:
       const map = [
         { prefix: 'auto_payout_', flag: 'payoutHold' },
         { prefix: 'auto_fulfil_', flag: 'fulfillNeeded' },
-        { prefix: 'auto_opt_', flag: 'optimizeAds' }
+        { prefix: 'auto_opt_', flag: 'optimizeAds' },
+        { prefix: 'auto_recreate_', flag: 'recreateNeeded' }
       ];
       const hit = map.find(m => taskId.startsWith(m.prefix));
       if (!hit) return;
@@ -4461,7 +4470,7 @@ Or just card numbers:
           if (t.at) meta.push(taskTimeAgo(t.at));
           return `
           <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
-            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}</div>
+            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && t.note && t.note.length <= 12 ? ` <span class="task-tag">${escapeHtml(t.note)}</span>` : ''}</div>
             ${!auto && t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
             <div class="task-meta">${meta.join(' · ')}${stale}</div>
             ${bulkMode ? '' : `<div class="task-actions">
@@ -5084,7 +5093,7 @@ Or just card numbers:
         refunds += parseFloat(p.refunds) || 0;
       });
       const fees = rate * (revenue - refunds);
-      const netProfit = revenue - cogs - fees - adSpend;
+      const netProfit = revenue - refunds - cogs - fees - adSpend;
       return {
         revenue, adSpend, cogs, refunds, fees, netProfit,
         roas: adSpend > 0 ? revenue / adSpend : null,
@@ -5123,7 +5132,7 @@ Or just card numbers:
         if (kind === 'cogs') return cogs;
         if (kind === 'fees') return rate * (rev - refunds);
         if (kind === 'roas') return ads > 0 ? rev / ads : 0;
-        const profit = rev - cogs - (rate * (rev - refunds)) - ads;
+        const profit = (rev - refunds) - cogs - (rate * (rev - refunds)) - ads;
         if (kind === 'margin') return rev > 0 ? (profit / rev) * 100 : 0;
         return profit;
       });
@@ -5183,6 +5192,7 @@ Or just card numbers:
       }
       const steps = [
         { label: 'Revenue', value: m.revenue, type: 'total' },
+        ...(m.refunds > 0 ? [{ label: 'Refunds', value: -m.refunds, type: 'cost' }] : []),
         { label: 'COGS', value: -m.cogs, type: 'cost' },
         { label: 'Fees', value: -m.fees, type: 'cost' },
         { label: 'Ad spend', value: -m.adSpend, type: 'cost' },
@@ -5270,7 +5280,7 @@ Or just card numbers:
         const rev = dayTotalRevenue(k), ads = dayTotalAdSpend(k);
         const p = pnlData[k] || {};
         const cogs = dayCogs(k), refunds = parseFloat(p.refunds) || 0;
-        return rev - cogs - (rate * (rev - refunds)) - ads;
+        return (rev - refunds) - cogs - (rate * (rev - refunds)) - ads;
       });
       if (vals.every(v => v === 0)) {
         el.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No data in this period yet.</p></div>';
@@ -7328,8 +7338,44 @@ Or just card numbers:
     async function toggleFulfillNeeded(storeId) {
       await toggleStoreTaskFlag(storeId, 'fulfillNeeded', '🚚 Fulfillment marked on {s} — task created', '✓ Fulfillment cleared on {s}');
     }
-    async function toggleOptimizeAds(storeId) {
-      await toggleStoreTaskFlag(storeId, 'optimizeAds', '🎯 Optimize ads marked on {s} — task created', '✓ Optimize cleared on {s}');
+    async function toggleRecreateNeeded(storeId) {
+      await toggleStoreTaskFlag(storeId, 'recreateNeeded', '♻️ Recreate marked on {s} — task created', '✓ Recreate cleared on {s}');
+    }
+    // Optimize: pick WHAT to optimize (budget / bid / other); click again to clear
+    const OPT_LABEL = { budget: 'Budget', bid: 'Bid', other: 'Other' };
+    const OPT_ICON = { budget: '💰', bid: '📊', other: '⚙️' };
+    function closeOptimizeMenu() { const m = document.getElementById('optMenu'); if (m) m.remove(); }
+    function openOptimizeMenu(ev, storeId) {
+      ev.stopPropagation();
+      const store = data.stores.find(x => x.id === storeId || x.id == storeId);
+      if (!store) return;
+      if (store.optimizeAds) { setOptimizeType(storeId, null); return; }   // already on -> clear
+      closeOptimizeMenu();
+      const m = document.createElement('div');
+      m.id = 'optMenu';
+      m.style.cssText = 'position:fixed; z-index:3000; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-lg); padding:0.3rem; min-width:140px;';
+      m.innerHTML = '<div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); padding:0.3rem 0.7rem;">Optimize what?</div>' +
+        Object.keys(OPT_LABEL).map(t =>
+          `<div onclick="setOptimizeType('${storeId}','${t}')" style="padding:0.45rem 0.7rem; border-radius:7px; cursor:pointer; font-size:0.84rem;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='transparent'">${OPT_ICON[t]} ${OPT_LABEL[t]}</div>`
+        ).join('');
+      document.body.appendChild(m);
+      const r = ev.target.getBoundingClientRect();
+      m.style.left = Math.max(8, Math.min(window.innerWidth - 160, r.left)) + 'px';
+      m.style.top = (r.bottom + 4) + 'px';
+      setTimeout(() => document.addEventListener('click', closeOptimizeMenu, { once: true }), 0);
+    }
+    async function setOptimizeType(storeId, type) {
+      closeOptimizeMenu();
+      const store = data.stores.find(x => x.id === storeId || x.id == storeId);
+      if (!store) return;
+      store.optimizeAds = type || false;
+      const assets = store.assets || {};
+      assets.optimizeAds = store.optimizeAds;
+      store.assets = assets;
+      await updateStoreInSupabase(storeId, { assets: assets });
+      showToast(type ? `🎯 ${OPT_LABEL[type]} optimization marked on ${store.name} — task created` : `✓ Optimize cleared on ${store.name}`);
+      if (isStoreMgmtUser()) { runTaskAutomations(); renderStoreTasks(); }
+      if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
     }
     async function togglePayoutHold(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
