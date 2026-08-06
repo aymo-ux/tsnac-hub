@@ -7752,6 +7752,10 @@ Or just card numbers:
       document.getElementById('viewAssetsBody').innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div class="form-group">
+            <label class="form-label">🏪 Store name</label>
+            <input type="text" class="form-input" id="editStoreName" value="${escapeHtml(store.name || '')}">
+          </div>
+          <div class="form-group">
             <label class="form-label">🔗 Final URL</label>
             <input type="text" class="form-input" id="editUrl" value="${store.url || ''}">
           </div>
@@ -7795,8 +7799,11 @@ Or just card numbers:
     async function saveEditedAssets(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
+      const newName = (document.getElementById('editStoreName')?.value || '').trim();
+      if (newName) store.name = newName;
       store.url = document.getElementById('editUrl').value;
-      store.assets = {
+      // Merge, don't replace: keeps payout/fulfill/recreate/optimize flags and tracking intact
+      store.assets = Object.assign({}, store.assets || {}, {
         keywords: document.getElementById('editKeywords').value,
         headlines: document.getElementById('editHeadlines').value,
         descriptions: document.getElementById('editDescriptions').value,
@@ -7804,13 +7811,14 @@ Or just card numbers:
         sitelinks: document.getElementById('editSitelinks').value,
         logo: document.getElementById('editLogo').value,
         docLink: document.getElementById('editDocLink').value
-      };
+      });
       try {
-        await updateStoreInSupabase(storeId, { url: store.url, assets: store.assets });
-        showAutoSaveIndicator('✓ Assets saved');
-        showToast('Assets updated! ✓');
+        await updateStoreInSupabase(storeId, { name: store.name, url: store.url, assets: store.assets });
+        showAutoSaveIndicator('✓ Saved');
+        showToast('Store updated ✓');
         viewAssets(storeId);
         renderStores();
+        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       } catch (error) {
         console.error('Failed to save assets:', error);
         showToast('Failed to save. Try again.');
