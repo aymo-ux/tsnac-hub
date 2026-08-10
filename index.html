@@ -3547,18 +3547,62 @@ Or just card numbers:
     }
     function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
     function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
+    let revCloudEmpty = false;   // true = revenue exists on this device but not in the cloud
     async function loadRevenue() {
       if (!isOwner()) return;
       loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
+      let cloudCount = -1;
       try {
         const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*');
         if (error) { console.error('daily_revenue load error:', error); }
         else if (rows) {
+          cloudCount = rows.length;
           rows.forEach(r => { dailyRevenue[`${r.store_id}_${r.date}`] = parseFloat(r.amount) || 0; });
           saveRevenueLocal(); // keep local copy in sync with cloud
         }
       } catch (e) { console.error('daily_revenue exception:', e); }
+      revCloudEmpty = cloudCount <= 0 && Object.keys(dailyRevenue).length > 0;
       revenueLoaded = true;
+    }
+    // Push EVERYTHING on this device up to the cloud — the rescue path when saves
+    // have been failing silently. Reports the database's exact words on failure.
+    async function syncAllRevenueToCloud() {
+      const keys = Object.keys(dailyRevenue);
+      if (!keys.length) { showToast('Nothing to sync on this device'); return; }
+      const btn = document.getElementById('revSyncBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+      let ok = 0, fail = 0, firstErr = null;
+      for (const k of keys) {
+        const date = k.slice(-10);
+        if (k[k.length - 11] !== '_' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        const storeId = k.slice(0, -11);
+        try {
+          const { error } = await supabaseClient.from('daily_revenue').upsert(
+            { store_id: String(storeId), date: date, amount: dailyRevenue[k] },
+            { onConflict: 'store_id,date' });
+          if (error) { fail++; if (!firstErr) firstErr = error.message || JSON.stringify(error); }
+          else ok++;
+        } catch (e) { fail++; if (!firstErr) firstErr = e.message || String(e); }
+      }
+      // COGS + refunds ride along so the other device matches completely
+      let pnlOk = 0, pnlFail = 0;
+      for (const d of Object.keys(pnlData || {})) {
+        try {
+          const { error } = await supabaseClient.from('daily_pnl').upsert(
+            { date: d, cogs: parseFloat(pnlData[d].cogs) || 0, refunds: parseFloat(pnlData[d].refunds) || 0 },
+            { onConflict: 'date' });
+          if (error) { pnlFail++; if (!firstErr) firstErr = error.message || JSON.stringify(error); }
+          else pnlOk++;
+        } catch (e) { pnlFail++; if (!firstErr) firstErr = e.message || String(e); }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '⤴ Sync all to cloud'; }
+      if (fail === 0 && pnlFail === 0) {
+        revCloudEmpty = false;
+        renderRevenue();
+        alert(`✓ Synced ${ok} revenue entries${pnlOk ? ` and ${pnlOk} P&L days` : ''} to the cloud.\n\nNow refresh the other device — the numbers will be there.`);
+      } else {
+        alert(`⚠️ ${fail + pnlFail} entries could not reach the cloud.\n\nThe database said:\n"${firstErr}"\n\nSend me that exact message and I'll give you the fix.`);
+      }
     }
     async function saveRevenue(storeId, dateKey, value) {
       const amount = parseFloat(value) || 0;
@@ -3831,17 +3875,23 @@ Or just card numbers:
         ? dObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
         : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
 
+      // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
+      const syncBar = revCloudEmpty ? `
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--danger-bg); border:1px solid var(--danger); border-radius:var(--radius-md); font-size:0.86rem;">
+          <span>⚠️ <strong>Your revenue is only on THIS device</strong> — the cloud has none of it, so other devices show $0.</span>
+          <button class="btn btn-sm btn-primary" id="revSyncBtn" style="margin-left:auto;" onclick="syncAllRevenueToCloud()">⤴ Sync all to cloud</button>
+        </div>` : '';
       // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
       if (manualBox) {
         if (revenueView === 'day') {
           const manual = manualDayRevenue(dateKey);
           const auto = autoDayRevenue(dateKey);
-          manualBox.innerHTML = `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
+          manualBox.innerHTML = syncBar + `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
             <span style="font-weight:600; font-size:0.88rem;">Manual daily total</span>
             <input type="number" step="0.01" min="0" class="form-input" style="width:150px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${manual !== null ? manual : ''}" placeholder="${auto ? fmtMoney(auto) : '$0'}" onchange="saveRevenue('${MANUAL_REV_STORE}','${dateKey}',this.value)">
             <span style="font-size:0.8rem; color:${manual !== null ? 'var(--accent)' : 'var(--text-muted)'};">${manual !== null ? '✎ using this total (per-store rows below are ignored for the day total)' : 'leave empty = automatic sum of the stores below'}</span>
           </div>`;
-        } else manualBox.innerHTML = '';
+        } else manualBox.innerHTML = syncBar;
       }
 
       head.innerHTML = `<tr>
