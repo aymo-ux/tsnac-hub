@@ -2509,6 +2509,8 @@ Or just card numbers:
                 adsStatus: a.ads_status || 'active',
                 spend: parseFloat(a.spend) || 0,
                 lifetimeSpend: parseFloat(a.lifetime_spend) || 0,
+                budget: a.budget != null ? parseFloat(a.budget) : null,
+                bid: a.bid != null ? parseFloat(a.bid) : null,
                 campaigns: a.campaigns || ['search'],
                 status: a.status || 'active',
                 suspendedAt: a.suspended_at,
@@ -3731,7 +3733,7 @@ Or just card numbers:
         const entered = sum > 0;
         const roas = spend > 0 ? sum / spend : null;
         const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
-        const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span></span>`;
+        const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span>${storeBBText(store.id)}</span>`;
         html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
           <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a board task'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span><span class="trend-mini" onclick="event.stopPropagation(); toggleRecreateNeeded('${store.id}')" title="${store.recreateNeeded ? 'Recreate is marked — click to clear' : 'Mark store for recreation — creates a board task'}" style="${store.recreateNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">♻️</span><span class="trend-mini" onclick="openOptimizeMenu(event, '${store.id}')" title="${store.optimizeAds ? 'Optimize (' + (OPT_LABEL[store.optimizeAds] || 'ads') + ') is marked — click to clear' : 'Optimize ads — choose budget, bid or other'}" style="${store.optimizeAds ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🎯</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}${store.recreateNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--warning); margin-left:0.3rem;">RECREATE</span>' : ''}${store.optimizeAds ? `<span style="font-size:0.65rem; font-weight:700; color:var(--orange); margin-left:0.3rem;">OPTIMIZE${OPT_LABEL[store.optimizeAds] ? ' · ' + OPT_LABEL[store.optimizeAds].toUpperCase() : ''}</span>` : ''}</span>${meta}</span>
@@ -3818,7 +3820,7 @@ Or just card numbers:
       keys2.forEach(k => { sum += dailyRevenue[`${storeId}_${k}`] || 0; sp += storeSpendForDate(storeId, k); });
       const rs = sp > 0 ? sum / sp : null;
       const meta = row.querySelector('.rev-quick-meta');
-      if (meta) meta.innerHTML = `Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(sp)}</span> · ROAS <span style="font-weight:700; color:${rs === null ? 'var(--text-muted)' : (rs >= 1 ? 'var(--success)' : 'var(--danger)')};">${rs === null ? '—' : rs.toFixed(2) + 'x'}</span>`;
+      if (meta) meta.innerHTML = `Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(sp)}</span> · ROAS <span style="font-weight:700; color:${rs === null ? 'var(--text-muted)' : (rs >= 1 ? 'var(--success)' : 'var(--danger)')};">${rs === null ? '—' : rs.toFixed(2) + 'x'}</span>${storeBBText(storeId)}`;
       updateRevQuickTotals();
     }
     function updateRevQuickTotals() {
@@ -5751,6 +5753,10 @@ Or just card numbers:
                 <div style="font-weight:600; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(name)}</div>
                 <div style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">••••${last4}</div>
               </div>
+              <div style="display:flex; flex-direction:column; gap:0.15rem;" title="Campaign settings — update these whenever you change budget or bid">
+                <input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="budget" value="${account.budget != null ? account.budget : ''}" placeholder="Budget $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+                <input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="bid" value="${account.bid != null ? account.bid : ''}" placeholder="Bid $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+              </div>
               <div style="display:flex; align-items:center; gap:0.3rem;">
                 <span style="color:var(--text-muted); font-weight:600;">$</span>
                 <input type="number" inputmode="decimal" step="0.01" class="quick-spend-input"
@@ -5768,6 +5774,36 @@ Or just card numbers:
       });
       listEl.innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No accounts yet — add an ad account to begin daily tracking.</p></div>';
       updateQuickTotals();
+    }
+    async function saveAccountBB(input) {
+      const id = input.dataset.account, field = input.dataset.field;
+      const raw = input.value.trim();
+      const val = raw === '' ? null : (parseFloat(raw) || 0);
+      let account = null;
+      ['google', 'tiktok', 'facebook'].forEach(ch => {
+        const hit = (data.accounts[ch] || []).find(a => String(a.id) === String(id));
+        if (hit) account = hit;
+      });
+      if (!account) return;
+      account[field] = val;
+      try {
+        const patch = {}; patch[field] = val;
+        const { error } = await supabaseClient.from('ad_accounts').update(patch).eq('id', id);
+        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
+        if (error) console.error('budget/bid sync failed (run the budget SQL?):', error);
+      } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); }
+    }
+    // Store-level summary for Quick revenue entry: budgets add up, bids listed
+    function storeBBText(storeId) {
+      const accts = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
+        .filter(a => a.storeId === storeId && a.status === 'active');
+      const budgets = accts.map(a => a.budget).filter(v => v != null);
+      const bids = accts.map(a => a.bid).filter(v => v != null);
+      if (!budgets.length && !bids.length) return '';
+      let out = '';
+      if (budgets.length) out += ` · <span title="Campaign budget per day (all accounts)">💰 ${fmtMoney(budgets.reduce((x, y) => x + y, 0))}/d</span>`;
+      if (bids.length) out += ` · <span title="Current bid${bids.length > 1 ? 's (one per account)' : ''}">Bid <span style="font-family:'JetBrains Mono',monospace; font-weight:700;">${bids.map(b => '$' + b).join(' / ')}</span></span>`;
+      return out;
     }
     function quickEntryKey(e, idx) {
       if (e.key === 'Enter') {
