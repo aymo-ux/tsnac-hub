@@ -2847,6 +2847,24 @@ Or just card numbers:
       const roles = { ayman: 'Admin', ara: 'Account Creator', jeannie: 'Daily Tracker', elias: 'TikTok/FB Manager' };
       document.getElementById('currentUserName').textContent = names[userId];
       document.getElementById('currentUserRole').textContent = roles[userId];
+      // True preview: when the OWNER picks a teammate, hide everything they can't see
+      const realOwner = !!(authUser && authUser.email && authUser.email.toLowerCase() === OWNER_EMAIL);
+      if (realOwner) {
+        previewMode = userId !== 'ayman';
+        const ownerNav = document.getElementById('ownerNavSection');
+        const mgmtNav = document.getElementById('mgmtNavSection');
+        if (ownerNav) ownerNav.style.display = previewMode ? 'none' : '';
+        if (mgmtNav) mgmtNav.style.display = previewMode ? 'none' : (STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()) ? '' : 'none');
+        let bn = document.getElementById('previewBanner');
+        if (previewMode) {
+          if (!bn) { bn = document.createElement('div'); bn.id = 'previewBanner'; document.body.appendChild(bn); }
+          bn.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:2500; background:var(--accent); color:white; font-size:0.82rem; font-weight:600; padding:0.45rem 1rem; display:flex; align-items:center; gap:0.6rem; box-shadow:var(--shadow-md);';
+          bn.innerHTML = `👀 Viewing as ${names[userId]} (${roles[userId]}) — exactly what they see. Private pages and the Team board are hidden. <button onclick="exitPreview()" style="margin-left:auto; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.55); color:white; border-radius:6px; padding:0.2rem 0.7rem; cursor:pointer; font-family:inherit; font-weight:600;">Return to my view</button>`;
+          const act = document.querySelector('.section.active');
+          const cur = act ? act.id.replace('section-', '') : 'dashboard';
+          if (['analyze', 'revenue', 'suppliers', 'pnl', 'storetasks'].includes(cur)) showSection('dashboard');
+        } else if (bn) bn.remove();
+      }
       const perms = permissions[userId];
       if (!perms.channels.includes(currentChannel)) {
         switchChannel(perms.channels[0]);
@@ -2854,6 +2872,11 @@ Or just card numbers:
       updateUIForUser();
       renderSection(document.querySelector('.section.active').id.replace('section-', ''));
       updateBadges();
+    }
+    function exitPreview() {
+      const sel = document.getElementById('userSwitcher');
+      if (sel) sel.value = 'ayman';
+      switchUser('ayman');
     }
     function updateUIForUser() {
       const perms = permissions[currentUser];
@@ -3539,8 +3562,9 @@ Or just card numbers:
     let revenueView = 'day';     // 'day' | 'month'
     let revenueDate = null;      // 'YYYY-MM-DD'
     let revenueLoaded = false;
+    let previewMode = false;   // owner is looking through a teammate's eyes
     function isOwner() {
-      return !!(authUser && authUser.email && authUser.email.toLowerCase() === OWNER_EMAIL);
+      return !previewMode && !!(authUser && authUser.email && authUser.email.toLowerCase() === OWNER_EMAIL);
     }
     function fmtMoney(n) {
       const v = Math.round((n + Number.EPSILON) * 100) / 100;
@@ -3549,21 +3573,30 @@ Or just card numbers:
     }
     function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
     function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
-    let revCloudEmpty = false;   // true = revenue exists on this device but not in the cloud
+    let revUnsyncedCount = 0;   // local revenue entries the cloud doesn't have
     async function loadRevenue() {
       if (!isOwner()) return;
       loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
-      let cloudCount = -1;
+      let cloudKeys = null;   // null = load failed entirely
       try {
         const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*');
         if (error) { console.error('daily_revenue load error:', error); }
         else if (rows) {
-          cloudCount = rows.length;
-          rows.forEach(r => { dailyRevenue[`${r.store_id}_${r.date}`] = parseFloat(r.amount) || 0; });
+          cloudKeys = new Set();
+          rows.forEach(r => {
+            const k = `${r.store_id}_${r.date}`;
+            cloudKeys.add(k);
+            dailyRevenue[k] = parseFloat(r.amount) || 0;
+          });
           saveRevenueLocal(); // keep local copy in sync with cloud
         }
       } catch (e) { console.error('daily_revenue exception:', e); }
-      revCloudEmpty = cloudCount <= 0 && Object.keys(dailyRevenue).length > 0;
+      // Any local entry the cloud lacks = invisible on other devices. Count them all.
+      const localValid = Object.keys(dailyRevenue).filter(k =>
+        k.length > 11 && k[k.length - 11] === '_' && /^\d{4}-\d{2}-\d{2}$/.test(k.slice(-10)));
+      revUnsyncedCount = cloudKeys === null
+        ? localValid.length
+        : localValid.filter(k => !cloudKeys.has(k)).length;
       revenueLoaded = true;
     }
     // Push EVERYTHING on this device up to the cloud — the rescue path when saves
@@ -3599,7 +3632,7 @@ Or just card numbers:
       }
       if (btn) { btn.disabled = false; btn.textContent = '⤴ Sync all to cloud'; }
       if (fail === 0 && pnlFail === 0) {
-        revCloudEmpty = false;
+        revUnsyncedCount = 0;
         renderRevenue();
         alert(`✓ Synced ${ok} revenue entries${pnlOk ? ` and ${pnlOk} P&L days` : ''} to the cloud.\n\nNow refresh the other device — the numbers will be there.`);
       } else {
@@ -3780,7 +3813,8 @@ Or just card numbers:
           if (error) { ok = false; console.error('revenue save error:', error); }
         } catch (e) { ok = false; console.error(e); }
       }
-      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Not saved');
+      if (!ok) revUnsyncedCount += rows.length;
+      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Saved on this device ONLY — press "Sync all to cloud" on the Revenue page');
     }
     function revQuickSave(input) {
       const storeId = input.dataset.store;
@@ -3878,9 +3912,9 @@ Or just card numbers:
         : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
 
       // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
-      const syncBar = revCloudEmpty ? `
+      const syncBar = revUnsyncedCount > 0 ? `
         <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--danger-bg); border:1px solid var(--danger); border-radius:var(--radius-md); font-size:0.86rem;">
-          <span>⚠️ <strong>Your revenue is only on THIS device</strong> — the cloud has none of it, so other devices show $0.</span>
+          <span>⚠️ <strong>${revUnsyncedCount} revenue entr${revUnsyncedCount === 1 ? 'y is' : 'ies are'} only on THIS device</strong> — other devices can't see them.</span>
           <button class="btn btn-sm btn-primary" id="revSyncBtn" style="margin-left:auto;" onclick="syncAllRevenueToCloud()">⤴ Sync all to cloud</button>
         </div>` : '';
       // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
@@ -4143,7 +4177,7 @@ Or just card numbers:
     // NOTE: set Elias's real login email here.
     const STORE_MGMT_EMAILS = ['aymo@maleistung.com', 'emoade4@gmail.com'];
     function isStoreMgmtUser() {
-      return !!(authUser && authUser.email && STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()));
+      return !previewMode && !!(authUser && authUser.email && STORE_MGMT_EMAILS.includes(authUser.email.toLowerCase()));
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
@@ -5797,13 +5831,50 @@ Or just card numbers:
     function storeBBText(storeId) {
       const accts = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
         .filter(a => a.storeId === storeId && a.status === 'active');
+      if (!accts.length) return '';
       const budgets = accts.map(a => a.budget).filter(v => v != null);
       const bids = accts.map(a => a.bid).filter(v => v != null);
-      if (!budgets.length && !bids.length) return '';
-      let out = '';
-      if (budgets.length) out += ` · <span title="Campaign budget per day (all accounts)">💰 ${fmtMoney(budgets.reduce((x, y) => x + y, 0))}/d</span>`;
-      if (bids.length) out += ` · <span title="Current bid${bids.length > 1 ? 's (one per account)' : ''}">Bid <span style="font-family:'JetBrains Mono',monospace; font-weight:700;">${bids.map(b => '$' + b).join(' / ')}</span></span>`;
-      return out;
+      let inner = '💰 ';
+      inner += budgets.length ? `${fmtMoney(budgets.reduce((x, y) => x + y, 0))}/d` : '—';
+      if (bids.length) inner += ` · Bid <span style="font-family:'JetBrains Mono',monospace; font-weight:700;">${bids.map(b => '$' + b).join(' / ')}</span>`;
+      return ` · <span onclick="event.stopPropagation(); openBBPopup(event, '${storeId}')" title="Budget & bid per account — click to view or edit" style="cursor:pointer; text-decoration:underline dotted; text-underline-offset:2px;">${inner}</span>`;
+    }
+    function closeBBPopup() {
+      const p = document.getElementById('bbPopup');
+      if (p) { p.remove(); if (typeof renderRevenueQuick === 'function') renderRevenueQuick(); }
+    }
+    function bbOutsideClick(e) {
+      const p = document.getElementById('bbPopup');
+      if (!p) return;
+      if (p.contains(e.target)) document.addEventListener('click', bbOutsideClick, { once: true });
+      else closeBBPopup();
+    }
+    // The same per-account Budget/Bid boxes Jeannie has in Daily Tracking, inline here
+    function openBBPopup(ev, storeId) {
+      const old = document.getElementById('bbPopup'); if (old) old.remove();
+      const store = getStore(storeId);
+      const accts = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
+        .filter(a => a.storeId === storeId && a.status === 'active');
+      if (!accts.length) return;
+      const p = document.createElement('div');
+      p.id = 'bbPopup';
+      p.style.cssText = 'position:fixed; z-index:3000; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg); padding:0.7rem 0.8rem; min-width:280px;';
+      p.innerHTML = `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:0.5rem;">${escapeHtml(store ? store.name : '')} — budget & bid per account</div>` +
+        accts.map(a => {
+          const profile = typeof getProfile === 'function' ? getProfile(a.profileId) : null;
+          const label = (profile && profile.name) ? profile.name : ('Account ' + a.id);
+          return `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0;">
+            <span style="flex:1; font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(label)}</span>
+            <input type="number" step="0.01" min="0" class="bb-input" data-account="${a.id}" data-field="budget" value="${a.budget != null ? a.budget : ''}" placeholder="Budget $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:82px; padding:0.3rem 0.45rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.78rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+            <input type="number" step="0.01" min="0" class="bb-input" data-account="${a.id}" data-field="bid" value="${a.bid != null ? a.bid : ''}" placeholder="Bid $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:70px; padding:0.3rem 0.45rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.78rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+          </div>`;
+        }).join('') +
+        `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.4rem;">Same boxes Jeannie edits in Daily Tracking — changes sync both ways.</div>`;
+      document.body.appendChild(p);
+      const r = ev.target.getBoundingClientRect();
+      p.style.left = Math.max(8, Math.min(window.innerWidth - 300, r.left)) + 'px';
+      p.style.top = Math.min(window.innerHeight - 60 - accts.length * 40, r.bottom + 6) + 'px';
+      setTimeout(() => document.addEventListener('click', bbOutsideClick, { once: true }), 0);
     }
     function quickEntryKey(e, idx) {
       if (e.key === 'Enter') {
