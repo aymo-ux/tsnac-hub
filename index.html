@@ -3598,10 +3598,17 @@ Or just card numbers:
         ? localValid.length
         : localValid.filter(k => !cloudKeys.has(k)).length;
       revenueLoaded = true;
+      // Anything the cloud is missing gets pushed up automatically, silently
+      if (revUnsyncedCount > 0) setTimeout(() => syncAllRevenueToCloud(true), 800);
     }
     // Push EVERYTHING on this device up to the cloud — the rescue path when saves
     // have been failing silently. Reports the database's exact words on failure.
-    async function syncAllRevenueToCloud() {
+    function scheduleRevRetry() {
+      // A failed save retries itself — no clicks needed
+      if (window._revRetry) return;
+      window._revRetry = setTimeout(() => { window._revRetry = null; syncAllRevenueToCloud(true); }, 30000);
+    }
+    async function syncAllRevenueToCloud(quiet = false) {
       const keys = Object.keys(dailyRevenue);
       if (!keys.length) { showToast('Nothing to sync on this device'); return; }
       const btn = document.getElementById('revSyncBtn');
@@ -3634,7 +3641,12 @@ Or just card numbers:
       if (fail === 0 && pnlFail === 0) {
         revUnsyncedCount = 0;
         renderRevenue();
-        alert(`✓ Synced ${ok} revenue entries${pnlOk ? ` and ${pnlOk} P&L days` : ''} to the cloud.\n\nNow refresh the other device — the numbers will be there.`);
+        if (quiet) { if (ok || pnlOk) showToast(`⤴ Synced ${ok} entries to the cloud automatically`); }
+        else alert(`✓ Synced ${ok} revenue entries${pnlOk ? ` and ${pnlOk} P&L days` : ''} to the cloud.\n\nNow refresh the other device — the numbers will be there.`);
+      } else if (quiet) {
+        showToast('⚠️ Cloud sync failed — retrying automatically');
+        scheduleRevRetry();
+        renderRevenue();   // banner appears as the visible fallback
       } else {
         alert(`⚠️ ${fail + pnlFail} entries could not reach the cloud.\n\nThe database said:\n"${firstErr}"\n\nSend me that exact message and I'll give you the fix.`);
       }
@@ -3813,8 +3825,8 @@ Or just card numbers:
           if (error) { ok = false; console.error('revenue save error:', error); }
         } catch (e) { ok = false; console.error(e); }
       }
-      if (!ok) revUnsyncedCount += rows.length;
-      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Saved on this device ONLY — press "Sync all to cloud" on the Revenue page');
+      if (!ok) { revUnsyncedCount += rows.length; scheduleRevRetry(); }
+      showAutoSaveIndicator(ok ? '✓ Saved' : '⚠️ Saved on this device — will retry syncing automatically');
     }
     function revQuickSave(input) {
       const storeId = input.dataset.store;
@@ -3914,8 +3926,8 @@ Or just card numbers:
       // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
       const syncBar = revUnsyncedCount > 0 ? `
         <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--danger-bg); border:1px solid var(--danger); border-radius:var(--radius-md); font-size:0.86rem;">
-          <span>⚠️ <strong>${revUnsyncedCount} revenue entr${revUnsyncedCount === 1 ? 'y is' : 'ies are'} only on THIS device</strong> — other devices can't see them.</span>
-          <button class="btn btn-sm btn-primary" id="revSyncBtn" style="margin-left:auto;" onclick="syncAllRevenueToCloud()">⤴ Sync all to cloud</button>
+          <span>⚠️ <strong>Automatic sync could not reach the cloud</strong> — ${revUnsyncedCount} entr${revUnsyncedCount === 1 ? 'y is' : 'ies are'} still only on this device. It keeps retrying by itself.</span>
+          <button class="btn btn-sm btn-primary" id="revSyncBtn" style="margin-left:auto;" onclick="syncAllRevenueToCloud()">Retry now & show error</button>
         </div>` : '';
       // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
       if (manualBox) {
@@ -4035,7 +4047,8 @@ Or just card numbers:
           { date: dateKey, cogs: cur.cogs, refunds: cur.refunds },
           { onConflict: 'date' }
         );
-        showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
+        if (error) scheduleRevRetry();
+        showAutoSaveIndicator(error ? '⚠️ Saved on this device — will retry automatically' : '✓ Saved');
         if (error) console.error('daily_pnl save error:', error);
       } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); console.error(e); }
     }
