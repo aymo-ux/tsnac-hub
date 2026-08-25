@@ -3563,8 +3563,10 @@ Or just card numbers:
     let revenueDate = null;      // 'YYYY-MM-DD'
     let revenueLoaded = false;
     let previewMode = false;   // owner is looking through a teammate's eyes
+    // Full financial view: Ayman + Elias (Mouad). Same pages, same numbers.
+    const FINANCE_EMAILS = [OWNER_EMAIL, 'emoade4@gmail.com'];
     function isOwner() {
-      return !previewMode && !!(authUser && authUser.email && authUser.email.toLowerCase() === OWNER_EMAIL);
+      return !previewMode && !!(authUser && authUser.email && FINANCE_EMAILS.includes(authUser.email.toLowerCase()));
     }
     function fmtMoney(n) {
       const v = Math.round((n + Number.EPSILON) * 100) / 100;
