@@ -3576,6 +3576,7 @@ Or just card numbers:
     function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
     function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
     let revUnsyncedCount = 0;   // local revenue entries the cloud doesn't have
+    let revCloudCount = -1;     // how many revenue rows the cloud sent THIS login
     async function loadRevenue() {
       if (!isOwner()) return;
       loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
@@ -3593,6 +3594,7 @@ Or just card numbers:
           saveRevenueLocal(); // keep local copy in sync with cloud
         }
       } catch (e) { console.error('daily_revenue exception:', e); }
+      revCloudCount = cloudKeys === null ? -1 : cloudKeys.size;
       // Any local entry the cloud lacks = invisible on other devices. Count them all.
       const localValid = Object.keys(dailyRevenue).filter(k =>
         k.length > 11 && k[k.length - 11] === '_' && /^\d{4}-\d{2}-\d{2}$/.test(k.slice(-10)));
@@ -3926,11 +3928,15 @@ Or just card numbers:
         : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
 
       // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
-      const syncBar = revUnsyncedCount > 0 ? `
+      const permBar = (revCloudCount === 0 && Object.keys(dailyRevenue).length === 0 && authUser && authUser.email && authUser.email.toLowerCase() !== OWNER_EMAIL) ? `
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--bg-tertiary); border:1px solid var(--warning); border-radius:var(--radius-md); font-size:0.86rem;">
+          <span>🔒 <strong>The cloud sent no revenue to this login.</strong> The one-time permission SQL for <b>${escapeHtml(authUser.email)}</b> hasn't been run in Supabase yet — ask Ayman to run it, then refresh. Nothing is lost.</span>
+        </div>` : '';
+      const syncBar = permBar + (revUnsyncedCount > 0 ? `
         <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--danger-bg); border:1px solid var(--danger); border-radius:var(--radius-md); font-size:0.86rem;">
           <span>⚠️ <strong>Automatic sync could not reach the cloud</strong> — ${revUnsyncedCount} entr${revUnsyncedCount === 1 ? 'y is' : 'ies are'} still only on this device. It keeps retrying by itself.</span>
           <button class="btn btn-sm btn-primary" id="revSyncBtn" style="margin-left:auto;" onclick="syncAllRevenueToCloud()">Retry now & show error</button>
-        </div>` : '';
+        </div>` : '');
       // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
       if (manualBox) {
         if (revenueView === 'day') {
