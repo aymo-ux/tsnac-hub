@@ -3558,6 +3558,7 @@ Or just card numbers:
     }
     // ===== Private Revenue / ROAS dashboard (owner only) =====
     const OWNER_EMAIL = 'aymo@maleistung.com';
+    const BUILD_TAG = '2026-08-25 doctor';
     let dailyRevenue = {};       // `${storeId}_${date}` -> amount
     let revenueView = 'day';     // 'day' | 'month'
     let revenueDate = null;      // 'YYYY-MM-DD'
@@ -3604,6 +3605,29 @@ Or just card numbers:
       revenueLoaded = true;
       // Anything the cloud is missing gets pushed up automatically, silently
       if (revUnsyncedCount > 0) setTimeout(() => syncAllRevenueToCloud(true), 800);
+    }
+    async function revenueDoctor() {
+      const lines = [];
+      lines.push('Build: ' + BUILD_TAG);
+      lines.push('Login: ' + ((authUser && authUser.email) || 'NOT LOGGED IN'));
+      try {
+        const { data: rows, error } = await supabaseClient.from('daily_revenue').select('date');
+        lines.push(error ? '1. READ revenue: ✗ ' + (error.message || JSON.stringify(error))
+                         : '1. READ revenue: ✓ ' + rows.length + ' rows visible to this login');
+      } catch (e) { lines.push('1. READ revenue: ✗ ' + (e.message || e)); }
+      try {
+        const { error } = await supabaseClient.from('daily_revenue').upsert(
+          { store_id: '__ping__', date: getThailandDate(), amount: 0 }, { onConflict: 'store_id,date' });
+        lines.push(error ? '2. WRITE revenue: ✗ ' + (error.message || JSON.stringify(error))
+                         : '2. WRITE revenue: ✓ allowed');
+        if (!error) { try { await supabaseClient.from('daily_revenue').delete().eq('store_id', '__ping__'); } catch (e2) {} }
+      } catch (e) { lines.push('2. WRITE revenue: ✗ ' + (e.message || e)); }
+      try {
+        const { data: sess } = await supabaseClient.auth.getSession();
+        lines.push('3. Session: ' + (sess && sess.session ? '✓ active' : '✗ EXPIRED — log out, log back in'));
+      } catch (e) { lines.push('3. Session: ✗ ' + (e.message || e)); }
+      lines.push('4. Local entries on this device: ' + Object.keys(dailyRevenue).length);
+      alert('🩺 CLOUD CHECK — screenshot this\n\n' + lines.join('\n'));
     }
     // Push EVERYTHING on this device up to the cloud — the rescue path when saves
     // have been failing silently. Reports the database's exact words on failure.
@@ -3928,10 +3952,10 @@ Or just card numbers:
         : dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · month to date';
 
       // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
-      const permBar = (revCloudCount === 0 && Object.keys(dailyRevenue).length === 0 && authUser && authUser.email && authUser.email.toLowerCase() !== OWNER_EMAIL) ? `
+      const permBar = ((revCloudCount === 0 && Object.keys(dailyRevenue).length === 0 && authUser && authUser.email && authUser.email.toLowerCase() !== OWNER_EMAIL) ? `
         <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--bg-tertiary); border:1px solid var(--warning); border-radius:var(--radius-md); font-size:0.86rem;">
           <span>🔒 <strong>The cloud sent no revenue to this login.</strong> The one-time permission SQL for <b>${escapeHtml(authUser.email)}</b> hasn't been run in Supabase yet — ask Ayman to run it, then refresh. Nothing is lost.</span>
-        </div>` : '';
+        </div>` : '');
       const syncBar = permBar + (revUnsyncedCount > 0 ? `
         <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.8rem 1rem; margin-bottom:1rem; background:var(--danger-bg); border:1px solid var(--danger); border-radius:var(--radius-md); font-size:0.86rem;">
           <span>⚠️ <strong>Automatic sync could not reach the cloud</strong> — ${revUnsyncedCount} entr${revUnsyncedCount === 1 ? 'y is' : 'ies are'} still only on this device. It keeps retrying by itself.</span>
