@@ -1472,7 +1472,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Stores</h1>
-            <p class="page-subtitle">Your stores, launch status, and top performers</p>
+            <p class="page-subtitle">Every store at a glance — status, accounts, and top performers</p>
           </div>
           <div class="header-actions" id="storeActions">
             <button class="btn btn-primary" onclick="openModal('addStore')">
@@ -1487,7 +1487,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Daily Tracking</h1>
-            <p class="page-subtitle">Track daily spend for each account • <span style="color: var(--success);">Auto-saves to cloud ✓</span></p>
+            <p class="page-subtitle">Daily spend, budget, and bid per account • <span style="color: var(--success);">Saves automatically ✓</span></p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-primary" onclick="showQuickEntry()" title="Fast keyboard entry — type a number, press Enter to jump to the next account">
@@ -1594,7 +1594,7 @@
         <div class="header">
           <div>
             <h1 class="page-title" id="profilesTitle">AdsPower Profiles</h1>
-            <p class="page-subtitle">Your browser profiles for account management</p>
+            <p class="page-subtitle">Browser profiles and the accounts they manage</p>
           </div>
           <div class="header-actions" id="profileActions">
             <button class="btn btn-primary" onclick="openModal('addProfile')">
@@ -1609,7 +1609,7 @@
         <div class="header">
           <div>
             <h1 class="page-title" id="accountsTitle">Google Ads Accounts</h1>
-            <p class="page-subtitle">Every account, with status and spend</p>
+            <p class="page-subtitle">All ad accounts — status, spend, and cards in one place</p>
           </div>
           <div class="header-actions" id="accountActions">
             <button class="btn btn-primary" onclick="openModal('addAccount')">
@@ -1626,7 +1626,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Suspended Accounts</h1>
-            <p class="page-subtitle">Accounts pending deletion (auto-delete after 3 days)</p>
+            <p class="page-subtitle">Suspended accounts — auto-removed after 3 days unless recovered</p>
           </div>
         </div>
         <div id="suspendedAccountsList"></div>
@@ -1646,7 +1646,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Revenue &amp; ROAS</h1>
-            <p class="page-subtitle">Daily revenue and return on ad spend</p>
+            <p class="page-subtitle">Daily revenue, ROAS, and profit per store</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
@@ -1728,7 +1728,7 @@
         <div class="header">
           <div>
             <h1 class="page-title">Analyze</h1>
-            <p class="page-subtitle" id="analyzeSubtitle">Your performance at a glance</p>
+            <p class="page-subtitle" id="analyzeSubtitle">Trends, comparisons, and where the profit comes from</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
             <button class="btn btn-sm btn-secondary" id="an7" onclick="setAnalyzePeriod(7)">7D</button>
@@ -3763,7 +3763,7 @@ Or just card numbers:
         if (quiet) { if (ok || pnlOk) showToast(`⤴ Synced ${ok} entries to the cloud automatically`); }
         else console.log(`synced ${ok} revenue entries`);
       } else if (quiet) {
-        showToast('⚠️ Cloud sync failed — retrying automatically');
+        showToast('⚠️ Cloud unreachable — will retry automatically');
         scheduleRevRetry();
         renderRevenue();   // banner appears as the visible fallback
       } else {
@@ -4051,7 +4051,7 @@ Or just card numbers:
           manualBox.innerHTML = `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
             <span style="font-weight:600; font-size:0.88rem;">Manual daily total</span>
             <input type="number" step="0.01" min="0" class="form-input" style="width:150px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${manual !== null ? manual : ''}" placeholder="${auto ? fmtMoney(auto) : '$0'}" onchange="saveRevenue('${MANUAL_REV_STORE}','${dateKey}',this.value)">
-            <span style="font-size:0.8rem; color:${manual !== null ? 'var(--accent)' : 'var(--text-muted)'};">${manual !== null ? '✎ using this total (per-store rows below are ignored for the day total)' : 'leave empty = automatic sum of the stores below'}</span>
+            <span style="font-size:0.8rem; color:${manual !== null ? 'var(--accent)' : 'var(--text-muted)'};">${manual !== null ? '✎ using this total (per-store rows below are ignored for the day total)' : 'leave empty to use the sum of the stores below'}</span>
           </div>`;
         } else manualBox.innerHTML = '';
       }
@@ -4514,7 +4514,7 @@ Or just card numbers:
         if (store.payoutHold) {
           const id = 'auto_payout_' + store.id;
           activeKeys.add(id);
-          upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts paused — keep eyes on it');
+          upsertAutoTask(id, 'hold', `Payout hold — ${store.name}`, 'Payouts on hold — monitor until released');
         }
         // Fulfillment: flagged during Quick revenue entry
         if (store.fulfillNeeded) {
@@ -4669,7 +4669,7 @@ Or just card numbers:
       await completeTaskCore(id);
       runTaskAutomations();
       renderStoreTasks();
-      showToast('Cleared');
+      showToast('✓ Cleared');
     }
     let bulkMode = false;
     const selectedTasks = new Set();
@@ -4683,7 +4683,7 @@ Or just card numbers:
       bulkMode = false;
       runTaskAutomations();
       renderStoreTasks();
-      showToast('Cleared');
+      showToast('✓ Cleared');
     }
     function taskTimeAgo(iso) {
       if (!iso) return '';
@@ -4876,10 +4876,10 @@ Or just card numbers:
     function addSupplier() {
       const name = (prompt('Supplier name (e.g. Tina):') || '').trim();
       if (!name) return;
-      if (suppliers.includes(name)) { showToast('That supplier already exists'); return; }
+      if (suppliers.includes(name)) { showToast('This supplier is already in your list'); return; }
       suppliers.push(name);
       saveSuppliersLocal();
-      showToast('Supplier "' + name + '" added');
+      showToast('✓ Supplier "' + name + '" added');
       renderSuppliers();
     }
     function removeSupplier(name) {
@@ -5093,7 +5093,7 @@ Or just card numbers:
       });
       saveSheetsLocal();
       closeModal('sheetSettings');
-      showToast('Sheet links saved');
+      showToast('✓ Sheet links saved');
       syncAllSheets();
     }
     // Manual fallback: paste the sheet contents if Google blocks the fetch
@@ -6371,7 +6371,7 @@ Or just card numbers:
     }
     function exportTrackingCSV() {
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
-      if (!accounts.length) { showToast('No active accounts to export'); return; }
+      if (!accounts.length) { showToast('No active accounts to export yet'); return; }
       // Collect every date that has any spend recorded, for the current channel's accounts
       const accountIds = new Set(accounts.map(a => String(a.id)));
       const dateSet = new Set();
@@ -6382,7 +6382,7 @@ Or just card numbers:
         if (accountIds.has(accId) && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)) dateSet.add(dateKey);
       });
       const dates = Array.from(dateSet).sort();
-      if (!dates.length) { showToast('No spend history to export yet'); return; }
+      if (!dates.length) { showToast('No spend history to export yet — track a few days first'); return; }
       const esc = v => {
         const s = String(v ?? '');
         return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -6414,7 +6414,7 @@ Or just card numbers:
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast('CSV exported ✓');
+      showToast('✓ CSV downloaded');
     }
     function renderProfiles() {
       const profiles = data.profiles[currentChannel];
@@ -6446,7 +6446,6 @@ Or just card numbers:
       document.getElementById('profilesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No profiles yet — add one to organize your accounts.</p></div>';
     }
     async function deleteProfile(profileId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const profile = data.profiles[currentChannel].find(p => p.id === profileId || p.id == profileId);
       if (!profile) return;
       const linkedAccounts = data.accounts[currentChannel].filter(a => a.profileId === profileId || a.profileId == profileId);
@@ -6579,7 +6578,6 @@ Or just card numbers:
       else { body.style.display = 'none'; arrow.textContent = '▶'; }
     }
     async function deleteAdAccount(accountId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
       const store = getStore(account.storeId);
@@ -6596,7 +6594,7 @@ Or just card numbers:
       } catch (e) {}
       showAutoSaveIndicator(syncedA ? '✓ Account archived' : '⚠️ Archived on this device only');
       if (!syncedA) alert('⚠️ Hidden on THIS device only — run the archive SQL in Supabase, then archive again.');
-      showToast('Account archived — its spend stays in your totals');
+      showToast('✓ Account archived — its spend stays counted in your totals');
       renderAccounts();
       renderDashboard();
       updateBadges();
@@ -6605,7 +6603,7 @@ Or just card numbers:
       archivedAccounts.delete(String(accountId));
       saveArchivedLocal();
       try { await supabaseClient.from('ad_accounts').update({ archived: false }).eq('id', accountId); } catch (e) {}
-      showToast('Account restored');
+      showToast('✓ Account restored');
       renderAccounts(); renderDashboard(); updateBadges();
     }
     function openEditVCCModal(accountId) {
@@ -6654,7 +6652,7 @@ Or just card numbers:
         closeModal('editVCC');
         editingAccountId = null;
         showAutoSaveIndicator('✓ VCC updated');
-        showToast('VCC linked successfully!');
+        showToast('✓ Card linked to the account');
         renderAccounts();
         renderVCCs();
         renderDashboard();
@@ -6697,7 +6695,7 @@ Or just card numbers:
         closeModal('editProfile');
         editingAccountId = null;
         showAutoSaveIndicator('✓ Profile updated');
-        showToast('Profile changed successfully!');
+        showToast('✓ Profile updated');
         renderAccounts();
         renderDashboard();
       } catch (error) {
@@ -6744,7 +6742,7 @@ Or just card numbers:
         closeModal('editAccountType');
         editingAccountId = null;
         showAutoSaveIndicator('✓ Account type updated');
-        showToast('Account type changed!');
+        showToast('✓ Account type updated');
         renderAccounts();
         renderTracking();
         renderDashboard();
@@ -7145,7 +7143,7 @@ Or just card numbers:
       ta.focus();
       ta.select();
       ta.setSelectionRange(0, 999999);
-      const ok = () => showToast('📋 Copied! Paste into WhatsApp');
+      const ok = () => showToast('📋 Copied — ready to paste into WhatsApp');
       const fallback = () => { try { document.execCommand('copy'); ok(); } catch (e) { showToast('Press Ctrl/Cmd + C to copy'); } };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(ta.value).then(ok).catch(fallback);
@@ -7316,7 +7314,7 @@ Or just card numbers:
             account.suspendedAt = getThailandDate();
             await updateAdAccountInSupabase(accountId, { ads_status: 'under_review', suspended_at: account.suspendedAt });
             showAutoSaveIndicator('✓ Sent for review');
-            showToast('🔍 Marked as Under Review - hidden for 2 days');
+            showToast('🔍 Marked as under review — hidden for 2 days');
           } else if (account.adsStatus === 'under_review') {
             const store = getStore(account.storeId);
             const choice = confirm(`Has Google approved ${store?.name || 'this account'}?\n\nClick OK → Set to ✅ Active\nClick Cancel → Keep waiting (reset 2-day timer)`);
@@ -7325,24 +7323,24 @@ Or just card numbers:
               account.suspendedAt = null;
               await updateAdAccountInSupabase(accountId, { ads_status: 'active', suspended_at: null });
               showAutoSaveIndicator('✓ Active');
-              showToast('✅ Account active!');
+              showToast('✅ Account is active again');
             } else {
               // Reset timer - hide for another 2 days
               account.suspendedAt = getThailandDate();
               await updateAdAccountInSupabase(accountId, { suspended_at: account.suspendedAt });
               showAutoSaveIndicator('✓ Timer reset');
-              showToast('🔍 Timer reset - hidden for 2 more days');
+              showToast('🔍 Review timer reset — hidden for 2 more days');
             }
           } else if (account.adsStatus === 'payment_issue') {
             account.adsStatus = 'active';
             await updateAdAccountInSupabase(accountId, { ads_status: 'active' });
             showAutoSaveIndicator('✓ Fixed');
-            showToast('Payment issue fixed! ✓');
+            showToast('✓ Payment issue resolved');
           } else if (account.storeStatus === 'inactive') {
             account.storeStatus = 'active';
             await updateAdAccountInSupabase(accountId, { store_status: 'active' });
             showAutoSaveIndicator('✓ Fixed');
-            showToast('Store fixed! ✓');
+            showToast('✓ Store back to normal');
           } else if (account.adsStatus === 'suspended') {
             const store = getStore(account.storeId);
             if (store?.hasTracking) {
@@ -7414,7 +7412,7 @@ Or just card numbers:
       } catch (e) {}
       showAutoSaveIndicator(syncedS ? '✓ Account archived' : '⚠️ Archived on this device only');
       if (!syncedS) alert('⚠️ Hidden on THIS device only — run the archive SQL in Supabase, then archive again.');
-      showToast('Account archived — its spend stays in your totals');
+      showToast('✓ Account archived — its spend stays counted in your totals');
       renderAccounts(); renderDashboard(); updateBadges();
     }
     function handleGlobalSearch(query) {
@@ -7707,7 +7705,6 @@ Or just card numbers:
       }
     }
     async function deleteStore(storeId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       const linked = ['google', 'tiktok', 'facebook']
@@ -7734,7 +7731,6 @@ Or just card numbers:
       updateBadges();
     }
     async function restoreStore(storeId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       archivedStores.delete(String(storeId));
       saveArchivedLocal();
@@ -7750,7 +7746,7 @@ Or just card numbers:
       renderStores();
     }
     async function deleteStoreForever(storeId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
+      if (!isStoreMgmtUser()) { showToast('🔒 Permanent deletion is limited to Ayman and Elias'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       if (!confirm(`Permanently delete "${store.name}"?\n\nThis ERASES it from the database and its spend/revenue will no longer be counted in your totals. This cannot be undone.\n\nTo keep the numbers, use archive instead.`)) return;
@@ -8115,7 +8111,6 @@ Or just card numbers:
       `;
     }
     async function saveEditedAssets(storeId) {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       const newName = (document.getElementById('editStoreName')?.value || '').trim();
@@ -8179,7 +8174,7 @@ Or just card numbers:
       data.accounts[currentChannel].push(newAccount);
       data.savedAccounts[currentChannel] = data.savedAccounts[currentChannel].filter(a => a.id !== reassigningAccountId);
       closeModal('reassignAccount');
-      showToast('Account reassigned successfully!');
+      showToast('✓ Account moved to the new store');
       renderSavedAccounts();
       renderAccounts();
     }
@@ -8292,7 +8287,6 @@ Or just card numbers:
       document.querySelectorAll(`[onclick="${kind}()"]`).forEach(b => { b.disabled = false; if (b.dataset.oldText) b.textContent = b.dataset.oldText; b.style.opacity = ''; });
     }
     async function addStore() {
-      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       if (!lockCreate('addStore')) return;
       try {
         await _addStoreInner();
@@ -8374,7 +8368,7 @@ Or just card numbers:
         document.getElementById('vccSingleExpiry').value = '';
         document.getElementById('vccSingleCVV').value = '';
         document.getElementById('vccSingleBalance').value = '500';
-        showToast('VCC added successfully!');
+        showToast('✓ Card added');
         renderVCCs();
         updateBadges();
       }
