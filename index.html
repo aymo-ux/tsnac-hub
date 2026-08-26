@@ -3582,15 +3582,26 @@ Or just card numbers:
       loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
       let cloudKeys = null;   // null = load failed entirely
       try {
-        const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*');
-        if (error) { console.error('daily_revenue load error:', error); }
-        else if (rows) {
+        // Supabase returns max 1000 rows per request — page through ALL of them,
+        // same cure the ad-spend loader got when it crossed 1000 rows.
+        const size = 1000;
+        let from = 0, all = null;
+        while (true) {
+          const { data: rows, error } = await supabaseClient.from('daily_revenue').select('*').range(from, from + size - 1);
+          if (error) { console.error('daily_revenue load error:', error); break; }
+          if (all === null) all = [];
+          if (rows && rows.length) all = all.concat(rows);
+          if (!rows || rows.length < size) break;
+          from += size;
+        }
+        if (all !== null) {
           cloudKeys = new Set();
-          rows.forEach(r => {
+          all.forEach(r => {
             const k = `${r.store_id}_${r.date}`;
             cloudKeys.add(k);
             dailyRevenue[k] = parseFloat(r.amount) || 0;
           });
+          console.log(`✓ Loaded ${all.length} daily_revenue records from cloud`);
           saveRevenueLocal(); // keep local copy in sync with cloud
         }
       } catch (e) { console.error('daily_revenue exception:', e); }
@@ -4025,11 +4036,15 @@ Or just card numbers:
       if (!isOwner()) return;
       loadPnlLocal();
       try {
-        const { data: rows, error } = await supabaseClient.from('daily_pnl').select('*');
-        if (error) { console.error('daily_pnl load error:', error); }
-        else if (rows) {
-          rows.forEach(r => { pnlData[r.date] = { cogs: parseFloat(r.cogs) || 0, refunds: parseFloat(r.refunds) || 0 }; });
+        const size = 1000;
+        let from = 0;
+        while (true) {
+          const { data: rows, error } = await supabaseClient.from('daily_pnl').select('*').range(from, from + size - 1);
+          if (error) { console.error('daily_pnl load error:', error); break; }
+          (rows || []).forEach(r => { pnlData[r.date] = { cogs: parseFloat(r.cogs) || 0, refunds: parseFloat(r.refunds) || 0 }; });
           savePnlLocal();
+          if (!rows || rows.length < size) break;
+          from += size;
         }
       } catch (e) { console.error('daily_pnl exception:', e); }
       pnlLoaded = true;
