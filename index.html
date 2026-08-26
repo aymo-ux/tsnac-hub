@@ -738,6 +738,7 @@
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
     .task-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 5px; vertical-align: middle; }
+    .sel-store { outline: 2px solid var(--accent); outline-offset: -1px; }
     .task-card.bulk { cursor: pointer; user-select: none; }
     .task-card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
     .task-check { color: var(--accent); font-weight: 700; }
@@ -1700,6 +1701,9 @@
           <button class="btn btn-secondary btn-sm" onclick="shiftPnlMonth(-1)">◀</button>
           <span id="pnlMonthLabel" style="font-weight: 600; min-width: 150px; text-align: center;"></span>
           <button class="btn btn-secondary btn-sm" onclick="shiftPnlMonth(1)">▶</button>
+          <span style="flex:1;"></span>
+          <button class="btn btn-sm ${''}" id="pnlViewDaily" onclick="setPnlView('daily')">Daily</button>
+          <button class="btn btn-sm btn-secondary" id="pnlViewMonths" onclick="setPnlView('months')">Months</button>
         </div>
         <div class="stats-grid" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
           <div class="stat-card success"><div class="stat-label">Revenue</div><div class="stat-value" id="pnlSumRevenue">$0</div></div>
@@ -1917,6 +1921,8 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('addStore')">Cancel</button>
+        <button class="btn btn-secondary" id="storeBulkBtn" onclick="toggleStoreBulk()" style="display:none;">☑ Select</button>
+        <button class="btn btn-secondary" id="mergeDupBtn" onclick="mergeDuplicateStores()" style="display:none;" title="Combine stores that share the same name">🔗 Merge duplicates</button>
         <button class="btn btn-primary" onclick="addStore()">Add Store</button>
       </div>
     </div>
@@ -2325,7 +2331,9 @@ Or just card numbers:
           currentUser = userData.role;
           
           document.querySelector('.user-name').textContent = userData.name;
-          document.querySelector('.user-role').textContent = getRoleDisplayName(userData.role);
+          document.querySelector('.user-role').textContent =
+            (authUser && authUser.email && authUser.email.toLowerCase() === 'emoade4@gmail.com')
+              ? 'Store Manager' : getRoleDisplayName(userData.role);
           
           if (userData.role !== 'admin') {
             const switcher = document.querySelector('.user-switcher');
@@ -3199,9 +3207,108 @@ Or just card numbers:
       buildStoreTrend(storeId, accounts, document.getElementById('storeTrendChart'), document.getElementById('storeTrendSummary'));
       openModal('storeTrend');
     }
+    async function mergeDuplicateStores() {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
+      const groups = {};
+      (data.stores || []).forEach(st => {
+        const key = (st.name || '').trim().toLowerCase();
+        if (!key) return;
+        (groups[key] = groups[key] || []).push(st);
+      });
+      const dupGroups = Object.values(groups).filter(g => g.length > 1);
+      if (!dupGroups.length) { showToast('✓ No duplicate stores found'); return; }
+      const accountCount = (sid) => ['google', 'tiktok', 'facebook'].reduce((n, ch) => n + (data.accounts[ch] || []).filter(a => a.storeId === sid).length, 0);
+      const revCount = (sid) => Object.keys(dailyRevenue || {}).filter(k => k.startsWith(sid + '_')).length;
+      const summary = dupGroups.map(g => `• ${g[0].name} ×${g.length}`).join('\n');
+      if (!confirm(`Found duplicates:\n${summary}\n\nMerge each group into ONE store? Ad accounts move over, revenue history is combined (same-day amounts add up), and the extra copies are deleted. This cannot be undone.`)) return;
+      let merged = 0;
+      for (const g of dupGroups) {
+        // keeper = most accounts, then most revenue history
+        g.sort((a, b) => (accountCount(b.id) - accountCount(a.id)) || (revCount(b.id) - revCount(a.id)));
+        const keeper = g[0];
+        for (const dup of g.slice(1)) {
+          // move ad accounts
+          for (const ch of ['google', 'tiktok', 'facebook']) {
+            for (const a of (data.accounts[ch] || []).filter(x => x.storeId === dup.id)) {
+              a.storeId = keeper.id;
+              try { await supabaseClient.from('ad_accounts').update({ store_id: keeper.id }).eq('id', a.id); } catch (e) {}
+            }
+          }
+          // combine revenue (same day adds up)
+          const dupKeys = Object.keys(dailyRevenue || {}).filter(k => k.startsWith(dup.id + '_'));
+          for (const k of dupKeys) {
+            const date = k.slice(-10);
+            const kk = `${keeper.id}_${date}`;
+            dailyRevenue[kk] = (parseFloat(dailyRevenue[kk]) || 0) + (parseFloat(dailyRevenue[k]) || 0);
+            delete dailyRevenue[k];
+            try { await supabaseClient.from('daily_revenue').upsert({ store_id: String(keeper.id), date: date, amount: dailyRevenue[kk] }, { onConflict: 'store_id,date' }); } catch (e) {}
+          }
+          try { await supabaseClient.from('daily_revenue').delete().eq('store_id', String(dup.id)); } catch (e) {}
+          // flags carry over
+          ['payoutHold', 'fulfillNeeded', 'recreateNeeded', 'optimizeAds'].forEach(f => { if (dup[f] && !keeper[f]) keeper[f] = dup[f]; });
+          // tasks + archive state of the duplicate go away
+          storeTasks = storeTasks.filter(t => !t.id.endsWith('_' + dup.id));
+          archivedStores.delete(String(dup.id));
+          // delete the duplicate store
+          data.stores = data.stores.filter(x => x.id !== dup.id);
+          try { await supabaseClient.from('stores').delete().eq('id', dup.id); } catch (e) {}
+          merged++;
+        }
+        const assets = keeper.assets || {};
+        ['payoutHold', 'fulfillNeeded', 'recreateNeeded', 'optimizeAds'].forEach(f => { assets[f] = keeper[f] || false; });
+        keeper.assets = assets;
+        try { await supabaseClient.from('stores').update({ assets: assets }).eq('id', keeper.id); } catch (e) {}
+      }
+      saveRevenueLocal();
+      saveArchivedLocal();
+      saveTasksLocal();
+      renderStores();
+      if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+      showToast(`✓ Merged ${merged} duplicate${merged > 1 ? 's' : ''}`);
+    }
+    let storeBulk = false;
+    const selStores = new Set();
+    function toggleStoreBulk() {
+      storeBulk = !storeBulk; selStores.clear(); renderStores();
+    }
+    function toggleStoreSel(id) {
+      id = String(id);
+      if (selStores.has(id)) selStores.delete(id); else selStores.add(id);
+      renderStores();
+    }
+    async function bulkArchiveSelectedStores() {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
+      if (!selStores.size) { showToast('Tap the stores you want to archive first'); return; }
+      if (!confirm(`Archive ${selStores.size} store${selStores.size > 1 ? 's' : ''}?\n\nThey disappear from your lists, but their numbers stay counted. Restore any time via Show archived.`)) return;
+      let failed = 0;
+      for (const sid of Array.from(selStores)) {
+        archivedStores.add(String(sid));
+        try {
+          const { error } = await supabaseClient.from('stores').update({ archived: true }).eq('id', sid);
+          if (error) failed++;
+        } catch (e) { failed++; }
+      }
+      saveArchivedLocal();
+      selStores.clear(); storeBulk = false;
+      if (isStoreMgmtUser()) { runTaskAutomations(); }
+      renderStores();
+      showToast(failed ? `⚠️ ${failed} not synced to cloud` : '✓ Archived');
+    }
     function renderStores() {
       const perms = permissions[currentUser];
+      const sbb = document.getElementById('storeBulkBtn');
+      const mdb = document.getElementById('mergeDupBtn');
+      if (sbb) { sbb.style.display = isStoreMgmtUser() ? '' : 'none'; sbb.textContent = storeBulk ? '✕ Cancel' : '☑ Select'; }
+      if (mdb) mdb.style.display = isStoreMgmtUser() && !storeBulk ? '' : 'none';
       let html = '';
+      if (storeBulk) {
+        html += `<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 1rem; margin-bottom:0.9rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;">
+          <strong>${selStores.size}</strong>&nbsp;selected — tap store cards to select
+          <span style="margin-left:auto; display:flex; gap:0.5rem;">
+            <button class="btn btn-sm btn-primary" onclick="bulkArchiveSelectedStores()">🗑 Archive selected</button>
+            <button class="btn btn-sm btn-secondary" onclick="toggleStoreBulk()">Cancel</button>
+          </span></div>`;
+      }
       const archivedCount = (data.stores || []).filter(s => isStoreArchived(s.id)).length;
       if (archivedCount > 0) {
         html += `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; margin-bottom:0.9rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem;">
@@ -3232,7 +3339,7 @@ Or just card numbers:
         const isNew = totalAccounts === 0 && !archived;
         if (archived) {
           html += `
-            <div class="store-card" data-store-id="${store.id}" style="opacity:0.75;">
+            <div class="store-card${selStores.has(String(store.id)) ? ' sel-store' : ''}" data-store-id="${store.id}" style="opacity:0.75;${storeBulk ? ' cursor:pointer;' : ''}"${storeBulk ? ` onclick="toggleStoreSel('${store.id}')"` : ''}>${storeBulk ? `<span class="task-check">${selStores.has(String(store.id)) ? '☑' : '☐'}</span> ` : ''}
               <div class="store-header">
                 <div>
                   <div class="store-name">${escapeHtml(store.name)}
@@ -3250,7 +3357,7 @@ Or just card numbers:
           return;
         }
         html += `
-          <div class="store-card ${store.isPerformer ? "performer" : ""}" data-store-id="${store.id}" style="${isNew ? 'border: 1px solid var(--info); background: var(--info-bg);' : ''}">
+          <div class="store-card ${store.isPerformer ? "performer" : ""}${selStores.has(String(store.id)) ? ' sel-store' : ''}" data-store-id="${store.id}" style="${isNew ? 'border: 1px solid var(--info); background: var(--info-bg);' : ''}${storeBulk ? ' cursor:pointer;' : ''}"${storeBulk ? ` onclick="toggleStoreSel('${store.id}')"` : ''}>${storeBulk ? `<span class="task-check">${selStores.has(String(store.id)) ? '☑' : '☐'}</span> ` : ''}
             <div class="store-header">
               <div>
                 <div class="store-name">
@@ -3523,7 +3630,6 @@ Or just card numbers:
       }
       updateBadges();
       renderTracking();
-      renderNotifications();
     }
     function updateTodayTotal() { updateDayTotal(); }
     function updateDayTotal() {
@@ -3576,7 +3682,6 @@ Or just card numbers:
     function saveRevenueLocal() { try { localStorage.setItem('tsnac_revenue', JSON.stringify(dailyRevenue)); } catch (e) {} }
     function loadRevenueLocal() { try { const s = localStorage.getItem('tsnac_revenue'); if (s) dailyRevenue = JSON.parse(s) || {}; } catch (e) {} }
     let revUnsyncedCount = 0;   // local revenue entries the cloud doesn't have
-    let revCloudCount = -1;     // how many revenue rows the cloud sent THIS login
     async function loadRevenue() {
       if (!isOwner()) return;
       loadRevenueLocal(); // instant — survives refresh even if the cloud table isn't set up
@@ -3605,7 +3710,6 @@ Or just card numbers:
           saveRevenueLocal(); // keep local copy in sync with cloud
         }
       } catch (e) { console.error('daily_revenue exception:', e); }
-      revCloudCount = cloudKeys === null ? -1 : cloudKeys.size;
       // Any local entry the cloud lacks = invisible on other devices. Count them all.
       const localValid = Object.keys(dailyRevenue).filter(k =>
         k.length > 11 && k[k.length - 11] === '_' && /^\d{4}-\d{2}-\d{2}$/.test(k.slice(-10)));
@@ -4006,6 +4110,19 @@ Or just card numbers:
     // ===== Profit & Loss (owner only) =====
     let pnlData = {};        // date -> { cogs, refunds }
     let pnlLoaded = false;
+    async function loadFeeRateFromCloud() {
+      try {
+        const { data: rows } = await supabaseClient.from('app_settings').select('*').eq('key', 'fee_rate');
+        if (rows && rows.length) {
+          const v = parseFloat(rows[0].value);
+          if (v && v !== pnlFeeRate) {
+            pnlFeeRate = v;
+            try { localStorage.setItem('tsnac_pnl_feerate', String(v)); } catch (e) {}
+            const el = document.getElementById('pnlFeeRate'); if (el) el.value = v;
+          }
+        }
+      } catch (e) {}
+    }
     let pnlMonth = null, pnlYear = null;
     let pnlFeeRate = 7;
     // Manual daily-total revenue override lives in daily_revenue under a reserved store id
@@ -4069,16 +4186,97 @@ Or just card numbers:
     function pnlEnsureMonth() {
       if (pnlMonth === null) { const t = getThailandDate().split('-').map(Number); pnlYear = t[0]; pnlMonth = t[1] - 1; }
     }
+    let pnlView = 'daily';
+    function setPnlView(v) { pnlView = v; renderPnl(); }
     function shiftPnlMonth(delta) {
       pnlEnsureMonth();
+      if (pnlView === 'months') { pnlYear += delta; renderPnl(); return; }
       pnlMonth += delta;
       if (pnlMonth < 0) { pnlMonth = 11; pnlYear--; }
       if (pnlMonth > 11) { pnlMonth = 0; pnlYear++; }
       renderPnl();
     }
+    // One row per month: is the business actually growing?
+    function pnlMonthAgg(year, monthIdx) {
+      const daysIn = new Date(year, monthIdx + 1, 0).getDate();
+      const rate = pnlFeeRate / 100;
+      let rev = 0, refunds = 0, cogs = 0, ads = 0;
+      for (let d = 1; d <= daysIn; d++) {
+        const key = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        rev += dayTotalRevenue(key);
+        ads += dayTotalAdSpend(key);
+        const p = pnlData[key] || {};
+        refunds += parseFloat(p.refunds) || 0;
+        cogs += parseFloat(p.cogs) || 0;
+      }
+      const fee = rate * (rev - refunds);
+      const profit = (rev - refunds) - cogs - fee - ads;
+      return { rev, refunds, cogs, ads, fee, profit,
+        roas: ads > 0 ? rev / ads : null,
+        margin: rev > 0 ? profit / rev * 100 : null };
+    }
+    function renderPnlMonths() {
+      pnlEnsureMonth();
+      const label = document.getElementById('pnlMonthLabel');
+      if (label) label.textContent = String(pnlYear);
+      const head = document.getElementById('pnlTableHead');
+      const body = document.getElementById('pnlTableBody');
+      if (!head || !body) return;
+      head.innerHTML = `<tr>
+        <th style="text-align:left; padding:0.5rem;">Month</th>
+        <th style="text-align:right; padding:0.5rem;">Revenue</th>
+        <th style="text-align:right; padding:0.5rem;">Refunds</th>
+        <th style="text-align:right; padding:0.5rem;">COGS</th>
+        <th style="text-align:right; padding:0.5rem;">Fee ${pnlFeeRate}%</th>
+        <th style="text-align:right; padding:0.5rem;">Ad spend</th>
+        <th style="text-align:right; padding:0.5rem;">Profit</th>
+        <th style="text-align:right; padding:0.5rem;">ROAS</th>
+        <th style="text-align:right; padding:0.5rem;">Margin</th></tr>`;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      let tot = { rev: 0, refunds: 0, cogs: 0, ads: 0, fee: 0, profit: 0 };
+      let rows = '';
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      for (let mi = 0; mi < 12; mi++) {
+        const m = pnlMonthAgg(pnlYear, mi);
+        Object.keys(tot).forEach(k => tot[k] += m[k]);
+        const empty = m.rev === 0 && m.ads === 0 && m.cogs === 0;
+        rows += `<tr style="border-top:1px solid var(--border-light); ${empty ? 'opacity:0.45;' : ''}">
+          <td style="padding:0.5rem; font-weight:600;">${months[mi]}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${empty ? '—' : fmtMoney(m.rev)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono} color:var(--text-muted);">${m.refunds ? fmtMoney(m.refunds) : '—'}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${empty ? '—' : fmtMoney(m.cogs)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono} color:var(--text-muted);">${empty ? '—' : fmtMoney(m.fee)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${empty ? '—' : fmtMoney(m.ads)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono} font-weight:700; color:${m.profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${empty ? '—' : fmtMoney(m.profit)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${m.roas === null ? '—' : m.roas.toFixed(2) + 'x'}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${m.margin === null ? '—' : m.margin.toFixed(0) + '%'}</td></tr>`;
+      }
+      const troas = tot.ads > 0 ? (tot.rev / tot.ads).toFixed(2) + 'x' : '—';
+      const tmargin = tot.rev > 0 ? (tot.profit / tot.rev * 100).toFixed(0) + '%' : '—';
+      rows += `<tr style="border-top:2px solid var(--border); font-weight:700;">
+        <td style="padding:0.5rem;">TOTAL</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tot.rev)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${tot.refunds ? fmtMoney(tot.refunds) : '—'}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tot.cogs)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tot.fee)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(tot.ads)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono} color:${tot.profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmtMoney(tot.profit)}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${troas}</td>
+        <td style="text-align:right; padding:0.5rem; ${mono}">${tmargin}</td></tr>`;
+      body.innerHTML = rows;
+      // summary cards reflect the whole year in months view
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('pnlSumRevenue', fmtMoney(tot.rev));
+      set('pnlSumCogs', fmtMoney(tot.cogs));
+      set('pnlSumAds', fmtMoney(tot.ads));
+      set('pnlSumProfit', fmtMoney(tot.profit));
+      set('pnlSumRoas', troas);
+      const mEl = document.getElementById('pnlSumMargin'); if (mEl) mEl.textContent = tmargin;
+    }
     function onPnlFeeChange(v) {
       pnlFeeRate = parseFloat(v) || 0;
       try { localStorage.setItem('tsnac_pnl_feerate', String(pnlFeeRate)); } catch (e) {}
+      (async () => { try { await supabaseClient.from('app_settings').upsert({ key: 'fee_rate', value: String(pnlFeeRate) }, { onConflict: 'key' }); } catch (e) {} })();
       renderPnl();
     }
     async function openPnlSection() {
@@ -4091,6 +4289,12 @@ Or just card numbers:
       renderPnl();
     }
     function renderPnl() {
+      const bd = document.getElementById('pnlViewDaily'), bm = document.getElementById('pnlViewMonths');
+      if (bd && bm) {
+        bd.className = 'btn btn-sm ' + (pnlView === 'daily' ? 'btn-primary' : 'btn-secondary');
+        bm.className = 'btn btn-sm ' + (pnlView === 'months' ? 'btn-primary' : 'btn-secondary');
+      }
+      if (pnlView === 'months') { renderPnlMonths(); return; }
       if (!isOwner()) return;
       const head = document.getElementById('pnlTableHead');
       const body = document.getElementById('pnlTableBody');
@@ -4197,6 +4401,7 @@ Or just card numbers:
       a.download = `tsnac-backup-${getThailandDate()}.json`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(a.href);
+      try { localStorage.setItem('tsnac_last_backup', String(Date.now())); } catch (e) {}
       showToast('💾 Backup downloaded — keep it somewhere safe');
     }
     // ===== Store Tasks (owner + Elias only) =====
@@ -5620,58 +5825,8 @@ Or just card numbers:
       updateNotificationBadge();
       if (notification.forRoles.includes(currentUser)) showToast(notification.message);
     }
-    function loadNotifications() {
-      try {
-        const saved = localStorage.getItem('tsnac_notifications');
-        if (saved) data.notifications = JSON.parse(saved);
-      } catch (e) {}
-    }
     function updateNotificationBadge() {
       const unreadCount = data.notifications.filter(n => !n.read && n.forRoles.includes(currentUser)).length;
-    }
-    function renderNotifications() {
-      const myNotifications = data.notifications.filter(n => n.forRoles.includes(currentUser));
-      let html = '';
-      if (myNotifications.length === 0) {
-        html = '<div class="empty-state"><div class="empty-state-icon">🔔</div><p>All caught up — no new notifications.</p></div>';
-      } else {
-        myNotifications.forEach(notification => {
-          const timeAgo = getTimeAgo(notification.createdAt);
-          const bgColor = notification.read ? 'var(--bg-secondary)' : 'var(--bg-tertiary)';
-          const borderColor = notification.type === 'store_inactive' ? 'var(--warning)' :
-                             notification.type === 'account_suspended' ? 'var(--danger)' :
-                             notification.type === 'payment_issue' ? 'var(--danger)' : 'var(--accent)';
-          html += `
-            <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${borderColor}; background: ${bgColor};">
-              <div class="card-body" style="display: flex; justify-content: space-between; align-items: start;">
-                <div>
-                  <div style="font-weight: 600; margin-bottom: 0.25rem;">${escapeHtml(notification.title)}</div>
-                  <div style="color: var(--text-secondary);">${escapeHtml(notification.message)}</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">${timeAgo}</div>
-                </div>
-                <div style="display: flex; gap: 0.5rem;">
-                  ${!notification.read ? `<button class="btn btn-sm btn-secondary" onclick="markNotificationRead(${notification.id})">✓ Read</button>` : ''}
-                  <button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="deleteNotification(${notification.id})">🗑️</button>
-                </div>
-              </div>
-            </div>
-          `;
-        });
-      }
-      document.getElementById('alertsList').innerHTML = html;
-    }
-    function markNotificationRead(notificationId) {
-      const notification = data.notifications.find(n => n.id === notificationId);
-      if (notification) {
-        notification.read = true;
-        try { localStorage.setItem('tsnac_notifications', JSON.stringify(data.notifications)); } catch (e) {}
-        renderNotifications();
-      }
-    }
-    function deleteNotification(notificationId) {
-      data.notifications = data.notifications.filter(n => n.id !== notificationId);
-      try { localStorage.setItem('tsnac_notifications', JSON.stringify(data.notifications)); } catch (e) {}
-      renderNotifications();
     }
     function getTimeAgo(dateString) {
       const date = new Date(dateString);
@@ -5684,7 +5839,7 @@ Or just card numbers:
     }
     function getThailandDate() {
       const now = new Date();
-      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' /* Bali time — the business day */ }));
       const year = thailandTime.getFullYear();
       const month = String(thailandTime.getMonth() + 1).padStart(2, '0');
       const day = String(thailandTime.getDate()).padStart(2, '0');
@@ -5692,7 +5847,7 @@ Or just card numbers:
     }
     function getThailandDateParts() {
       const now = new Date();
-      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const thailandTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' /* Bali time — the business day */ }));
       return {
         year: thailandTime.getFullYear(),
         month: thailandTime.getMonth(),
@@ -6291,6 +6446,7 @@ Or just card numbers:
       document.getElementById('profilesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No profiles yet — add one to organize your accounts.</p></div>';
     }
     async function deleteProfile(profileId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const profile = data.profiles[currentChannel].find(p => p.id === profileId || p.id == profileId);
       if (!profile) return;
       const linkedAccounts = data.accounts[currentChannel].filter(a => a.profileId === profileId || a.profileId == profileId);
@@ -6423,6 +6579,7 @@ Or just card numbers:
       else { body.style.display = 'none'; arrow.textContent = '▶'; }
     }
     async function deleteAdAccount(accountId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
       const store = getStore(account.storeId);
@@ -6451,42 +6608,6 @@ Or just card numbers:
       showToast('Account restored');
       renderAccounts(); renderDashboard(); updateBadges();
     }
-    async function deleteAdAccount_old(accountId) {
-      const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
-      if (!account) return;
-      const store = getStore(account.storeId);
-      const vcc = getVCC(account.vccId);
-      let confirmMsg = `Delete this ad account?`;
-      if (store) confirmMsg += `\nStore: ${store.name}`;
-      if (vcc) confirmMsg += `\n\n⚠️ The linked VCC (ending ${vcc.number.slice(-4)}) will also be deleted!`;
-      if (!confirm(confirmMsg)) return;
-      try {
-        if (vcc) {
-          const { error: vccError } = await supabaseClient.from('vccs').delete().eq('id', vcc.id);
-          if (!vccError) data.vccs[currentChannel] = data.vccs[currentChannel].filter(v => v.id !== vcc.id && v.id != vcc.id);
-        }
-        const { data: deletedAcc, error } = await supabaseClient
-          .from('ad_accounts').delete().eq('id', accountId).select();
-        if (error) throw error;
-        if (!deletedAcc || deletedAcc.length === 0) {
-          alert('⚠️ The account was NOT deleted from the database.\n\nSupabase Row Level Security (RLS) is blocking deletes on the "ad_accounts" table.\n\nFix: Supabase Dashboard → Authentication → Policies → ad_accounts → add a DELETE policy.');
-          renderAccounts();
-          return;
-        }
-        data.accounts[currentChannel] = data.accounts[currentChannel].filter(a => a.id !== accountId && a.id != accountId);
-        showAutoSaveIndicator('✓ Account deleted');
-        renderAccounts();
-        renderVCCs();
-        renderDashboard();
-        updateBadges();
-      } catch (error) {
-        console.error('Error deleting ad account:', error);
-        alert('Delete failed: ' + (error.message || error));
-        showAutoSaveIndicator('⚠ Delete failed');
-        renderAccounts();
-      }
-    }
-    let editingAccountId = null;
     function openEditVCCModal(accountId) {
       const account = data.accounts[currentChannel].find(a => a.id === accountId || a.id == accountId);
       if (!account) return;
@@ -7137,6 +7258,16 @@ Or just card numbers:
           alerts.push({ type: 'purple', icon: '💳', title: `Card ••••${vcc.number.slice(-4)} is ready`, desc: `$${vcc.balance} available · Assign it to a new account.`, action: 'Use', vccId: vcc.id });
         });
       }
+      // Backup freshness: gentle nudge when the last download is old
+      if (typeof isOwner === 'function' && isOwner()) {
+        let lastBk = null;
+        try { lastBk = localStorage.getItem('tsnac_last_backup'); } catch (e) {}
+        const days = lastBk ? Math.floor((Date.now() - parseInt(lastBk, 10)) / 86400000) : null;
+        if (days === null || days >= 7) {
+          alerts.push({ type: 'info', icon: '💾', title: days === null ? 'No backup on this device yet' : `Last backup was ${days} days ago`,
+            desc: 'One click downloads everything — revenue, P&L, stores, tasks.', action: 'Backup', custom: 'backup' });
+        }
+      }
       // Most urgent first, then drop exact repeats (duplicate stores create twin alerts)
       const severity = { danger: 0, orange: 1, warning: 2, info: 3, teal: 4, purple: 5 };
       alerts.sort((a, b) => (severity[a.type] ?? 9) - (severity[b.type] ?? 9));
@@ -7163,7 +7294,7 @@ Or just card numbers:
             <div class="alert-title">${escapeHtml(alert.title)}</div>
             <div class="alert-desc" title="${escapeHtml(alert.desc)}">${escapeHtml(alert.desc)}</div>
           </div>
-          <button class="alert-action${(alert.action || '').includes('✓') ? ' done' : ''}" onclick="handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')">${alert.action}</button>
+          <button class="alert-action${(alert.action || '').includes('✓') ? ' done' : ''}" onclick="${alert.custom === 'backup' ? 'exportBackup()' : `handleAlertAction('${alert.accountId || ''}', '${alert.vccId || ''}', '${alert.storeId || ''}')`}">${alert.action}</button>
         </div>`;
     }
     function generateAlertsHtml(limit = null, filter = null) {
@@ -7576,6 +7707,7 @@ Or just card numbers:
       }
     }
     async function deleteStore(storeId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       const linked = ['google', 'tiktok', 'facebook']
@@ -7602,6 +7734,7 @@ Or just card numbers:
       updateBadges();
     }
     async function restoreStore(storeId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       archivedStores.delete(String(storeId));
       saveArchivedLocal();
@@ -7617,6 +7750,7 @@ Or just card numbers:
       renderStores();
     }
     async function deleteStoreForever(storeId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       if (!confirm(`Permanently delete "${store.name}"?\n\nThis ERASES it from the database and its spend/revenue will no longer be counted in your totals. This cannot be undone.\n\nTo keep the numbers, use archive instead.`)) return;
@@ -7981,6 +8115,7 @@ Or just card numbers:
       `;
     }
     async function saveEditedAssets(storeId) {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
       if (!store) return;
       const newName = (document.getElementById('editStoreName')?.value || '').trim();
@@ -8157,6 +8292,7 @@ Or just card numbers:
       document.querySelectorAll(`[onclick="${kind}()"]`).forEach(b => { b.disabled = false; if (b.dataset.oldText) b.textContent = b.dataset.oldText; b.style.opacity = ''; });
     }
     async function addStore() {
+      if (!isStoreMgmtUser()) { showToast('🔒 Only Ayman or Elias can do this'); return; }
       if (!lockCreate('addStore')) return;
       try {
         await _addStoreInner();
@@ -8370,9 +8506,8 @@ Or just card numbers:
       if (!isAuthenticated) return;
       await loadDataFromSupabase();
       await loadDailySpendHistory();
-      loadNotifications();
+      loadFeeRateFromCloud();
       renderDashboard();
-      renderNotifications();
       updateUIForUser();
       updateBadges();
       const suspendedCount = data.accounts[currentChannel].filter(a => a.adsStatus === 'suspended').length;
