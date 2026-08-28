@@ -3013,7 +3013,7 @@ Or just card numbers:
           <div class="store-group" style="margin-bottom: 0.75rem; ${hasIssue ? 'border-color: var(--warning);' : ''}">
             <div class="store-group-header" style="padding: 0.75rem 1rem;">
               <div class="store-group-title">
-                <span style="font-size: 0.95rem;">📦 ${escapeHtml(storeName)}</span>
+                <span style="font-size: 0.95rem;">📦 ${escapeHtml(storeName)}${storeAccounts.every(acc => acc.storeStatus === 'inactive') ? ` <span style="font-size:0.62rem; font-weight:700; color:var(--danger); border:1px solid var(--danger); border-radius:4px; padding:0.05rem 0.3rem; opacity:0.75;">OFF</span>` : ''}</span>
                 ${isPerformer ? '<span class="performer-badge" style="font-size: 0.6rem;">⭐ TOP</span>' : ''}
                 ${hasTracking ? '<span class="tracking-badge" style="font-size: 0.6rem;">📊 Tr</span>' : ''}
               </div>
@@ -4434,17 +4434,36 @@ Or just card numbers:
     }
     function saveTasksLocal() { try { localStorage.setItem('tsnac_store_tasks', JSON.stringify(storeTasks)); } catch (e) {} }
     function loadTasksLocal() { try { const s = localStorage.getItem('tsnac_store_tasks'); if (s) storeTasks = JSON.parse(s) || []; } catch (e) {} }
+    async function refreshStoreFlags() {
+      try {
+        const { data: rows } = await supabaseClient.from('stores').select('id, assets');
+        if (!rows) return;
+        rows.forEach(r => {
+          const st = (data.stores || []).find(x => String(x.id) === String(r.id));
+          if (!st) return;
+          st.assets = r.assets || {};
+          st.payoutHold = st.assets.payoutHold || false;
+          st.fulfillNeeded = st.assets.fulfillNeeded || false;
+          st.recreateNeeded = st.assets.recreateNeeded || false;
+          st.optimizeAds = st.assets.optimizeAds || false;
+        });
+        if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+      } catch (e) {}
+    }
     async function loadStoreTasks() {
       if (!isStoreMgmtUser()) return;
       loadTasksLocal();
+      await refreshStoreFlags();
       try {
         const { data: rows, error } = await supabaseClient.from('store_tasks').select('*');
         if (error) { console.error('store_tasks load error:', error); }
         else if (rows) {
-          const byId = {};
-          storeTasks.forEach(t => byId[t.id] = t);
-          rows.forEach(r => { byId[r.id] = { id: r.id, title: r.title || '', note: r.note || '', col: r.col || 'fulfill', by: r.created_by || '', at: r.updated_at || r.created_at || '' }; });
-          storeTasks = Object.values(byId);
+          // The cloud is the truth: a task cleared on ANY device disappears everywhere.
+          // Local-only rows survive briefly (2 min) so a just-created task isn't lost mid-push.
+          const cloudIds = new Set(rows.map(r => r.id));
+          const grace = Date.now() - 120000;
+          const keepLocal = storeTasks.filter(t => !cloudIds.has(t.id) && t.at && new Date(t.at).getTime() > grace);
+          storeTasks = rows.map(r => ({ id: r.id, title: r.title || '', note: r.note || '', col: r.col || 'fulfill', by: r.created_by || '', at: r.updated_at || r.created_at || '' })).concat(keepLocal);
           saveTasksLocal();
         }
       } catch (e) { console.error('store_tasks exception:', e); }
@@ -6205,7 +6224,7 @@ Or just card numbers:
         const store = getStore(account.storeId);
         const profile = getProfile(account.profileId);
         let rowTotal = 0;
-        bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500; white-space: nowrap;">${escapeHtml(store?.name || 'N/A')}${store?.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="openStoreTrend('${account.storeId}')" title="Last 14 days spend trend">📈</span></td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem;">${escapeHtml(profile?.name || 'N/A')}</td>`;
+        bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500; white-space: nowrap;">${escapeHtml(store?.name || 'N/A')}${store?.isPerformer ? ' ⭐' : ''}${account.storeStatus === 'inactive' ? ` <span style="font-size:0.62rem; font-weight:700; color:var(--danger); border:1px solid var(--danger); border-radius:4px; padding:0.05rem 0.3rem; opacity:0.75;">OFF</span>` : ''}<span class="trend-mini" onclick="openStoreTrend('${account.storeId}')" title="Last 14 days spend trend">📈</span></td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem;">${escapeHtml(profile?.name || 'N/A')}</td>`;
         days.forEach(d => {
           const key = `${account.id}_${d.date}`;
           const isToday = d.date === getThailandDate();
