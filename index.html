@@ -1499,7 +1499,7 @@
             <button class="btn btn-secondary" onclick="forceReimportSpend()" title="Reload data from cloud">
               🔄 Reload
             </button>
-            <button class="btn btn-secondary" onclick="exportTrackingCSV()" title="Download spend history as CSV">
+            <button class="btn btn-secondary" id="exportCsvBtn" onclick="exportTrackingCSV()" title="Download spend history as CSV" style="display: none;">
               ⬇️ Export CSV
             </button>
             <button class="btn btn-secondary" onclick="toggleTrackingView()">
@@ -3389,6 +3389,8 @@ Or just card numbers:
       document.getElementById('storesList').innerHTML = html || '<div class="empty-state"><div class="empty-state-icon">🏪</div><p>No stores yet — add your first store to start tracking spend and revenue.</p></div>';
     }
     function renderTracking() {
+      const csvBtn = document.getElementById('exportCsvBtn');
+      if (csvBtn) csvBtn.style.display = isStoreMgmtUser() ? '' : 'none';
       const accounts = liveAccounts().filter(a => a.status === 'active');
       let html = '';
       const dateKey = selectedTrackingDate;
@@ -6468,6 +6470,7 @@ Or just card numbers:
       });
     }
     function exportTrackingCSV() {
+      if (!isStoreMgmtUser()) { showToast('🔒 Exports are limited to Ayman and Elias'); return; }
       const accounts = data.accounts[currentChannel].filter(a => a.status === 'active');
       if (!accounts.length) { showToast('No active accounts to export yet'); return; }
       // Collect every date that has any spend recorded, for the current channel's accounts
