@@ -6171,6 +6171,29 @@ Or just card numbers:
       if (calendarSortDay) trackingSortBySpend = false; // single-day sort overrides month-total ranking
       renderTrackingCalendar();
     }
+    let calFilterSpend = 'all', calFilterStatus = 'all', calFilterProfile = 'all';
+    function setCalFilter(kind, v) {
+      if (kind === 'reset') { calFilterSpend = 'all'; calFilterStatus = 'all'; calFilterProfile = 'all'; }
+      if (kind === 'spend') calFilterSpend = v;
+      if (kind === 'status') calFilterStatus = v;
+      if (kind === 'profile') calFilterProfile = v;
+      renderTrackingCalendar();
+    }
+    // 💤 = nothing spent in the last 3 days (yesterday and the 2 before)
+    function accZeroRecent(account) {
+      const base = new Date(getThailandDate() + 'T12:00:00');
+      for (let n = 1; n <= 3; n++) {
+        const d = new Date(base); d.setDate(d.getDate() - n);
+        const k = `${account.id}_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if ((parseFloat(dailySpendHistory[k]) || 0) > 0) return false;
+      }
+      return true;
+    }
+    function accStatusKind(a) {
+      if (a.adsStatus === 'suspended') return 'suspended';
+      if (a.storeStatus === 'inactive') return 'off';
+      return 'active';
+    }
     function renderTrackingCalendar() {
       const accounts = liveAccounts().filter(a => a.status === 'active');
       const daysInMonth = getDaysInMonth(currentTrackingMonth, currentTrackingYear);
@@ -6205,37 +6228,82 @@ Or just card numbers:
         headerHtml += `<th onclick="sortCalendarByDay('${d.date}')" title="Click to rank stores by this day's spend" style="min-width: 55px; text-align: center; padding: 0.5rem 0.25rem; cursor: pointer; ${bg} ${isWeekend && !isSorted && !isToday ? 'color: var(--text-muted);' : ''}"><div style="font-size: 0.75rem; opacity: 0.7;">${d.dayOfWeek}</div><div>${d.day}${isSorted ? ' <span style="color: var(--accent);">▼</span>' : ''}</div></th>`;
       });
       headerHtml += '<th style="min-width: 70px; text-align: center; background: var(--bg-tertiary);">Total</th>';
+      // ---- filters ----
+      const profNames = [...new Set(accounts.map(a => getProfile(a.profileId)?.name).filter(Boolean))].sort();
+      const filtered = accounts.filter(a => {
+        if (calFilterSpend === 'has' && accZeroRecent(a)) return false;
+        if (calFilterSpend === 'zero' && !accZeroRecent(a)) return false;
+        if (calFilterStatus !== 'all' && accStatusKind(a) !== calFilterStatus) return false;
+        if (calFilterProfile !== 'all' && (getProfile(a.profileId)?.name || '') !== calFilterProfile) return false;
+        return true;
+      });
+      const filtering = calFilterSpend !== 'all' || calFilterStatus !== 'all' || calFilterProfile !== 'all';
+      const filterBar = `
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem;">
+          <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('spend', this.value)">
+            <option value="all" ${calFilterSpend === 'all' ? 'selected' : ''}>💰 Spend: All</option>
+            <option value="has" ${calFilterSpend === 'has' ? 'selected' : ''}>💰 Has spend (3d)</option>
+            <option value="zero" ${calFilterSpend === 'zero' ? 'selected' : ''}>💤 Zero spend (3d)</option>
+          </select>
+          <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('status', this.value)">
+            <option value="all" ${calFilterStatus === 'all' ? 'selected' : ''}>Status: All</option>
+            <option value="active" ${calFilterStatus === 'active' ? 'selected' : ''}>✅ Active</option>
+            <option value="off" ${calFilterStatus === 'off' ? 'selected' : ''}>⛔ OFF</option>
+            <option value="suspended" ${calFilterStatus === 'suspended' ? 'selected' : ''}>🚫 Suspended</option>
+          </select>
+          <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('profile', this.value)">
+            <option value="all" ${calFilterProfile === 'all' ? 'selected' : ''}>Profile: All</option>
+            ${profNames.map(p => `<option value="${escapeHtml(p)}" ${calFilterProfile === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+          </select>
+          ${filtering ? `<button class="btn btn-sm btn-secondary" onclick="setCalFilter('reset','')">✕ Clear filters</button>` : ''}
+          <span style="font-size:0.8rem; color:var(--text-muted); margin-left:auto;">${filtered.length} of ${accounts.length} accounts</span>
+        </div>`;
+      // ---- group by store ----
+      const dayVal = (a, date) => {
+        const v = dailySpendHistory[`${a.id}_${date}`];
+        if (v !== undefined) return parseFloat(v) || 0;
+        return date === getThailandDate() ? (parseFloat(a.spend) || 0) : 0;
+      };
+      const gmap = {};
+      filtered.forEach(a => { (gmap[a.storeId] = gmap[a.storeId] || []).push(a); });
+      let groups = Object.keys(gmap).map(sid => ({ sid, store: getStore(sid), accs: gmap[sid] }));
+      const groupDay = (g, date) => g.accs.reduce((sum, a) => sum + dayVal(a, date), 0);
+      const groupMonth = g => days.reduce((sum, d) => sum + groupDay(g, d.date), 0);
+      if (calendarSortDay) groups.sort((a, b) => groupDay(b, calendarSortDay) - groupDay(a, calendarSortDay));
+      else groups.sort((a, b) => groupMonth(b) - groupMonth(a));
+      // ---- rows ----
+      const OFF_PILL = ` <span style="font-size:0.6rem; font-weight:700; color:var(--danger); border:1px solid var(--danger); border-radius:4px; padding:0.02rem 0.28rem; opacity:0.75;">OFF</span>`;
       let bodyHtml = '';
       const dayTotals = {};
       days.forEach(d => dayTotals[d.date] = 0);
       let grandTotal = 0;
-      if (calendarSortDay) {
-        // Rank rows by the chosen day's spend (highest first)
-        const daySpend = acc => parseFloat(dailySpendHistory[`${acc.id}_${calendarSortDay}`]) || 0;
-        accounts.sort((a, b) => daySpend(b) - daySpend(a));
-      } else if (trackingSortBySpend) {
-        const monthTotal = acc => days.reduce((s, d) => {
-          const v = dailySpendHistory[`${acc.id}_${d.date}`];
-          return s + (v !== undefined ? (parseFloat(v) || 0) : 0);
-        }, 0);
-        accounts.sort((a, b) => monthTotal(b) - monthTotal(a));
-      }
-      accounts.forEach(account => {
-        const store = getStore(account.storeId);
-        const profile = getProfile(account.profileId);
-        let rowTotal = 0;
-        bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; font-weight: 500; white-space: nowrap;">${escapeHtml(store?.name || 'N/A')}${store?.isPerformer ? ' ⭐' : ''}${account.storeStatus === 'inactive' ? ` <span style="font-size:0.62rem; font-weight:700; color:var(--danger); border:1px solid var(--danger); border-radius:4px; padding:0.05rem 0.3rem; opacity:0.75;">OFF</span>` : ''}<span class="trend-mini" onclick="openStoreTrend('${account.storeId}')" title="Last 14 days spend trend">📈</span></td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem;">${escapeHtml(profile?.name || 'N/A')}</td>`;
+      groups.forEach(g => {
+        const allOff = g.accs.every(a => a.storeStatus === 'inactive');
+        const allZzz = g.accs.every(a => accZeroRecent(a));
+        const gMonth = Math.round(groupMonth(g) * 100) / 100;
+        bodyHtml += `<tr style="background: var(--bg-tertiary);"><td style="position: sticky; left: 0; background: var(--bg-tertiary); z-index: 1; font-weight: 700; white-space: nowrap;">📦 ${escapeHtml(g.store?.name || 'N/A')}${g.store?.isPerformer ? ' ⭐' : ''}${allOff ? OFF_PILL : ''}${allZzz ? ' <span title="No spend in the last 3 days">💤</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${g.sid}')" title="Last 14 days spend trend">📈</span></td><td style="position: sticky; left: 120px; background: var(--bg-tertiary); z-index: 1; color: var(--text-muted); font-size: 0.75rem;">${g.accs.length} account${g.accs.length > 1 ? 's' : ''}</td>`;
         days.forEach(d => {
-          const key = `${account.id}_${d.date}`;
-          const isToday = d.date === getThailandDate();
-          const spend = dailySpendHistory[key] !== undefined ? dailySpendHistory[key] : (isToday ? account.spend : 0);
-          if (spend > 0) { rowTotal += spend; dayTotals[d.date] += spend; }
-          const isSortedCol = calendarSortDay === d.date;
-          bodyHtml += `<td style="text-align: center; padding: 0.25rem; ${isSortedCol ? 'background: var(--accent-soft);' : ''}"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${spend || ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
+          const t = Math.round(groupDay(g, d.date) * 100) / 100;
+          bodyHtml += `<td style="text-align: center; font-size: 0.78rem; color: var(--text-muted); background: var(--bg-tertiary); ${calendarSortDay === d.date ? 'background: var(--accent-soft);' : ''}">${t > 0 ? '$' + t : '-'}</td>`;
         });
-        grandTotal += rowTotal;
-        bodyHtml += `<td style="text-align: center; font-weight: 600; color: var(--success); background: var(--bg-tertiary);">$${rowTotal}</td></tr>`;
+        bodyHtml += `<td style="text-align: center; font-weight: 700; color: var(--success); background: var(--bg-tertiary);">$${gMonth}</td></tr>`;
+        g.accs.forEach(account => {
+          const profile = getProfile(account.profileId);
+          let rowTotal = 0;
+          const zzz = accZeroRecent(account);
+          bodyHtml += `<tr><td style="position: sticky; left: 0; background: var(--bg-card); z-index: 1; color: var(--text-muted); text-align: right; padding-right: 0.4rem;">↳</td><td style="position: sticky; left: 120px; background: var(--bg-card); z-index: 1; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap;">${escapeHtml(profile?.name || 'N/A')}${!allOff && account.storeStatus === 'inactive' ? OFF_PILL : ''}${account.adsStatus === 'suspended' ? ' 🚫' : ''}${!allZzz && zzz ? ' <span title="No spend in the last 3 days">💤</span>' : ''}</td>`;
+          days.forEach(d => {
+            const spend = dayVal(account, d.date);
+            if (spend > 0) { rowTotal += spend; dayTotals[d.date] += spend; }
+            const isToday = d.date === getThailandDate();
+            const isSortedCol = calendarSortDay === d.date;
+            bodyHtml += `<td style="text-align: center; padding: 0.25rem; ${isSortedCol ? 'background: var(--accent-soft);' : ''}"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${spend || ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
+          });
+          grandTotal += rowTotal;
+          bodyHtml += `<td style="text-align: center; font-weight: 600; color: var(--success); background: var(--bg-tertiary);">$${Math.round(rowTotal * 100) / 100}</td></tr>`;
+        });
       });
+      grandTotal = Math.round(grandTotal * 100) / 100;
       let totalsHtml = '<td style="position: sticky; left: 0; background: var(--bg-tertiary); font-weight: 600;">TOTAL</td><td style="position: sticky; left: 120px; background: var(--bg-tertiary);"></td>';
       days.forEach(d => {
         const total = dayTotals[d.date];
@@ -6244,6 +6312,7 @@ Or just card numbers:
       totalsHtml += `<td style="text-align: center; font-weight: 700; color: var(--success); font-size: 1rem; background: var(--success-bg);">$${grandTotal}</td>`;
       document.getElementById('trackingCalendarView').innerHTML = `
         ${monthTabsHtml}
+        ${filterBar}
         <div class="card" style="overflow-x: auto;">
           <div class="card-body" style="padding: 0.5rem;">
             <table class="table" style="min-width: ${200 + (daysInMonth * 55)}px; font-size: 0.9rem;">
