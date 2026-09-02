@@ -7540,7 +7540,9 @@ Or just card numbers:
             ...data.accounts.facebook.filter(a => a.storeId === store.id)
           ];
           
-          // Calculate store totals
+          // Only CURRENT accounts are counted and listed; spend totals keep
+          // archived history (numbers always stay counted)
+          const visAccounts = allAccounts.filter(a => !isAccountHidden(a));
           let storeYesterdaySpend = 0;
           let storeLifetimeSpend = 0;
           const vccList = [];
@@ -7549,6 +7551,8 @@ Or just card numbers:
           allAccounts.forEach(acc => {
             storeYesterdaySpend += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
             storeLifetimeSpend += acc.lifetimeSpend || 0;
+          });
+          visAccounts.forEach(acc => {
             const vcc = getVCC(acc.vccId);
             const profile = getProfile(acc.profileId);
             if (vcc) vccList.push(`••••${vcc.number.slice(-4)}`);
@@ -7558,8 +7562,8 @@ Or just card numbers:
           
           // Build rich subtitle with all info
           let subtitle = '';
-          if (allAccounts.length > 0) {
-            subtitle = `📊 ${allAccounts.length} account${allAccounts.length > 1 ? 's' : ''}`;
+          if (visAccounts.length > 0) {
+            subtitle = `📊 ${visAccounts.length} account${visAccounts.length > 1 ? 's' : ''}`;
             if (profileList.length > 0) subtitle += ` • 👤 ${profileList.join(', ')}`;
             if (vccList.length > 0) subtitle += ` • 💳 ${vccList.join(', ')}`;
             subtitle += ` • Yesterday: $${storeYesterdaySpend.toFixed(0)} • Lifetime: $${storeLifetimeSpend}`;
@@ -7571,7 +7575,7 @@ Or just card numbers:
           let badge = '';
           if (store.isPerformer) badge += '⭐ TOP';
           if (store.hasTracking) badge += (badge ? ' ' : '') + '📊 Tr';
-          if (allAccounts.length === 0) badge = '🆕 NEW';
+          if (visAccounts.length === 0) badge = '🆕 NEW';
           
           results.push({
             type: 'store', icon: '🏪', title: store.name,
