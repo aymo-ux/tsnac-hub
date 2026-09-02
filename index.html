@@ -7529,7 +7529,9 @@ Or just card numbers:
       const yesterdayKey = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
       
       // Search STORES - with full info about linked accounts, VCCs, spend
+      // (archived stores stay out of the way — restore them via Stores → Show archived)
       data.stores.forEach(store => {
+        if (isStoreArchived(store.id)) return;
         if (store.name.toLowerCase().includes(q) || (store.url && store.url.toLowerCase().includes(q))) {
           // Collect all accounts linked to this store across channels
           const allAccounts = [
@@ -7589,6 +7591,7 @@ Or just card numbers:
       // Search AD ACCOUNTS (by profile name, VCC number, etc.)
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.accounts[channel].forEach(account => {
+          if (isAccountHidden(account) || isStoreArchived(account.storeId)) return;
           const store = getStore(account.storeId);
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
