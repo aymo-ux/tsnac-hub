@@ -6171,9 +6171,10 @@ Or just card numbers:
       if (calendarSortDay) trackingSortBySpend = false; // single-day sort overrides month-total ranking
       renderTrackingCalendar();
     }
-    let calFilterSpend = 'all', calFilterStatus = 'all', calFilterProfile = 'all';
+    let calFilterSpend = 'all', calFilterStatus = 'all', calFilterProfile = 'all', calFilterAccts = 'all';
     function setCalFilter(kind, v) {
-      if (kind === 'reset') { calFilterSpend = 'all'; calFilterStatus = 'all'; calFilterProfile = 'all'; }
+      if (kind === 'reset') { calFilterSpend = 'all'; calFilterStatus = 'all'; calFilterProfile = 'all'; calFilterAccts = 'all'; }
+      if (kind === 'accts') calFilterAccts = v;
       if (kind === 'spend') calFilterSpend = v;
       if (kind === 'status') calFilterStatus = v;
       if (kind === 'profile') calFilterProfile = v;
@@ -6230,14 +6231,18 @@ Or just card numbers:
       headerHtml += '<th style="min-width: 70px; text-align: center; background: var(--bg-tertiary);">Total</th>';
       // ---- filters ----
       const profNames = [...new Set(accounts.map(a => getProfile(a.profileId)?.name).filter(Boolean))].sort();
+      const storeAccCount = {};
+      accounts.forEach(a => { storeAccCount[a.storeId] = (storeAccCount[a.storeId] || 0) + 1; });
       const filtered = accounts.filter(a => {
         if (calFilterSpend === 'has' && accZeroRecent(a)) return false;
         if (calFilterSpend === 'zero' && !accZeroRecent(a)) return false;
         if (calFilterStatus !== 'all' && accStatusKind(a) !== calFilterStatus) return false;
         if (calFilterProfile !== 'all' && (getProfile(a.profileId)?.name || '') !== calFilterProfile) return false;
+        if (calFilterAccts === 'multi' && (storeAccCount[a.storeId] || 0) < 2) return false;
+        if (calFilterAccts === 'single' && (storeAccCount[a.storeId] || 0) > 1) return false;
         return true;
       });
-      const filtering = calFilterSpend !== 'all' || calFilterStatus !== 'all' || calFilterProfile !== 'all';
+      const filtering = calFilterSpend !== 'all' || calFilterStatus !== 'all' || calFilterProfile !== 'all' || calFilterAccts !== 'all';
       const filterBar = `
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem;">
           <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('spend', this.value)">
@@ -6254,6 +6259,11 @@ Or just card numbers:
           <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('profile', this.value)">
             <option value="all" ${calFilterProfile === 'all' ? 'selected' : ''}>Profile: All</option>
             ${profNames.map(p => `<option value="${escapeHtml(p)}" ${calFilterProfile === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+          </select>
+          <select class="form-input" style="width:auto; padding:0.35rem 0.6rem; font-size:0.82rem;" onchange="setCalFilter('accts', this.value)">
+            <option value="all" ${calFilterAccts === 'all' ? 'selected' : ''}>Accounts: All</option>
+            <option value="multi" ${calFilterAccts === 'multi' ? 'selected' : ''}>🔀 2+ ad accounts</option>
+            <option value="single" ${calFilterAccts === 'single' ? 'selected' : ''}>1 ad account</option>
           </select>
           ${filtering ? `<button class="btn btn-sm btn-secondary" onclick="setCalFilter('reset','')">✕ Clear filters</button>` : ''}
           <span style="font-size:0.8rem; color:var(--text-muted); margin-left:auto;">${filtered.length} of ${accounts.length} accounts</span>
