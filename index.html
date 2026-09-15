@@ -747,7 +747,7 @@
     .opt-day-table td, .opt-day-table th { padding: 0.35rem 0.6rem; text-align: right; border-top: 1px solid var(--border-light); }
     .opt-day-table th { position: sticky; top: 0; background: var(--bg-tertiary); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
     .opt-day-table td:first-child, .opt-day-table th:first-child { text-align: left; }
-    .opt-row { display: grid; grid-template-columns: 96px 1.35fr 140px 0.9fr 0.9fr 1.15fr 64px; gap: 0.9rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; transition: var(--transition); }
+    .opt-row { display: grid; grid-template-columns: 96px 1.2fr 132px 0.8fr 0.8fr 0.95fr 1.05fr 64px; gap: 0.9rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; transition: var(--transition); }
     .opt-row:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .opt-pill { display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; padding: 0.3rem 0.55rem; border-radius: 999px; white-space: nowrap; }
     .opt-name { font-weight: 700; font-size: 0.95rem; }
@@ -760,7 +760,7 @@
     .opt-flag { font-size: 1.05rem; cursor: pointer; opacity: 0.55; transition: var(--transition); padding: 0.3rem; border-radius: 8px; }
     .opt-flag:hover { opacity: 1; background: var(--bg-tertiary); }
     .opt-flag.on { opacity: 1; background: var(--accent-soft); }
-    @media (max-width: 1100px) { .opt-row { grid-template-columns: 84px 1.2fr 1fr 1fr 56px; } .opt-spark, .opt-col-rev { display: none; } }
+    @media (max-width: 1100px) { .opt-row { grid-template-columns: 84px 1.1fr 0.9fr 0.95fr 1fr 56px; } .opt-spark, .opt-col-rev { display: none; } }
     .sel-store { outline: 2px solid var(--accent); outline-offset: -1px; }
     .task-card.bulk { cursor: pointer; user-select: none; }
     .task-card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
@@ -4243,6 +4243,16 @@ Or just card numbers:
       keep:   { bg: 'var(--bg-tertiary)',                        fg: 'var(--text-secondary)' },
       silent: { bg: 'var(--bg-tertiary)',                        fg: 'var(--text-muted)' }
     };
+    function optBBParts(storeId) {
+      const accs = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
+        .filter(a => a.storeId === storeId && a.status === 'active' && !isAccountHidden(a));
+      const budgets = accs.map(a => a.budget).filter(v => v != null);
+      const bids = accs.map(a => a.bid).filter(v => v != null);
+      return {
+        budget: budgets.length ? fmtMoney(budgets.reduce((x, y) => x + y, 0)) + '/d' : null,
+        bids: bids.length ? bids.map(b => '$' + b).join(' / ') : null
+      };
+    }
     function optDetailHtml(store, st, cur) {
       const accs = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
         .filter(a => a.storeId === store.id && !isAccountHidden(a));
@@ -4343,17 +4353,21 @@ Or just card numbers:
         const trend = st.trend;
         const trendChip = trend === null ? '<span class="opt-trend" style="background:var(--bg-tertiary); color:var(--text-muted);">no prev data</span>'
           : `<span class="opt-trend" style="background:${trend >= 0 ? 'var(--success-bg, rgba(16,185,129,0.13))' : 'var(--danger-bg, rgba(239,68,68,0.12))'}; color:${trend >= 0 ? 'var(--success)' : 'var(--danger)'};">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend).toFixed(0)}% vs prev</span>`;
-        const bb = storeBBText(store.id).replace(/^ · /, '');
         return `
         <div class="opt-row expandable" style="border-left-color: ${verdict.color}; ${open ? 'border-bottom-left-radius:0; border-bottom-right-radius:0; margin-bottom:0;' : ''}">
           <div><span class="opt-pill" style="background:${vs.bg}; color:${vs.fg};">${verdict.label.toUpperCase()}</span></div>
           <div>
             <div class="opt-name" onclick="toggleOptDetail('${store.id}')" title="${open ? 'Hide' : 'Show'} details"><span class="opt-chev">${open ? '▾' : '▸'}</span>${escapeHtml(store.name)}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Open 14-day trend">📈</span></div>
-            <div class="opt-sub">${bb || 'No budget set — add it in the details below'}</div>
+            <div class="opt-sub">${(() => { const n = ['google','tiktok','facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id && !isAccountHidden(a)).length; return n + ' ad account' + (n !== 1 ? 's' : ''); })()}</div>
           </div>
           <div>${optSpark(store.id, cur, prev)}<div class="opt-mlabel" style="margin-top:0.15rem;">Revenue · range</div></div>
           <div><div class="opt-mlabel">Spend</div><div class="opt-mval">${fmtMoney(st.spend7)}</div></div>
           <div class="opt-col-rev"><div class="opt-mlabel">Revenue</div><div class="opt-mval">${fmtMoney(st.rev7)}</div></div>
+          <div onclick="openBBPopup(event, '${store.id}')" style="cursor: pointer;" title="Budget & bid per account — click to edit">
+            <div class="opt-mlabel">💰 Budget/d · Bid</div>
+            <div class="opt-mval" style="text-decoration: underline dotted; text-underline-offset: 3px;">${(() => { const p = optBBParts(store.id); return p.budget || '<span style="color:var(--text-muted);">set —</span>'; })()}</div>
+            <div style="font-size:0.72rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${(() => { const p = optBBParts(store.id); return p.bids ? 'bid ' + p.bids : '<span style="color:var(--text-muted);">no bid</span>'; })()}</div>
+          </div>
           <div>
             <div class="opt-roas" style="color:${st.roas7 === null ? 'var(--text-muted)' : (st.roas7 >= 1 ? 'var(--success)' : 'var(--danger)')};">${st.roas7 === null ? '—' : st.roas7.toFixed(2) + 'x'}</div>
             ${trendChip}
@@ -6297,7 +6311,10 @@ Or just card numbers:
     }
     function closeBBPopup() {
       const p = document.getElementById('bbPopup');
-      if (p) { p.remove(); if (typeof renderRevenueQuick === 'function') renderRevenueQuick(); }
+      if (!p) return;
+      p.remove();
+      if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
+      if (typeof renderOptHub === 'function' && document.getElementById('section-opthub')?.classList.contains('active')) renderOptHub();
     }
     function bbOutsideClick(e) {
       const p = document.getElementById('bbPopup');
