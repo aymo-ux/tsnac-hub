@@ -1334,6 +1334,9 @@
           <div class="nav-item" data-section="analyze" onclick="showSection('analyze')">
             <span>📊</span> Analyze
           </div>
+          <div class="nav-item" data-section="opthub" onclick="showSection('opthub')">
+            <span>🎯</span> Optimization
+          </div>
           <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
             <span>💰</span> Revenue
           </div>
@@ -1640,6 +1643,22 @@
           </div>
         </div>
         <div id="alertsList"></div>
+      </section>
+
+      <section class="section" id="section-opthub">
+        <div class="header">
+          <div>
+            <h1 class="page-title">Optimization</h1>
+            <p class="page-subtitle">Last 7 days vs the 7 before — who to scale, who to cut</p>
+          </div>
+        </div>
+        <div class="stats-grid" id="optKpis" style="margin-bottom: 1.2rem;"></div>
+        <div class="card" style="padding: 0.4rem 0.9rem; overflow-x: auto;">
+          <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+            <thead id="optHead"></thead>
+            <tbody id="optBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="section" id="section-revenue">
@@ -2821,6 +2840,7 @@ Or just card numbers:
       if (sectionId === 'revenue' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'opthub' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'suppliers' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'storetasks' && !isStoreMgmtUser()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -2845,6 +2865,7 @@ Or just card numbers:
         case 'revenue': openRevenueSection(); break;
         case 'pnl': openPnlSection(); break;
         case 'analyze': openAnalyzeSection(); break;
+        case 'opthub': renderOptHub(); break;
         case 'suppliers': openSuppliersSection(); break;
         case 'storetasks': openStoreTasksSection(); break;
       }
@@ -4112,6 +4133,86 @@ Or just card numbers:
     // ===== Profit & Loss (owner only) =====
     let pnlData = {};        // date -> { cogs, refunds }
     let pnlLoaded = false;
+    // ===== Optimization hub: who to scale, who to cut =====
+    function optDateKeys(offsetStart, offsetEnd) {
+      // keys for days [today-offsetStart .. today-offsetEnd], inclusive
+      const base = new Date(getThailandDate() + 'T12:00:00');
+      const keys = [];
+      for (let n = offsetStart; n <= offsetEnd; n++) {
+        const d = new Date(base); d.setDate(d.getDate() - n);
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      return keys;
+    }
+    function optStoreStats(storeId) {
+      const cur = optDateKeys(1, 7), prev = optDateKeys(8, 14);
+      const sum = (keys, fn) => keys.reduce((t, k) => t + fn(k), 0);
+      const rev = k => parseFloat(dailyRevenue[`${storeId}_${k}`]) || 0;
+      const sp = k => storeSpendForDate(storeId, k);
+      const spend7 = sum(cur, sp), rev7 = sum(cur, rev);
+      const spendP = sum(prev, sp), revP = sum(prev, rev);
+      const roas7 = spend7 > 0 ? rev7 / spend7 : null;
+      const roasP = spendP > 0 ? revP / spendP : null;
+      const trend = (roas7 !== null && roasP !== null && roasP > 0) ? (roas7 - roasP) / roasP * 100 : null;
+      return { spend7, rev7, spendP, revP, roas7, roasP, trend };
+    }
+    function optVerdict(st) {
+      if (st.spend7 <= 0) return { id: 'silent', label: '💤 Silent', color: 'var(--text-muted)', order: 4 };
+      if (st.roas7 !== null && st.roas7 < 1) return { id: 'cut', label: '🔻 Cut', color: 'var(--danger)', order: 0 };
+      if ((st.roas7 !== null && st.roas7 < 1.5) || (st.trend !== null && st.trend <= -30)) return { id: 'watch', label: '⚠️ Watch', color: 'var(--warning)', order: 1 };
+      if (st.roas7 !== null && st.roas7 >= 3 && (st.trend === null || st.trend > -20)) return { id: 'scale', label: '🚀 Scale', color: 'var(--success)', order: 2 };
+      return { id: 'keep', label: '✅ Keep', color: 'var(--success)', order: 3 };
+    }
+    function renderOptHub() {
+      const head = document.getElementById('optHead');
+      const body = document.getElementById('optBody');
+      const kpis = document.getElementById('optKpis');
+      if (!head || !body || !isOwner()) return;
+      const rows = liveStores().map(store => {
+        const st = optStoreStats(store.id);
+        return { store, st, verdict: optVerdict(st) };
+      }).filter(r => {
+        // show stores with any activity in 14 days, or an active 🎯 flag
+        return r.st.spend7 > 0 || r.st.spendP > 0 || r.st.rev7 > 0 || r.store.optimizeAds;
+      });
+      rows.sort((a, b) => (a.verdict.order - b.verdict.order) || (b.st.spend7 - a.st.spend7));
+      // KPIs
+      const spendAll = rows.reduce((t, r) => t + r.st.spend7, 0);
+      const revAll = rows.reduce((t, r) => t + r.st.rev7, 0);
+      const blended = spendAll > 0 ? revAll / spendAll : null;
+      const nCut = rows.filter(r => r.verdict.id === 'cut').length;
+      const nScale = rows.filter(r => r.verdict.id === 'scale').length;
+      if (kpis) kpis.innerHTML = `
+        <div class="stat-card"><div class="stat-label">Spend — 7 days</div><div class="stat-value" style="color: var(--info);">${fmtMoney(spendAll)}</div></div>
+        <div class="stat-card"><div class="stat-label">Revenue — 7 days</div><div class="stat-value" style="color: var(--success);">${fmtMoney(revAll)}</div></div>
+        <div class="stat-card"><div class="stat-label">Blended ROAS</div><div class="stat-value" style="color: var(--purple);">${blended === null ? '—' : blended.toFixed(2) + 'x'}</div></div>
+        <div class="stat-card"><div class="stat-label">Needs action</div><div class="stat-value" style="color: ${nCut ? 'var(--danger)' : 'var(--success)'};">${nCut} cut · ${nScale} scale</div></div>`;
+      head.innerHTML = `<tr>
+        <th style="text-align:left; padding:0.5rem;">Verdict</th>
+        <th style="text-align:left; padding:0.5rem;">Store</th>
+        <th style="text-align:right; padding:0.5rem;">Spend 7d</th>
+        <th style="text-align:right; padding:0.5rem;">Revenue 7d</th>
+        <th style="text-align:right; padding:0.5rem;">ROAS 7d</th>
+        <th style="text-align:right; padding:0.5rem;">vs prev</th>
+        <th style="text-align:left; padding:0.5rem;">Budget · Bid</th>
+        <th style="text-align:center; padding:0.5rem;">Flag</th></tr>`;
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      body.innerHTML = rows.map(r => {
+        const { store, st, verdict } = r;
+        const trendTxt = st.trend === null ? '—'
+          : `<span style="color:${st.trend >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:700;">${st.trend >= 0 ? '▲' : '▼'} ${Math.abs(st.trend).toFixed(0)}%</span>`;
+        return `<tr style="border-top:1px solid var(--border-light);">
+          <td style="padding:0.5rem;"><span style="font-weight:700; color:${verdict.color};">${verdict.label}</span></td>
+          <td style="padding:0.5rem; font-weight:600;">${escapeHtml(store.name)}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="14-day trend">📈</span></td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(st.spend7)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono}">${fmtMoney(st.rev7)}</td>
+          <td style="text-align:right; padding:0.5rem; ${mono} font-weight:700; color:${st.roas7 === null ? 'var(--text-muted)' : (st.roas7 >= 1 ? 'var(--success)' : 'var(--danger)')};">${st.roas7 === null ? '—' : st.roas7.toFixed(2) + 'x'}</td>
+          <td style="text-align:right; padding:0.5rem;">${trendTxt}</td>
+          <td style="padding:0.5rem; font-size:0.8rem; color:var(--text-secondary);">${storeBBText(store.id).replace(/^ · /, '') || '<span style="color:var(--text-muted);">—</span>'}</td>
+          <td style="text-align:center; padding:0.5rem;"><span class="trend-mini" style="opacity:1; ${store.optimizeAds ? 'background:var(--accent-soft); border-radius:4px;' : ''}" onclick="openOptimizeMenu(event, '${store.id}'); setTimeout(renderOptHub, 400);" title="${store.optimizeAds ? 'Optimize (' + (OPT_LABEL[store.optimizeAds] || 'ads') + ') marked — click to clear' : 'Flag for optimization — creates a board task'}">🎯</span>${store.optimizeAds ? `<div style="font-size:0.6rem; font-weight:700; color:var(--orange);">${(OPT_LABEL[store.optimizeAds] || 'ON').toUpperCase()}</div>` : ''}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="8" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No activity in the last 14 days yet.</td></tr>';
+    }
     async function loadFeeRateFromCloud() {
       try {
         const { data: rows } = await supabaseClient.from('app_settings').select('*').eq('key', 'fee_rate');
