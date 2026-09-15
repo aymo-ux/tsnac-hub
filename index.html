@@ -738,6 +738,15 @@
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
     .task-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 5px; vertical-align: middle; }
+    .opt-row.expandable .opt-name { cursor: pointer; }
+    .opt-chev { display: inline-block; margin-right: 0.35rem; color: var(--text-muted); font-size: 0.75rem; transition: transform 0.15s; }
+    .opt-detail { background: var(--bg-card); border: 1px solid var(--border-light); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); margin: -0.6rem 0 0.6rem 0; padding: 1rem 1.2rem; }
+    .opt-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.8rem; margin-bottom: 0.9rem; }
+    .opt-day-table { max-height: 240px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: 8px; }
+    .opt-day-table table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .opt-day-table td, .opt-day-table th { padding: 0.35rem 0.6rem; text-align: right; border-top: 1px solid var(--border-light); }
+    .opt-day-table th { position: sticky; top: 0; background: var(--bg-tertiary); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+    .opt-day-table td:first-child, .opt-day-table th:first-child { text-align: left; }
     .opt-row { display: grid; grid-template-columns: 96px 1.35fr 140px 0.9fr 0.9fr 1.15fr 64px; gap: 0.9rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; transition: var(--transition); }
     .opt-row:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .opt-pill { display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; padding: 0.3rem 0.55rem; border-radius: 999px; white-space: nowrap; }
@@ -1666,6 +1675,7 @@
             <p class="page-subtitle">Last 7 days vs the 7 before — who to scale, who to cut</p>
           </div>
         </div>
+        <div id="optRangeBar" style="margin-bottom: 1rem;"></div>
         <div class="stats-grid" id="optKpis" style="margin-bottom: 1.2rem;"></div>
         <div id="optTabs"></div>
         <div id="optList"></div>
@@ -4154,8 +4164,43 @@ Or just card numbers:
       }
       return keys;
     }
-    function optStoreStats(storeId) {
-      const cur = optDateKeys(1, 7), prev = optDateKeys(8, 14);
+    let optFilter = 'all';
+    let optRangeMode = '7';                 // '7' | '14' | '30' | 'custom'
+    let optFrom = null, optTo = null;       // custom range (YYYY-MM-DD)
+    const optExpanded = new Set();
+    function setOptFilter(f) { optFilter = f; renderOptHub(); }
+    function setOptRange(mode) { optRangeMode = mode; renderOptHub(); }
+    function setOptCustom() {
+      const f = document.getElementById('optFrom')?.value, t = document.getElementById('optTo')?.value;
+      if (f && t && f <= t) { optFrom = f; optTo = t; optRangeMode = 'custom'; renderOptHub(); }
+    }
+    function toggleOptDetail(storeId) {
+      if (optExpanded.has(storeId)) optExpanded.delete(storeId); else optExpanded.add(storeId);
+      renderOptHub();
+    }
+    function optKeysBetween(fromKey, toKey) {
+      const keys = [];
+      const d = new Date(fromKey + 'T12:00:00'), endD = new Date(toKey + 'T12:00:00');
+      while (d <= endD) {
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        d.setDate(d.getDate() + 1);
+      }
+      return keys;
+    }
+    function optCurKeys() {
+      if (optRangeMode === 'custom' && optFrom && optTo) return optKeysBetween(optFrom, optTo);
+      const n = parseInt(optRangeMode, 10) || 7;
+      return optDateKeys(1, n).reverse();     // oldest -> newest, last n full days
+    }
+    function optPrevKeys(curKeys) {
+      const n = curKeys.length;
+      const first = new Date(curKeys[0] + 'T12:00:00');
+      const to = new Date(first); to.setDate(to.getDate() - 1);
+      const from = new Date(first); from.setDate(from.getDate() - n);
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return optKeysBetween(fmt(from), fmt(to));
+    }
+    function optStoreStats(storeId, cur, prev) {
       const sum = (keys, fn) => keys.reduce((t, k) => t + fn(k), 0);
       const rev = k => parseFloat(dailyRevenue[`${storeId}_${k}`]) || 0;
       const sp = k => storeSpendForDate(storeId, k);
@@ -4173,18 +4218,23 @@ Or just card numbers:
       if (st.roas7 !== null && st.roas7 >= 3 && (st.trend === null || st.trend > -20)) return { id: 'scale', label: '🚀 Scale', color: 'var(--success)', order: 2 };
       return { id: 'keep', label: '✅ Keep', color: 'var(--success)', order: 3 };
     }
-    let optFilter = 'all';
-    function setOptFilter(f) { optFilter = f; renderOptHub(); }
-    function optSpark(storeId) {
-      const keys = optDateKeys(1, 14).reverse(); // oldest -> newest, prev week then current
+    function optShortDate(k) {
+      return new Date(k + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    function optSpark(storeId, cur, prev) {
+      const keys = (cur.length + prev.length <= 30 ? prev.concat(cur) : cur);
+      const split = cur.length + prev.length <= 30 ? prev.length : 0;
       const vals = keys.map(k => parseFloat(dailyRevenue[`${storeId}_${k}`]) || 0);
       const max = Math.max(...vals, 1);
-      const bw = 6, gap = 3, h = 36, w = 14 * (bw + gap) - gap;
+      const n = vals.length;
+      const w = 130, gap = n > 20 ? 1 : 3;
+      const bw = Math.max(2, Math.floor((w - gap * (n - 1)) / n));
+      const h = 36;
       const bars = vals.map((v, i) => {
         const bh = Math.max(2, Math.round(v / max * (h - 4)));
-        return `<rect x="${i * (bw + gap)}" y="${h - bh}" width="${bw}" height="${bh}" rx="1.5" fill="${i >= 7 ? 'var(--accent)' : 'var(--border)'}"><title>$${v}</title></rect>`;
+        return `<rect x="${i * (bw + gap)}" y="${h - bh}" width="${bw}" height="${bh}" rx="1" fill="${i >= split ? 'var(--accent)' : 'var(--border)'}"><title>${optShortDate(keys[i])}: $${v}</title></rect>`;
       }).join('');
-      return `<svg class="opt-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${bars}</svg>`;
+      return `<svg class="opt-spark" width="${n * (bw + gap) - gap}" height="${h}" viewBox="0 0 ${n * (bw + gap) - gap} ${h}" aria-hidden="true">${bars}</svg>`;
     }
     const OPT_VSTYLE = {
       cut:    { bg: 'var(--danger-bg, rgba(239,68,68,0.12))',  fg: 'var(--danger)' },
@@ -4193,16 +4243,77 @@ Or just card numbers:
       keep:   { bg: 'var(--bg-tertiary)',                        fg: 'var(--text-secondary)' },
       silent: { bg: 'var(--bg-tertiary)',                        fg: 'var(--text-muted)' }
     };
+    function optDetailHtml(store, st, cur) {
+      const accs = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
+        .filter(a => a.storeId === store.id && !isAccountHidden(a));
+      const accSpend = a => cur.reduce((t, k) => t + (parseFloat(dailySpendHistory[`${a.id}_${k}`]) || 0), 0);
+      const net = st.rev7 - st.spend7;
+      let bestDay = null, bestRev = 0, profitableDays = 0, activeDays = 0;
+      cur.forEach(k => {
+        const r = parseFloat(dailyRevenue[`${store.id}_${k}`]) || 0;
+        const sp = storeSpendForDate(store.id, k);
+        if (r > 0 || sp > 0) activeDays++;
+        if (r > sp && (r > 0 || sp > 0)) profitableDays++;
+        if (r > bestRev) { bestRev = r; bestDay = k; }
+      });
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      const dayRows = cur.slice().reverse().map(k => {
+        const r = parseFloat(dailyRevenue[`${store.id}_${k}`]) || 0;
+        const sp = storeSpendForDate(store.id, k);
+        if (r === 0 && sp === 0) return '';
+        const roas = sp > 0 ? r / sp : null;
+        return `<tr><td>${optShortDate(k)}</td><td style="${mono}">${fmtMoney(sp)}</td><td style="${mono}">${fmtMoney(r)}</td><td style="${mono} font-weight:700; color:${roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)')};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</td></tr>`;
+      }).join('');
+      return `<div class="opt-detail">
+        <div class="opt-detail-grid">
+          <div><div class="opt-mlabel">Net (rev − spend)</div><div class="opt-mval" style="color:${net >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmtMoney(net)}</div></div>
+          <div><div class="opt-mlabel">Best day</div><div class="opt-mval">${bestDay ? optShortDate(bestDay) + ' · ' + fmtMoney(bestRev) : '—'}</div></div>
+          <div><div class="opt-mlabel">Profitable days</div><div class="opt-mval">${profitableDays}/${activeDays || 0}</div></div>
+          <div><div class="opt-mlabel">Prev period ROAS</div><div class="opt-mval">${st.roasP === null ? '—' : st.roasP.toFixed(2) + 'x'}</div></div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items:start;">
+          <div>
+            <div class="opt-mlabel" style="margin-bottom:0.4rem;">Ad accounts — budget & bid (editable)</div>
+            ${accs.length ? accs.map(a => {
+              const p = getProfile(a.profileId);
+              return `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0;">
+                <span style="flex:1; font-size:0.82rem; font-weight:600;">${escapeHtml(p?.name || 'N/A')}</span>
+                <span style="font-size:0.76rem; color:var(--text-muted); ${mono}">${fmtMoney(accSpend(a))}</span>
+                <input type="number" step="0.01" min="0" class="bb-input" data-account="${a.id}" data-field="budget" value="${a.budget != null ? a.budget : ''}" placeholder="Budget $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:78px; padding:0.25rem 0.4rem; text-align:right; ${mono} font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+                <input type="number" step="0.01" min="0" class="bb-input" data-account="${a.id}" data-field="bid" value="${a.bid != null ? a.bid : ''}" placeholder="Bid $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:66px; padding:0.25rem 0.4rem; text-align:right; ${mono} font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+              </div>`;
+            }).join('') : '<div style="font-size:0.8rem; color:var(--text-muted);">No active ad accounts.</div>'}
+          </div>
+          <div class="opt-day-table">
+            <table><thead><tr><th>Day</th><th>Spend</th><th>Revenue</th><th>ROAS</th></tr></thead><tbody>${dayRows || '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No activity in this range</td></tr>'}</tbody></table>
+          </div>
+        </div>
+      </div>`;
+    }
     function renderOptHub() {
       const list = document.getElementById('optList');
       const tabs = document.getElementById('optTabs');
       const kpis = document.getElementById('optKpis');
+      const rangeBar = document.getElementById('optRangeBar');
       if (!list || !isOwner()) return;
-      const all = liveStores().map(store => ({ store, st: optStoreStats(store.id) }))
+      const cur = optCurKeys();
+      const prev = optPrevKeys(cur);
+      if (rangeBar) rangeBar.innerHTML = `
+        <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+          ${[['7', 'Last 7 days'], ['14', 'Last 14 days'], ['30', 'Last 30 days']].map(([m, l]) =>
+            `<button class="notif-tab${optRangeMode === m ? ' on' : ''}" onclick="setOptRange('${m}')">${l}</button>`).join('')}
+          <span style="display:flex; align-items:center; gap:0.35rem; margin-left:0.4rem; font-size:0.8rem; color:var(--text-muted);">
+            <input type="date" id="optFrom" class="form-input" value="${optFrom || cur[0]}" style="width:auto; padding:0.3rem 0.5rem; font-size:0.8rem;" onchange="setOptCustom()">
+            →
+            <input type="date" id="optTo" class="form-input" value="${optTo || cur[cur.length - 1]}" style="width:auto; padding:0.3rem 0.5rem; font-size:0.8rem;" onchange="setOptCustom()">
+            ${optRangeMode === 'custom' ? '<span class="notif-tab on" style="cursor:default;">Custom</span>' : ''}
+          </span>
+          <span style="margin-left:auto; font-size:0.78rem; color:var(--text-muted);">${optShortDate(cur[0])} – ${optShortDate(cur[cur.length - 1])} · vs prior ${cur.length} days</span>
+        </div>`;
+      const all = liveStores().map(store => ({ store, st: optStoreStats(store.id, cur, prev) }))
         .map(r => ({ ...r, verdict: optVerdict(r.st) }))
         .filter(r => r.st.spend7 > 0 || r.st.spendP > 0 || r.st.rev7 > 0 || r.store.optimizeAds);
       all.sort((a, b) => (a.verdict.order - b.verdict.order) || (b.st.spend7 - a.st.spend7));
-      // ---- KPIs with week-over-week deltas ----
       const spend7 = all.reduce((t, r) => t + r.st.spend7, 0);
       const rev7 = all.reduce((t, r) => t + r.st.rev7, 0);
       const spendP = all.reduce((t, r) => t + r.st.spendP, 0);
@@ -4210,40 +4321,39 @@ Or just card numbers:
       const roas7 = spend7 > 0 ? rev7 / spend7 : null;
       const roasP = spendP > 0 ? revP / spendP : null;
       const delta = (a, b) => (b > 0) ? ((a - b) / b * 100) : null;
-      const dChip = d => d === null ? '' : `<span style="font-size:0.72rem; font-weight:700; color:${d >= 0 ? 'var(--success)' : 'var(--danger)'};">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(0)}% vs prev week</span>`;
+      const dChip = d => d === null ? '' : `<span style="font-size:0.72rem; font-weight:700; color:${d >= 0 ? 'var(--success)' : 'var(--danger)'};">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(0)}% vs prev</span>`;
       const nCut = all.filter(r => r.verdict.id === 'cut').length;
       const nWatch = all.filter(r => r.verdict.id === 'watch').length;
       const nScale = all.filter(r => r.verdict.id === 'scale').length;
       if (kpis) kpis.innerHTML = `
-        <div class="stat-card"><div class="stat-label">💸 Spend — 7 days</div><div class="stat-value" style="color: var(--info);">${fmtMoney(spend7)}</div>${dChip(delta(spend7, spendP))}</div>
-        <div class="stat-card"><div class="stat-label">💰 Revenue — 7 days</div><div class="stat-value" style="color: var(--success);">${fmtMoney(rev7)}</div>${dChip(delta(rev7, revP))}</div>
+        <div class="stat-card"><div class="stat-label">💸 Spend</div><div class="stat-value" style="color: var(--info);">${fmtMoney(spend7)}</div>${dChip(delta(spend7, spendP))}</div>
+        <div class="stat-card"><div class="stat-label">💰 Revenue</div><div class="stat-value" style="color: var(--success);">${fmtMoney(rev7)}</div>${dChip(delta(rev7, revP))}</div>
         <div class="stat-card"><div class="stat-label">⚡ Blended ROAS</div><div class="stat-value" style="color: var(--purple);">${roas7 === null ? '—' : roas7.toFixed(2) + 'x'}</div>${roasP === null || roas7 === null ? '' : dChip(delta(roas7, roasP))}</div>
         <div class="stat-card"><div class="stat-label">🎯 Today's work</div><div class="stat-value" style="color: ${nCut + nWatch ? 'var(--danger)' : 'var(--success)'};">${nCut + nWatch || 'None'}</div><span style="font-size:0.72rem; color:var(--text-muted);">${nCut} cut · ${nWatch} watch · ${nScale} scale</span></div>`;
-      // ---- verdict tabs ----
       const tabDefs = [['all', 'All'], ['cut', '🔻 Cut'], ['watch', '⚠️ Watch'], ['scale', '🚀 Scale'], ['keep', '✅ Keep'], ['silent', '💤 Silent']];
       if (tabs) tabs.innerHTML = '<div class="notif-tabs">' + tabDefs.map(([id, label]) => {
         const c = id === 'all' ? all.length : all.filter(r => r.verdict.id === id).length;
         return `<button class="notif-tab${optFilter === id ? ' on' : ''}" onclick="setOptFilter('${id}')">${label}${c ? ` <span class="notif-tab-count">${c}</span>` : ''}</button>`;
       }).join('') + '</div>';
-      // ---- rows ----
       const rows = optFilter === 'all' ? all : all.filter(r => r.verdict.id === optFilter);
       list.innerHTML = rows.map(r => {
         const { store, st, verdict } = r;
         const vs = OPT_VSTYLE[verdict.id];
+        const open = optExpanded.has(String(store.id));
         const trend = st.trend;
         const trendChip = trend === null ? '<span class="opt-trend" style="background:var(--bg-tertiary); color:var(--text-muted);">no prev data</span>'
-          : `<span class="opt-trend" style="background:${trend >= 0 ? 'var(--success-bg, rgba(16,185,129,0.13))' : 'var(--danger-bg, rgba(239,68,68,0.12))'}; color:${trend >= 0 ? 'var(--success)' : 'var(--danger)'};">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend).toFixed(0)}% vs prev week</span>`;
+          : `<span class="opt-trend" style="background:${trend >= 0 ? 'var(--success-bg, rgba(16,185,129,0.13))' : 'var(--danger-bg, rgba(239,68,68,0.12))'}; color:${trend >= 0 ? 'var(--success)' : 'var(--danger)'};">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend).toFixed(0)}% vs prev</span>`;
         const bb = storeBBText(store.id).replace(/^ · /, '');
         return `
-        <div class="opt-row" style="border-left-color: ${verdict.color};">
+        <div class="opt-row expandable" style="border-left-color: ${verdict.color}; ${open ? 'border-bottom-left-radius:0; border-bottom-right-radius:0; margin-bottom:0;' : ''}">
           <div><span class="opt-pill" style="background:${vs.bg}; color:${vs.fg};">${verdict.label.toUpperCase()}</span></div>
           <div>
-            <div class="opt-name">${escapeHtml(store.name)}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="Open 14-day trend">📈</span></div>
-            <div class="opt-sub">${bb || 'No budget set — click 🎯 or add it in Daily Tracking'}</div>
+            <div class="opt-name" onclick="toggleOptDetail('${store.id}')" title="${open ? 'Hide' : 'Show'} details"><span class="opt-chev">${open ? '▾' : '▸'}</span>${escapeHtml(store.name)}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Open 14-day trend">📈</span></div>
+            <div class="opt-sub">${bb || 'No budget set — add it in the details below'}</div>
           </div>
-          <div>${optSpark(store.id)}<div class="opt-mlabel" style="margin-top:0.15rem;">Revenue · 14 days</div></div>
-          <div><div class="opt-mlabel">Spend 7d</div><div class="opt-mval">${fmtMoney(st.spend7)}</div></div>
-          <div class="opt-col-rev"><div class="opt-mlabel">Revenue 7d</div><div class="opt-mval">${fmtMoney(st.rev7)}</div></div>
+          <div>${optSpark(store.id, cur, prev)}<div class="opt-mlabel" style="margin-top:0.15rem;">Revenue · range</div></div>
+          <div><div class="opt-mlabel">Spend</div><div class="opt-mval">${fmtMoney(st.spend7)}</div></div>
+          <div class="opt-col-rev"><div class="opt-mlabel">Revenue</div><div class="opt-mval">${fmtMoney(st.rev7)}</div></div>
           <div>
             <div class="opt-roas" style="color:${st.roas7 === null ? 'var(--text-muted)' : (st.roas7 >= 1 ? 'var(--success)' : 'var(--danger)')};">${st.roas7 === null ? '—' : st.roas7.toFixed(2) + 'x'}</div>
             ${trendChip}
@@ -4252,8 +4362,8 @@ Or just card numbers:
             <span class="opt-flag${store.optimizeAds ? ' on' : ''}" onclick="openOptimizeMenu(event, '${store.id}'); setTimeout(renderOptHub, 400);" title="${store.optimizeAds ? 'Optimize (' + (OPT_LABEL[store.optimizeAds] || 'ads') + ') marked — click to clear' : 'Flag for optimization — creates a board task'}">🎯</span>
             ${store.optimizeAds ? `<div style="font-size:0.58rem; font-weight:800; color:var(--orange); letter-spacing:0.04em;">${(OPT_LABEL[store.optimizeAds] || 'ON').toUpperCase()}</div>` : ''}
           </div>
-        </div>`;
-      }).join('') || `<div class="empty-state"><div class="empty-state-icon">🎯</div><p>${optFilter === 'all' ? 'No activity in the last 14 days yet.' : 'Nothing in this group — good sign.'}</p></div>`;
+        </div>${open ? optDetailHtml(store, st, cur) : ''}`;
+      }).join('') || `<div class="empty-state"><div class="empty-state-icon">🎯</div><p>${optFilter === 'all' ? 'No activity in this range yet.' : 'Nothing in this group — good sign.'}</p></div>`;
     }
     async function loadFeeRateFromCloud() {
       try {
