@@ -780,7 +780,8 @@
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; align-items: start; }
+    .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
+    @media (max-width: 1400px) { .task-board { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
@@ -3600,6 +3601,15 @@ Or just card numbers:
       showToast(`Moved to ${data.stores[idx].name} ✓`);
       renderTracking(); renderAccounts(); renderDashboard();
     }
+    // Persistent per-store history counters (kept in store.assets, synced to cloud)
+    async function bumpStoreStat(storeId, key) {
+      const store = data.stores.find(x => String(x.id) === String(storeId));
+      if (!store) return;
+      const assets = store.assets || {};
+      assets[key] = (parseInt(assets[key], 10) || 0) + 1;
+      store.assets = assets;
+      try { await updateStoreInSupabase(store.id, { assets: assets }); } catch (e) {}
+    }
     async function autoSaveTracking(accountId, field, value) {
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
       if (!account) return;
@@ -3616,7 +3626,9 @@ Or just card numbers:
         showAutoSaveIndicator('✓ Saved');
         return;
       } else if (field === 'storeStatus') {
+        const wasStore = account.storeStatus;
         account.storeStatus = value;
+        if (value === 'inactive' && wasStore !== 'inactive') bumpStoreStat(account.storeId, 'shopifyOffCount');
         if (value === 'inactive') {
           addNotification({
             type: 'store_inactive', title: '⏸️ Pause Campaign',
@@ -3627,7 +3639,9 @@ Or just card numbers:
           });
         }
       } else if (field === 'adsStatus') {
+        const wasAds = account.adsStatus;
         account.adsStatus = value;
+        if ((value === 'suspended' || value === 'paused') && wasAds !== 'suspended' && wasAds !== 'paused') bumpStoreStat(account.storeId, 'googleOffCount');
         if (value === 'suspended') {
           account.suspendedAt = getThailandDate();
           await handleAccountSuspended(accountId);
@@ -4253,6 +4267,19 @@ Or just card numbers:
         bids: bids.length ? bids.map(b => '$' + b).join(' / ') : null
       };
     }
+    // Store history line: live accounts, total ever created, and how often it was switched off
+    function optStoreHistory(store) {
+      const allAcc = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id);
+      const live = allAcc.filter(a => !isAccountHidden(a)).length;
+      const assets = store.assets || {};
+      const created = Math.max(parseInt(assets.acctsCreated, 10) || 0, allAcc.length);
+      const shopOff = parseInt(assets.shopifyOffCount, 10) || 0;
+      const gOff = parseInt(assets.googleOffCount, 10) || 0;
+      let out = `${live} live · ${created} created`;
+      if (shopOff) out += ` · <span title="Times the Shopify store was switched ❌ off" style="color:var(--danger);">🛍 off ×${shopOff}</span>`;
+      if (gOff) out += ` · <span title="Times Google ads were paused or suspended" style="color:var(--warning);">🚫 ads off ×${gOff}</span>`;
+      return out;
+    }
     function optDetailHtml(store, st, cur) {
       const accs = ['google', 'tiktok', 'facebook'].flatMap(ch => (data.accounts[ch] || []))
         .filter(a => a.storeId === store.id && !isAccountHidden(a));
@@ -4280,6 +4307,8 @@ Or just card numbers:
           <div><div class="opt-mlabel">Best day</div><div class="opt-mval">${bestDay ? optShortDate(bestDay) + ' · ' + fmtMoney(bestRev) : '—'}</div></div>
           <div><div class="opt-mlabel">Profitable days</div><div class="opt-mval">${profitableDays}/${activeDays || 0}</div></div>
           <div><div class="opt-mlabel">Prev period ROAS</div><div class="opt-mval">${st.roasP === null ? '—' : st.roasP.toFixed(2) + 'x'}</div></div>
+          <div><div class="opt-mlabel">Accounts created</div><div class="opt-mval">${(() => { const all = ['google','tiktok','facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id); return Math.max(parseInt((store.assets || {}).acctsCreated, 10) || 0, all.length); })()} total</div></div>
+          <div><div class="opt-mlabel">Switched off</div><div class="opt-mval">🛍 ×${parseInt((store.assets || {}).shopifyOffCount, 10) || 0} · 🚫 ×${parseInt((store.assets || {}).googleOffCount, 10) || 0}</div></div>
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items:start;">
           <div>
@@ -4358,7 +4387,7 @@ Or just card numbers:
           <div><span class="opt-pill" style="background:${vs.bg}; color:${vs.fg};">${verdict.label.toUpperCase()}</span></div>
           <div>
             <div class="opt-name" onclick="toggleOptDetail('${store.id}')" title="${open ? 'Hide' : 'Show'} details"><span class="opt-chev">${open ? '▾' : '▸'}</span>${escapeHtml(store.name)}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Open 14-day trend">📈</span></div>
-            <div class="opt-sub">${(() => { const n = ['google','tiktok','facebook'].flatMap(ch => (data.accounts[ch] || [])).filter(a => a.storeId === store.id && !isAccountHidden(a)).length; return n + ' ad account' + (n !== 1 ? 's' : ''); })()}</div>
+            <div class="opt-sub">${optStoreHistory(store)}</div>
           </div>
           <div>${optSpark(store.id, cur, prev)}<div class="opt-mlabel" style="margin-top:0.15rem;">Revenue · range</div></div>
           <div><div class="opt-mlabel">Spend</div><div class="opt-mval">${fmtMoney(st.spend7)}</div></div>
@@ -4684,6 +4713,7 @@ Or just card numbers:
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
+      { id: 'bills',    label: 'Bills due',    icon: '💵', color: 'var(--success)' },
       { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
       { id: 'optimize', label: 'Optimize ads', icon: '🎯', color: 'var(--orange)' }
     ];
@@ -8861,6 +8891,7 @@ Or just card numbers:
         const savedAccount = await saveAdAccountToSupabase(newAccount, currentChannel);
         newAccount.id = savedAccount ? savedAccount.id : (Date.now() + Math.floor(Math.random() * 100000));
         data.accounts[currentChannel].push(newAccount);
+        bumpStoreStat(storeId, 'acctsCreated');
         createdNames.push(store?.name || 'Store');
       }
 
