@@ -783,8 +783,8 @@
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
-    @media (max-width: 1400px) { .task-board { grid-template-columns: repeat(3, 1fr); } }
+    .task-board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.7rem; align-items: start; }
+    @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
@@ -4714,6 +4714,7 @@ Or just card numbers:
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
+      { id: 'produce',  label: 'To produce',   icon: '🏭', color: 'var(--teal)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
       { id: 'bills',    label: 'Bills due',    icon: '💵', color: 'var(--success)' },
@@ -4919,9 +4920,17 @@ Or just card numbers:
       return e.split('@')[0] || 'user';
     }
     function addStoreTask(col) {
-      const title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
-      if (!title) return;
-      const note = (prompt('Note (optional — press OK to skip):') || '').trim();
+      let title, note;
+      if (col === 'produce') {
+        title = (prompt('Product to manufacture — e.g. "Collagen mask":') || '').trim();
+        if (!title) return;
+        const qty = (prompt('Quantity:') || '').trim();
+        note = qty ? '×' + (parseFloat(qty) || qty) : '';
+      } else {
+        title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
+        if (!title) return;
+        note = (prompt('Note (optional — press OK to skip):') || '').trim();
+      }
       const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: col || 'fulfill', by: whoAmI(), at: new Date().toISOString() };
       storeTasks.push(t);
       pushTask(t);
@@ -5177,14 +5186,13 @@ Or just card numbers:
           if (t.at) meta.push(taskTimeAgo(t.at));
           return `
           <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
-            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && tp.rest && tp.rest.length <= 12 ? ` <span class="task-tag">${escapeHtml(tp.rest)}</span>` : ''}</div>
-            ${!auto && tp.rest ? `<div class="task-note">${escapeHtml(tp.rest)}</div>` : ''}
+            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && tp.rest && tp.rest.length <= 12 ? ` <span class="task-tag">${escapeHtml(tp.rest)}</span>` : ''}${!auto && col.id === 'produce' && /^×/.test(tp.rest || '') ? ` <span class="task-tag" style="font-family:'JetBrains Mono',monospace;">${escapeHtml(tp.rest)}</span>` : ''}</div>
+            ${!auto && tp.rest ? (col.id === 'produce' && /^×/.test(tp.rest) ? '' : `<div class="task-note">${escapeHtml(tp.rest)}</div>`) : ''}
             ${tp.products.length ? `<div class="task-prods">${tp.products.map(x => `<span class="task-prod">📦 ${escapeHtml(x.n)} <b>×${x.q}</b></span>`).join('')}</div>` : ''}
             <div class="task-meta">${meta.join(' · ')}${stale}</div>
             ${bulkMode ? '' : `<div class="task-actions">
               ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
               ${ci < TASK_COLS.length - 1 ? `<button class="task-btn" title="Move right" onclick="moveStoreTask('${t.id}', 1)">▶</button>` : ''}
-              ${col.id === 'fulfill' ? `<button class="task-btn" title="Manufactured products — add what to produce" onclick="openTaskProducts(event, '${t.id}')">📦</button>` : ''}
               <button class="task-btn" title="Edit" onclick="editStoreTask('${t.id}')">✎</button>
               <button class="task-btn danger" title="Clear" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
             </div>`}
