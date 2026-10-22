@@ -737,6 +737,9 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
+    .task-prods { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0 0.1rem; }
+    .task-prod { background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 6px; padding: 0.15rem 0.45rem; font-size: 0.72rem; color: var(--text-secondary); }
+    .task-prod b { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
     .task-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 5px; vertical-align: middle; }
     .opt-row.expandable .opt-name { cursor: pointer; }
     .opt-chev { display: inline-block; margin-right: 0.35rem; color: var(--text-muted); font-size: 0.75rem; transition: transform 0.15s; }
@@ -4964,6 +4967,73 @@ Or just card numbers:
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       }
     }
+    // Manufactured products on fulfill tasks — stored as 📦 lines inside the task note,
+    // so they sync through the existing store_tasks table (no new SQL needed)
+    function parseTaskProducts(note) {
+      const products = [], rest = [];
+      String(note || '').split('\n').forEach(line => {
+        const m = line.match(/^📦 (.*?) ×([0-9]+(?:\.[0-9]+)?)$/);
+        if (m) products.push({ n: m[1], q: parseFloat(m[2]) });
+        else if (line.trim()) rest.push(line);
+      });
+      return { products, rest: rest.join('\n') };
+    }
+    function buildTaskNote(products, rest) {
+      const lines = products.filter(p => p.n && p.n.trim()).map(p => `📦 ${p.n.trim()} ×${p.q > 0 ? p.q : 1}`);
+      if (rest && rest.trim()) lines.push(rest.trim());
+      return lines.join('\n');
+    }
+    function closeTaskProducts() { const p = document.getElementById('tpPopup'); if (p) p.remove(); }
+    function tpRowHtml(n, q) {
+      return `<div class="tp-row" style="display:flex; gap:0.4rem; padding:0.2rem 0;">
+        <input type="text" class="form-input tp-name" value="${escapeHtml(n || '')}" placeholder="Product name" style="flex:1; padding:0.35rem 0.5rem; font-size:0.82rem;">
+        <input type="number" class="form-input tp-qty" value="${q || ''}" min="1" step="1" placeholder="Qty" style="width:70px; padding:0.35rem 0.4rem; text-align:right; font-size:0.82rem;">
+        <button class="task-btn danger" title="Remove" onclick="this.closest('.tp-row').remove()">×</button>
+      </div>`;
+    }
+    function addTaskProdRow() {
+      const list = document.getElementById('tpRows');
+      if (list) { list.insertAdjacentHTML('beforeend', tpRowHtml('', '')); list.querySelector('.tp-row:last-child .tp-name')?.focus(); }
+    }
+    function openTaskProducts(ev, taskId) {
+      ev.stopPropagation();
+      closeTaskProducts();
+      const t = taskById(taskId); if (!t) return;
+      const tp = parseTaskProducts(t.note);
+      const p = document.createElement('div');
+      p.id = 'tpPopup';
+      p.dataset.task = taskId;
+      p.style.cssText = 'position:fixed; z-index:3000; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg); padding:0.8rem 0.9rem; width:320px;';
+      p.innerHTML = `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:0.5rem;">📦 Manufactured products — what to produce</div>
+        <div id="tpRows">${(tp.products.length ? tp.products : [{ n: '', q: '' }]).map(x => tpRowHtml(x.n, x.q)).join('')}</div>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.6rem;">
+          <button class="btn btn-sm btn-secondary" onclick="addTaskProdRow()">+ Product</button>
+          <span style="flex:1;"></span>
+          <button class="btn btn-sm btn-secondary" onclick="closeTaskProducts()">Cancel</button>
+          <button class="btn btn-sm btn-primary" onclick="saveTaskProducts()">Save</button>
+        </div>`;
+      document.body.appendChild(p);
+      const r = ev.target.getBoundingClientRect();
+      p.style.left = Math.max(8, Math.min(window.innerWidth - 340, r.left - 120)) + 'px';
+      p.style.top = Math.min(window.innerHeight - 220, r.bottom + 6) + 'px';
+      p.querySelector('.tp-name')?.focus();
+    }
+    async function saveTaskProducts() {
+      const p = document.getElementById('tpPopup'); if (!p) return;
+      const t = taskById(p.dataset.task); if (!t) { closeTaskProducts(); return; }
+      const products = [...p.querySelectorAll('.tp-row')].map(row => ({
+        n: row.querySelector('.tp-name').value,
+        q: parseFloat(row.querySelector('.tp-qty').value) || 1
+      }));
+      const rest = parseTaskProducts(t.note).rest;
+      t.note = buildTaskNote(products, rest);
+      t.by = whoAmI();
+      t.at = new Date().toISOString();
+      await pushTask(t);
+      closeTaskProducts();
+      renderStoreTasks();
+      showToast('✓ Products saved on the task');
+    }
     async function completeTaskCore(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
       if (t.id.startsWith('auto_')) {
@@ -5100,18 +5170,21 @@ Or just card numbers:
           const sel = selectedTasks.has(t.id);
           const days = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0;
           const stale = days >= 3 ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${days}d</span>` : '';
+          const tp = parseTaskProducts(t.note);
           const meta = [];
           if (auto) meta.push('<span style="font-weight:700; color:var(--accent);">⚡</span>');
           if (t.by && !(auto && t.by === 'Auto')) meta.push(escapeHtml(t.by));
           if (t.at) meta.push(taskTimeAgo(t.at));
           return `
           <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
-            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && t.note && t.note.length <= 12 ? ` <span class="task-tag">${escapeHtml(t.note)}</span>` : ''}</div>
-            ${!auto && t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
+            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && tp.rest && tp.rest.length <= 12 ? ` <span class="task-tag">${escapeHtml(tp.rest)}</span>` : ''}</div>
+            ${!auto && tp.rest ? `<div class="task-note">${escapeHtml(tp.rest)}</div>` : ''}
+            ${tp.products.length ? `<div class="task-prods">${tp.products.map(x => `<span class="task-prod">📦 ${escapeHtml(x.n)} <b>×${x.q}</b></span>`).join('')}</div>` : ''}
             <div class="task-meta">${meta.join(' · ')}${stale}</div>
             ${bulkMode ? '' : `<div class="task-actions">
               ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
               ${ci < TASK_COLS.length - 1 ? `<button class="task-btn" title="Move right" onclick="moveStoreTask('${t.id}', 1)">▶</button>` : ''}
+              ${col.id === 'fulfill' ? `<button class="task-btn" title="Manufactured products — add what to produce" onclick="openTaskProducts(event, '${t.id}')">📦</button>` : ''}
               <button class="task-btn" title="Edit" onclick="editStoreTask('${t.id}')">✎</button>
               <button class="task-btn danger" title="Clear" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
             </div>`}
