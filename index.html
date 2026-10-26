@@ -737,9 +737,6 @@
     .an-sort:hover { color: var(--accent); }
     @media (max-width: 1200px) { .analyze-kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .analyze-kpis { grid-template-columns: repeat(2, 1fr); } .analyze-movers { grid-template-columns: 1fr; } }
-    .task-prods { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0 0.1rem; }
-    .task-prod { background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 6px; padding: 0.15rem 0.45rem; font-size: 0.72rem; color: var(--text-secondary); }
-    .task-prod b { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
     .task-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 5px; vertical-align: middle; }
     .opt-row.expandable .opt-name { cursor: pointer; }
     .opt-chev { display: inline-block; margin-right: 0.35rem; color: var(--text-muted); font-size: 0.75rem; transition: transform 0.15s; }
@@ -783,8 +780,8 @@
     @media (max-width: 900px) { .task-stats { grid-template-columns: repeat(2, 1fr); } }
     .task-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
     @media (max-width: 900px) { .task-charts { grid-template-columns: 1fr; } }
-    .task-board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.7rem; align-items: start; }
-    @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
+    .task-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; align-items: start; }
+    @media (max-width: 1400px) { .task-board { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 1500px) { .task-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 1100px) { .task-board { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .task-board { grid-template-columns: 1fr; } }
@@ -1856,6 +1853,14 @@
 
         <div id="supSyncBar" style="margin-bottom: 1rem;"></div>
         <div id="supKpis" class="analyze-kpis" style="margin-bottom: 1.1rem;"></div>
+
+        <div class="card" style="margin-bottom: 1.1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem 0.6rem;">
+            <span style="font-weight: 650; font-size: 0.98rem;">🏭 Manufactured products <span id="manufCount" style="font-weight:400; color:var(--text-muted); font-size:0.8rem;"></span></span>
+            <button class="btn btn-secondary btn-sm" onclick="addManufProduct()">+ Product</button>
+          </div>
+          <div id="manufBody" style="padding: 0 1.3rem 1rem;"></div>
+        </div>
 
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem 0.6rem;">
@@ -4714,7 +4719,6 @@ Or just card numbers:
     }
     const TASK_COLS = [
       { id: 'fulfill',  label: 'To fulfill',   icon: '🚚', color: 'var(--info)' },
-      { id: 'produce',  label: 'To produce',   icon: '🏭', color: 'var(--teal)' },
       { id: 'recreate', label: 'Recreate',     icon: '♻️', color: 'var(--warning)' },
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
       { id: 'bills',    label: 'Bills due',    icon: '💵', color: 'var(--success)' },
@@ -4920,17 +4924,9 @@ Or just card numbers:
       return e.split('@')[0] || 'user';
     }
     function addStoreTask(col) {
-      let title, note;
-      if (col === 'produce') {
-        title = (prompt('Product to manufacture — e.g. "Collagen mask":') || '').trim();
-        if (!title) return;
-        const qty = (prompt('Quantity:') || '').trim();
-        note = qty ? '×' + (parseFloat(qty) || qty) : '';
-      } else {
-        title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
-        if (!title) return;
-        note = (prompt('Note (optional — press OK to skip):') || '').trim();
-      }
+      const title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
+      if (!title) return;
+      const note = (prompt('Note (optional — press OK to skip):') || '').trim();
       const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: col || 'fulfill', by: whoAmI(), at: new Date().toISOString() };
       storeTasks.push(t);
       pushTask(t);
@@ -4975,73 +4971,6 @@ Or just card numbers:
         try { await updateStoreInSupabase(st.id, { assets: assets }); } catch (e) {}
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       }
-    }
-    // Manufactured products on fulfill tasks — stored as 📦 lines inside the task note,
-    // so they sync through the existing store_tasks table (no new SQL needed)
-    function parseTaskProducts(note) {
-      const products = [], rest = [];
-      String(note || '').split('\n').forEach(line => {
-        const m = line.match(/^📦 (.*?) ×([0-9]+(?:\.[0-9]+)?)$/);
-        if (m) products.push({ n: m[1], q: parseFloat(m[2]) });
-        else if (line.trim()) rest.push(line);
-      });
-      return { products, rest: rest.join('\n') };
-    }
-    function buildTaskNote(products, rest) {
-      const lines = products.filter(p => p.n && p.n.trim()).map(p => `📦 ${p.n.trim()} ×${p.q > 0 ? p.q : 1}`);
-      if (rest && rest.trim()) lines.push(rest.trim());
-      return lines.join('\n');
-    }
-    function closeTaskProducts() { const p = document.getElementById('tpPopup'); if (p) p.remove(); }
-    function tpRowHtml(n, q) {
-      return `<div class="tp-row" style="display:flex; gap:0.4rem; padding:0.2rem 0;">
-        <input type="text" class="form-input tp-name" value="${escapeHtml(n || '')}" placeholder="Product name" style="flex:1; padding:0.35rem 0.5rem; font-size:0.82rem;">
-        <input type="number" class="form-input tp-qty" value="${q || ''}" min="1" step="1" placeholder="Qty" style="width:70px; padding:0.35rem 0.4rem; text-align:right; font-size:0.82rem;">
-        <button class="task-btn danger" title="Remove" onclick="this.closest('.tp-row').remove()">×</button>
-      </div>`;
-    }
-    function addTaskProdRow() {
-      const list = document.getElementById('tpRows');
-      if (list) { list.insertAdjacentHTML('beforeend', tpRowHtml('', '')); list.querySelector('.tp-row:last-child .tp-name')?.focus(); }
-    }
-    function openTaskProducts(ev, taskId) {
-      ev.stopPropagation();
-      closeTaskProducts();
-      const t = taskById(taskId); if (!t) return;
-      const tp = parseTaskProducts(t.note);
-      const p = document.createElement('div');
-      p.id = 'tpPopup';
-      p.dataset.task = taskId;
-      p.style.cssText = 'position:fixed; z-index:3000; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg); padding:0.8rem 0.9rem; width:320px;';
-      p.innerHTML = `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:0.5rem;">📦 Manufactured products — what to produce</div>
-        <div id="tpRows">${(tp.products.length ? tp.products : [{ n: '', q: '' }]).map(x => tpRowHtml(x.n, x.q)).join('')}</div>
-        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.6rem;">
-          <button class="btn btn-sm btn-secondary" onclick="addTaskProdRow()">+ Product</button>
-          <span style="flex:1;"></span>
-          <button class="btn btn-sm btn-secondary" onclick="closeTaskProducts()">Cancel</button>
-          <button class="btn btn-sm btn-primary" onclick="saveTaskProducts()">Save</button>
-        </div>`;
-      document.body.appendChild(p);
-      const r = ev.target.getBoundingClientRect();
-      p.style.left = Math.max(8, Math.min(window.innerWidth - 340, r.left - 120)) + 'px';
-      p.style.top = Math.min(window.innerHeight - 220, r.bottom + 6) + 'px';
-      p.querySelector('.tp-name')?.focus();
-    }
-    async function saveTaskProducts() {
-      const p = document.getElementById('tpPopup'); if (!p) return;
-      const t = taskById(p.dataset.task); if (!t) { closeTaskProducts(); return; }
-      const products = [...p.querySelectorAll('.tp-row')].map(row => ({
-        n: row.querySelector('.tp-name').value,
-        q: parseFloat(row.querySelector('.tp-qty').value) || 1
-      }));
-      const rest = parseTaskProducts(t.note).rest;
-      t.note = buildTaskNote(products, rest);
-      t.by = whoAmI();
-      t.at = new Date().toISOString();
-      await pushTask(t);
-      closeTaskProducts();
-      renderStoreTasks();
-      showToast('✓ Products saved on the task');
     }
     async function completeTaskCore(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
@@ -5179,16 +5108,14 @@ Or just card numbers:
           const sel = selectedTasks.has(t.id);
           const days = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0;
           const stale = days >= 3 ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${days}d</span>` : '';
-          const tp = parseTaskProducts(t.note);
           const meta = [];
           if (auto) meta.push('<span style="font-weight:700; color:var(--accent);">⚡</span>');
           if (t.by && !(auto && t.by === 'Auto')) meta.push(escapeHtml(t.by));
           if (t.at) meta.push(taskTimeAgo(t.at));
           return `
           <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
-            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && tp.rest && tp.rest.length <= 12 ? ` <span class="task-tag">${escapeHtml(tp.rest)}</span>` : ''}${!auto && col.id === 'produce' && /^×/.test(tp.rest || '') ? ` <span class="task-tag" style="font-family:'JetBrains Mono',monospace;">${escapeHtml(tp.rest)}</span>` : ''}</div>
-            ${!auto && tp.rest ? (col.id === 'produce' && /^×/.test(tp.rest) ? '' : `<div class="task-note">${escapeHtml(tp.rest)}</div>`) : ''}
-            ${tp.products.length ? `<div class="task-prods">${tp.products.map(x => `<span class="task-prod">📦 ${escapeHtml(x.n)} <b>×${x.q}</b></span>`).join('')}</div>` : ''}
+            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && t.note && t.note.length <= 12 ? ` <span class="task-tag">${escapeHtml(t.note)}</span>` : ''}</div>
+            ${!auto && t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
             <div class="task-meta">${meta.join(' · ')}${stale}</div>
             ${bulkMode ? '' : `<div class="task-actions">
               ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
@@ -5208,6 +5135,62 @@ Or just card numbers:
     // ===== Suppliers / COGS (owner only) =====
     // Suppliers invoice you a daily amount — that IS your cost of goods.
     // P&L and Analyze read COGS from here automatically.
+    // ===== Manufactured products — made by us, tracked next to suppliers =====
+    let manufProducts = [];   // [{ n: name, q: quantity }]
+    function saveManufLocal() { try { localStorage.setItem('tsnac_manufactured', JSON.stringify(manufProducts)); } catch (e) {} }
+    function loadManufLocal() { try { const s = localStorage.getItem('tsnac_manufactured'); if (s) manufProducts = JSON.parse(s) || []; } catch (e) {} }
+    async function loadManufProducts() {
+      loadManufLocal();
+      try {
+        const { data: rows } = await supabaseClient.from('app_settings').select('*').eq('key', 'manufactured_products');
+        if (rows && rows.length) { manufProducts = JSON.parse(rows[0].value) || []; saveManufLocal(); }
+      } catch (e) {}
+      renderManufProducts();
+    }
+    async function syncManufProducts() {
+      saveManufLocal();
+      try { await supabaseClient.from('app_settings').upsert({ key: 'manufactured_products', value: JSON.stringify(manufProducts) }, { onConflict: 'key' }); } catch (e) {}
+    }
+    function renderManufProducts() {
+      const body = document.getElementById('manufBody');
+      const count = document.getElementById('manufCount');
+      if (!body) return;
+      if (count) count.textContent = manufProducts.length ? `— ${manufProducts.length} product${manufProducts.length > 1 ? 's' : ''}` : '';
+      const mono = "font-family:'JetBrains Mono',monospace;";
+      body.innerHTML = manufProducts.length ? manufProducts.map((p, i) => `
+        <div style="display:flex; align-items:center; gap:0.6rem; padding:0.35rem 0; border-top:1px solid var(--border-light);">
+          <span style="color:var(--text-muted);">🏭</span>
+          <input type="text" class="form-input" value="${escapeHtml(p.n)}" onchange="updManufProduct(${i}, 'n', this.value)" style="flex:1; padding:0.4rem 0.6rem; font-size:0.86rem;">
+          <span style="color:var(--text-muted); font-size:0.8rem;">×</span>
+          <input type="number" class="form-input" value="${p.q != null ? p.q : ''}" min="0" step="1" placeholder="qty" onchange="updManufProduct(${i}, 'q', this.value)" onfocus="this.select()" style="width:90px; padding:0.4rem 0.5rem; text-align:right; ${mono} font-size:0.86rem;">
+          <button class="task-btn danger" title="Remove product" onclick="delManufProduct(${i})">×</button>
+        </div>`).join('')
+        : '<div style="padding:0.6rem 0 0.2rem; color:var(--text-muted); font-size:0.85rem;">Products you manufacture yourselves — press <b>+ Product</b> to add one (name and quantity).</div>';
+    }
+    function addManufProduct() {
+      const n = (prompt('Product you manufacture — e.g. "Collagen mask":') || '').trim();
+      if (!n) return;
+      const qRaw = (prompt('Quantity:') || '').trim();
+      const q = qRaw === '' ? null : (parseFloat(qRaw) || 0);
+      manufProducts.push({ n, q });
+      syncManufProducts();
+      renderManufProducts();
+      showToast('✓ ' + n + ' added');
+    }
+    function updManufProduct(i, field, v) {
+      if (!manufProducts[i]) return;
+      if (field === 'n') { const t = String(v).trim(); if (t) manufProducts[i].n = t; }
+      else manufProducts[i].q = v === '' ? null : (parseFloat(v) || 0);
+      syncManufProducts();
+      renderManufProducts();
+    }
+    function delManufProduct(i) {
+      if (!manufProducts[i]) return;
+      if (!confirm('Remove "' + manufProducts[i].n + '"?')) return;
+      manufProducts.splice(i, 1);
+      syncManufProducts();
+      renderManufProducts();
+    }
     let suppliers = ['Tina', 'Kevin'];
     let supplierInvoices = {};   // `${supplier}_${date}` -> { amount, paid, confirmed }
     let suppliersLoaded = false;
@@ -5237,6 +5220,7 @@ Or just card numbers:
           saveSuppliersLocal();
         }
       } catch (e) { console.error('supplier_invoices exception:', e); }
+      loadManufProducts();
       suppliersLoaded = true;
     }
     async function saveSupplierRow(supplier, dateKey) {
@@ -5587,6 +5571,7 @@ Or just card numbers:
     }
     function renderSuppliers() {
       if (!isOwner()) return;
+      renderManufProducts();
       supEnsureMonth();
       const head = document.getElementById('supTableHead'), body = document.getElementById('supTableBody');
       if (!head || !body) return;
@@ -6904,7 +6889,7 @@ Or just card numbers:
       const perms = permissions[currentUser];
       let html = '';
       profiles.forEach(profile => {
-        const accountCount = accounts.filter(a => a.profileId === profile.id).length;
+        const accountCount = accounts.filter(a => a.profileId === profile.id && !isAccountHidden(a) && !isStoreArchived(a.storeId)).length;
         const initials = profile.name.substring(0, 2).toUpperCase();
         html += `
           <div class="profile-item" data-profile-id="${profile.id}" style="display: flex; align-items: center; justify-content: space-between;">
@@ -8008,16 +7993,18 @@ Or just card numbers:
       ['google', 'tiktok', 'facebook'].forEach(channel => {
         data.profiles[channel].forEach(profile => {
           if (profile.name.toLowerCase().includes(q)) {
-            const linkedAccounts = data.accounts[channel].filter(a => a.profileId === profile.id);
+            const allLinked = data.accounts[channel].filter(a => a.profileId === profile.id);
+            // Count and list only CURRENT accounts; spend totals keep the full history
+            const linkedAccounts = allLinked.filter(a => !isAccountHidden(a) && !isStoreArchived(a.storeId));
             const accountCount = linkedAccounts.length;
-            
-            // Calculate totals for this profile
             let profileYesterday = 0;
             let profileLifetime = 0;
             const storeNames = [];
-            linkedAccounts.forEach(acc => {
+            allLinked.forEach(acc => {
               profileYesterday += parseFloat(dailySpendHistory[`${acc.id}_${yesterdayKey}`]) || 0;
               profileLifetime += acc.lifetimeSpend || 0;
+            });
+            linkedAccounts.forEach(acc => {
               const store = getStore(acc.storeId);
               if (store && !storeNames.includes(store.name)) storeNames.push(store.name);
             });
