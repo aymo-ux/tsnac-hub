@@ -1691,6 +1691,7 @@
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="revDayBtn" onclick="setRevenueView('day')">📆 Day</button>
             <button class="btn btn-secondary" id="revMonthBtn" onclick="setRevenueView('month')">🗓️ Month</button>
+            <button class="btn btn-secondary" id="revBulkBtn" onclick="toggleRevBulk()">☑ Select</button>
             <button class="btn btn-primary" onclick="openRevenueQuick()">⚡ Quick entry</button>
             <button class="btn btn-secondary" onclick="openRevenueRange()">📅 Enter range</button>
           </div>
@@ -4087,6 +4088,36 @@ Or just card numbers:
       if (!revenueLoaded) await loadRevenue();
       renderRevenue();
     }
+    // ── Bulk select on the Revenue table: tap rows, archive many at once ──
+    let revBulk = false;
+    const selRevStores = new Set();
+    function toggleRevBulk() { revBulk = !revBulk; selRevStores.clear(); renderRevenue(); }
+    function toggleRevStoreSel(id) {
+      id = String(id);
+      if (selRevStores.has(id)) selRevStores.delete(id); else selRevStores.add(id);
+      renderRevenue();
+    }
+    async function bulkArchiveRevStores() {
+      if (!selRevStores.size) { showToast('Tap the store rows you want to archive first'); return; }
+      if (!confirm(`Archive ${selRevStores.size} store${selRevStores.size > 1 ? 's' : ''}?\n\nTheir ad accounts leave your lists, but all past spend and revenue stay counted in your totals, P&L and trends. Restore any time from Stores → Show archived.`)) return;
+      let failed = 0;
+      for (const sid of Array.from(selRevStores)) {
+        archivedStores.add(String(sid));
+        try {
+          const { error } = await supabaseClient.from('stores').update({ archived: true }).eq('id', sid);
+          if (error) failed++;
+        } catch (e) { failed++; }
+      }
+      saveArchivedLocal();
+      const n = selRevStores.size;
+      selRevStores.clear();
+      revBulk = false;
+      renderRevenue();
+      renderStores();
+      renderDashboard();
+      updateBadges();
+      showToast(failed ? `⚠️ ${failed} not synced to cloud` : `✓ ${n} store${n > 1 ? 's' : ''} archived — numbers stay counted`);
+    }
     function renderRevenue() {
       if (!isOwner()) return;
       const head = document.getElementById('revenueTableHead');
@@ -4109,16 +4140,25 @@ Or just card numbers:
 
       // Cloud-sync rescue banner: shows when this device holds revenue the cloud doesn't
       // Manual daily total override (day view only) — type a number to use one total instead of the per-store sum
+      const bulkBtn = document.getElementById('revBulkBtn');
+      if (bulkBtn) bulkBtn.textContent = revBulk ? '✕ Cancel' : '☑ Select';
+      const revBulkBar = revBulk ? `
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 1rem; margin-bottom:0.8rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;">
+          <strong>${selRevStores.size}</strong>&nbsp;selected — tap store rows to select
+          <span style="margin-left:auto; display:flex; gap:0.5rem;">
+            <button class="btn btn-sm btn-primary" onclick="bulkArchiveRevStores()">🗑 Archive selected</button>
+            <button class="btn btn-sm btn-secondary" onclick="toggleRevBulk()">Cancel</button>
+          </span></div>` : '';
       if (manualBox) {
         if (revenueView === 'day') {
           const manual = manualDayRevenue(dateKey);
           const auto = autoDayRevenue(dateKey);
-          manualBox.innerHTML = `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
+          manualBox.innerHTML = revBulkBar + `<div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card);">
             <span style="font-weight:600; font-size:0.88rem;">Manual daily total</span>
             <input type="number" step="0.01" min="0" class="form-input" style="width:150px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${manual !== null ? manual : ''}" placeholder="${auto ? fmtMoney(auto) : '$0'}" onchange="saveRevenue('${MANUAL_REV_STORE}','${dateKey}',this.value)">
             <span style="font-size:0.8rem; color:${manual !== null ? 'var(--accent)' : 'var(--text-muted)'};">${manual !== null ? '✎ using this total (per-store rows below are ignored for the day total)' : 'leave empty to use the sum of the stores below'}</span>
           </div>`;
-        } else manualBox.innerHTML = '';
+        } else manualBox.innerHTML = revBulkBar;
       }
 
       head.innerHTML = `<tr>
@@ -4147,11 +4187,15 @@ Or just card numbers:
         const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
         const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
         const archTag = archived ? ' <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.1rem 0.35rem;">ARCHIVED</span>' : '';
-        const revCell = (revenueView === 'day' && !archived)
+        const revCell = (revenueView === 'day' && !archived && !revBulk)
           ? `<input type="number" step="0.01" min="0" class="form-input" style="width:110px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${rev || ''}" placeholder="0" onchange="saveRevenue('${store.id}','${dateKey}',this.value)">`
           : `<span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(rev)}</span>`;
-        rowsHtml += `<tr${archived ? ' style="opacity:0.75;"' : ''}>
-          <td style="padding:0.5rem 0.6rem; font-weight:500; white-space:nowrap;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}${archTag}<span class="trend-mini" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span></td>
+        const selRow = selRevStores.has(String(store.id));
+        const rowActions = revBulk ? '' : (archived
+          ? `<span class="trend-mini" onclick="restoreStoreFromRevenue('${store.id}')" title="Restore this store">↩</span>`
+          : `<span class="trend-mini" onclick="archiveStoreFromRevenue('${store.id}')" title="Archive this store — its numbers stay counted">🗑</span>`);
+        rowsHtml += `<tr${revBulk ? ` onclick="toggleRevStoreSel('${store.id}')" style="cursor:pointer;${selRow ? ' outline:2px solid var(--accent); outline-offset:-2px;' : ''}${archived ? ' opacity:0.75;' : ''}"` : (archived ? ' style="opacity:0.75;"' : '')}>
+          <td style="padding:0.5rem 0.6rem; font-weight:500; white-space:nowrap;">${revBulk ? `<span class="task-check">${selRow ? '☑' : '☐'}</span> ` : ''}${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}${archTag}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Last 14 days spend">📈</span>${rowActions}</td>
           <td style="text-align:right; padding:0.5rem 0.6rem;">${revCell}</td>
           <td style="text-align:right; padding:0.5rem 0.6rem; font-family:'JetBrains Mono',monospace; color:var(--text-secondary);">${fmtMoney(spend)}</td>
           <td style="text-align:right; padding:0.5rem 0.6rem; font-weight:600; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</td>
@@ -6167,9 +6211,7 @@ Or just card numbers:
           const pColor = s.profit > 0 ? 'var(--success)' : (s.profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
           const mono = "font-family:'JetBrains Mono',monospace;";
           return `<tr${s.archived ? ' style="opacity:0.7;"' : ''}>
-            <td style="padding:0.5rem 0.7rem; font-weight:500; white-space:nowrap;">${escapeHtml(s.store.name)}${s.store.isPerformer ? ' ⭐' : ''}${s.archived ? ' <span style="font-size:0.62rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.05rem 0.3rem;">ARCHIVED</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${s.store.id}')" title="14-day spend">📈</span>${s.archived
-              ? `<span class="trend-mini" onclick="restoreStoreFromRevenue('${s.store.id}')" title="Restore this store">↩</span>`
-              : `<span class="trend-mini" onclick="archiveStoreFromRevenue('${s.store.id}')" title="Archive this store — its numbers stay counted">🗑</span>`}</td>
+            <td style="padding:0.5rem 0.7rem; font-weight:500; white-space:nowrap;">${escapeHtml(s.store.name)}${s.store.isPerformer ? ' ⭐' : ''}${s.archived ? ' <span style="font-size:0.62rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.05rem 0.3rem;">ARCHIVED</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${s.store.id}')" title="14-day spend">📈</span></td>
             <td style="text-align:right; padding:0.5rem 0.7rem; ${mono}">${fmtMoney(s.rev)}</td>
             <td style="text-align:right; padding:0.5rem 0.7rem; color:var(--text-secondary); ${mono}">${fmtMoney(s.spend)}</td>
             <td style="text-align:right; padding:0.5rem 0.7rem; font-weight:600; color:${roasColor};">${s.roas === null ? '—' : s.roas.toFixed(2) + 'x'}</td>
