@@ -6167,7 +6167,9 @@ Or just card numbers:
           const pColor = s.profit > 0 ? 'var(--success)' : (s.profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
           const mono = "font-family:'JetBrains Mono',monospace;";
           return `<tr${s.archived ? ' style="opacity:0.7;"' : ''}>
-            <td style="padding:0.5rem 0.7rem; font-weight:500; white-space:nowrap;">${escapeHtml(s.store.name)}${s.store.isPerformer ? ' ⭐' : ''}${s.archived ? ' <span style="font-size:0.62rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.05rem 0.3rem;">ARCHIVED</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${s.store.id}')" title="14-day spend">📈</span></td>
+            <td style="padding:0.5rem 0.7rem; font-weight:500; white-space:nowrap;">${escapeHtml(s.store.name)}${s.store.isPerformer ? ' ⭐' : ''}${s.archived ? ' <span style="font-size:0.62rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.05rem 0.3rem;">ARCHIVED</span>' : ''}<span class="trend-mini" onclick="openStoreTrend('${s.store.id}')" title="14-day spend">📈</span>${s.archived
+              ? `<span class="trend-mini" onclick="restoreStoreFromRevenue('${s.store.id}')" title="Restore this store">↩</span>`
+              : `<span class="trend-mini" onclick="archiveStoreFromRevenue('${s.store.id}')" title="Archive this store — its numbers stay counted">🗑</span>`}</td>
             <td style="text-align:right; padding:0.5rem 0.7rem; ${mono}">${fmtMoney(s.rev)}</td>
             <td style="text-align:right; padding:0.5rem 0.7rem; color:var(--text-secondary); ${mono}">${fmtMoney(s.spend)}</td>
             <td style="text-align:right; padding:0.5rem 0.7rem; font-weight:600; color:${roasColor};">${s.roas === null ? '—' : s.roas.toFixed(2) + 'x'}</td>
@@ -8205,6 +8207,15 @@ Or just card numbers:
       renderAccounts();
       renderDashboard();
       updateBadges();
+    }
+    // Archive / restore straight from the Revenue table
+    async function archiveStoreFromRevenue(storeId) {
+      await deleteStore(storeId);
+      renderRevenue();
+    }
+    async function restoreStoreFromRevenue(storeId) {
+      await restoreStore(storeId);
+      renderRevenue();
     }
     async function restoreStore(storeId) {
       const store = data.stores.find(s => s.id === storeId || s.id == storeId);
