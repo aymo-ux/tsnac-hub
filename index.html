@@ -1544,6 +1544,64 @@
       .opt-row > div:nth-child(8) { grid-column: 3; grid-row: 3; justify-self: end; }
     }
     @media (min-width: 769px) and (max-width: 1100px) { .opt-row > div:nth-child(3) { display: none; } }
+
+    /* ── Store tasks: one list, urgent first, comments inside each task ── */
+    .tk-new { display: flex; gap: 0.5rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.6rem; margin-bottom: 1rem; }
+    .tk-new select { width: 150px; flex: none; } .tk-new input[type="text"] { flex: 1; min-width: 0; }
+    .tk-urgent-check { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; padding: 0 0.3rem; cursor: pointer; }
+    .tk-digest { padding: 0.65rem 1rem; margin-bottom: 1rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-md); font-size: 0.85rem; }
+    .tk-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    .tk-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.38rem 0.75rem; border-radius: 999px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 0.82rem; font-weight: 550; cursor: pointer; }
+    .tk-chip i, .tk-type i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--text-muted)); flex: none; }
+    .tk-chip b { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--text-muted); }
+    .tk-chip.empty { opacity: 0.55; }
+    .tk-chip.on { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-card); opacity: 1; } .tk-chip.on b { color: inherit; }
+    .tk-row { background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--c); border-radius: var(--radius-md); margin-bottom: 0.45rem; }
+    .tk-row.urgent { border-color: color-mix(in srgb, var(--danger) 45%, transparent); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger-bg) 55%, var(--bg-card)); }
+    .tk-row.sel { outline: 2px solid var(--accent); }
+    .tk-line { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.8rem 0.6rem 0.9rem; }
+    .tk-main { display: flex; align-items: center; gap: 0.85rem; flex: 1; min-width: 0; cursor: pointer; }
+    .tk-type { display: inline-flex; align-items: center; gap: 0.4rem; width: 118px; flex: none; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+    .tk-text { flex: 1; min-width: 0; }
+    .tk-title { font-weight: 650; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+    .tk-note { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tk-tag { font-size: 0.66rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; background: var(--bg-tertiary); color: var(--text-secondary); }
+    .tk-tag.urgent { background: var(--danger); color: #fff; } .tk-tag.new { background: var(--accent); color: #fff; }
+    .tk-meta { font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; flex: none; }
+    .tk-stale { background: var(--danger-bg); color: var(--danger); font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 4px; }
+    .tk-actions { display: flex; gap: 0.35rem; flex: none; }
+    .tk-btn { display: inline-flex; align-items: center; gap: 0.3rem; height: 32px; padding: 0 0.6rem; border-radius: 8px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .tk-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+    .tk-btn em { font-style: normal; font-size: 0.68rem; font-weight: 700; background: var(--accent); color: #fff; border-radius: 999px; padding: 0.05rem 0.4rem; }
+    .tk-btn.unread { border-color: var(--accent); color: var(--accent); }
+    .tk-btn.is-urgent { background: var(--danger); border-color: var(--danger); color: #fff; } .tk-btn.is-urgent .ic { color: inherit; }
+    .tk-btn.done { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 40%, transparent); color: var(--success); }
+    .tk-btn.done:hover { background: var(--success); color: #fff; }
+    .tk-panel { border-top: 1px solid var(--border-light); padding: 0.8rem 0.9rem 0.9rem; }
+    .tk-thread { display: flex; flex-direction: column; gap: 0.45rem; max-height: 260px; overflow-y: auto; margin-bottom: 0.6rem; }
+    .tk-c { max-width: 78%; align-self: flex-start; background: var(--bg-tertiary); border-radius: 12px; padding: 0.45rem 0.7rem; }
+    .tk-c.me { align-self: flex-end; background: var(--accent-soft); }
+    .tk-c-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.72rem; color: var(--text-muted); } .tk-c-head b { color: var(--text-primary); font-size: 0.76rem; }
+    .tk-c-body { font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .tk-compose { display: flex; gap: 0.5rem; } .tk-compose input { flex: 1; min-width: 0; }
+    .tk-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.7rem; font-size: 0.8rem; color: var(--text-secondary); }
+    .tk-tools label { display: flex; align-items: center; gap: 0.4rem; } .tk-tools select { width: 150px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+    .tk-empty { font-size: 0.84rem; color: var(--text-muted); padding: 0.3rem 0; }
+    .tk-empty.big { text-align: center; padding: 2rem 1rem; background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-md); }
+    .tk-done-feed, .tk-charts { margin-top: 1.2rem; }
+    .tk-done-feed summary, .tk-charts summary { cursor: pointer; font-weight: 650; font-size: 0.9rem; color: var(--text-secondary); padding: 0.3rem 0; }
+    .tk-done-feed summary b { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted); margin-left: 0.3rem; }
+    .tk-done-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.8rem; border-bottom: 1px solid var(--border-light); font-size: 0.86rem; }
+    .tk-done-tick { color: var(--success); font-weight: 700; } .tk-done-title { flex: 1; min-width: 0; color: var(--text-secondary); text-decoration: line-through; text-decoration-color: var(--border-hover); }
+    @media (max-width: 768px) {
+      .tk-new { flex-wrap: wrap; } .tk-new select { width: auto; flex: 1; } .tk-new input[type="text"] { flex: 1 1 100%; order: -1; } .tk-new .btn { flex: 1; }
+      .tk-line { flex-direction: column; align-items: stretch; gap: 0.55rem; }
+      .tk-main { flex-wrap: wrap; gap: 0.3rem 0.6rem; } .tk-type { width: auto; order: 1; } .tk-text { flex: 1 1 100%; order: 0; } .tk-meta { order: 2; margin-left: auto; }
+      .tk-actions .tk-btn { flex: 1; justify-content: center; height: 38px; } .tk-actions .tk-btn.done { flex: 2; }
+      .tk-c { max-width: 90%; }
+      #section-storetasks .task-stats, #section-storetasks .header-actions { display: none; }
+      .tk-done-row { flex-wrap: wrap; gap: 0.3rem 0.6rem; } .tk-done-title { flex: 1 1 100%; }
+    }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -2151,29 +2209,41 @@
       <section class="section" id="section-storetasks">
         <div class="header">
           <div>
-            <h1 class="page-title">Store Tasks</h1>
-            <p class="page-subtitle">Shared board — visible to you and Elias only</p>
+            <h1 class="page-title">Store tasks</h1>
+            <p class="page-subtitle">One list for you and Elias. Urgent first, comments on every task</p>
           </div>
           <div class="header-actions">
             <button class="btn btn-secondary" id="bulkBtn" onclick="toggleBulkMode()">☑ Select</button>
-            <button class="btn btn-primary" onclick="addStoreTask()">+ Task</button>
           </div>
+        </div>
+        <div id="taskStats" class="task-stats"></div>
+        <div class="tk-new">
+          <select id="newTaskType" class="form-input" aria-label="Task type">
+            <option value="fulfill">To fulfill</option><option value="recreate">Recreate</option><option value="hold">Payment hold</option>
+            <option value="bills">Bills due</option><option value="recycle">Recycle</option><option value="optimize">Optimize ads</option>
+          </select>
+          <input type="text" id="newTaskTitle" class="form-input" placeholder="New task, e.g. Recreate Zafira" onkeydown="if(event.key==='Enter')addStoreTask()">
+          <label class="tk-urgent-check"><input type="checkbox" id="newTaskUrgent"> Urgent</label>
+          <button class="btn btn-primary" onclick="addStoreTask()">Add task</button>
         </div>
         <div id="bulkBar"></div>
         <div id="taskDigest"></div>
-        <div id="taskStats" class="task-stats"></div>
-        <div class="task-charts">
-          <div class="card" style="padding: 1rem 1.2rem;">
-            <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Open tasks by stage</div>
-            <div id="taskColChart"></div>
+        <div id="taskFilters" class="tk-filters"></div>
+        <div id="taskBoard"></div>
+        <div id="taskDoneFeed"></div>
+        <details class="tk-charts">
+          <summary>Charts</summary>
+          <div class="task-charts" style="margin-top: 0.8rem;">
+            <div class="card" style="padding: 1rem 1.2rem;">
+              <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Open tasks by type</div>
+              <div id="taskColChart"></div>
+            </div>
+            <div class="card" style="padding: 1rem 1.2rem;">
+              <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Completed in the last 7 days</div>
+              <div id="taskDoneChart"></div>
+            </div>
           </div>
-          <div class="card" style="padding: 1rem 1.2rem;">
-            <div style="font-weight: 650; font-size: 0.92rem; margin-bottom: 0.7rem;">Completed — last 7 days</div>
-            <div id="taskDoneChart"></div>
-          </div>
-        </div>
-        <div class="task-board" id="taskBoard"></div>
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.75rem;">Use ◀ ▶ on a task to move it between columns. Both of you can add, edit, move, and delete — changes save automatically.</p>
+        </details>
       </section>
     </main>
   </div>
@@ -5063,6 +5133,28 @@ Or just card numbers:
         if (typeof renderRevenueQuick === 'function') renderRevenueQuick();
       } catch (e) {}
     }
+    // Urgent flag, comments and the original time travel inside the note field,
+    // so the board needs no database change.
+    const TASK_PACK = '#J#';
+    function unpackTask(r) {
+      const t = { id: r.id, title: r.title || '', note: r.note || '', col: r.col || 'fulfill', by: r.created_by || '', at: r.updated_at || r.created_at || '', urgent: false, comments: [], pc: '' };
+      if (t.note.startsWith(TASK_PACK)) {
+        try {
+          const x = JSON.parse(t.note.slice(TASK_PACK.length));
+          t.note = x.n || ''; t.urgent = !!x.u; t.comments = Array.isArray(x.c) ? x.c : []; t.pc = x.pc || '';
+          if (x.a) t.at = x.a;
+        } catch (e) { t.note = ''; }
+      }
+      return t;
+    }
+    function packTaskNote(t) {
+      return TASK_PACK + JSON.stringify({ n: t.note || '', u: t.urgent ? 1 : 0, c: t.comments || [], pc: t.pc || '', a: t.at || new Date().toISOString() });
+    }
+    function mergeComments(a, b) {
+      const seen = new Set(), out = [];
+      (a || []).concat(b || []).forEach(c => { const k = c.t + '|' + c.b + '|' + c.m; if (!seen.has(k)) { seen.add(k); out.push(c); } });
+      return out.sort((x, y) => String(x.t).localeCompare(String(y.t)));
+    }
     async function loadStoreTasks() {
       if (!isStoreMgmtUser()) return;
       loadTasksLocal();
@@ -5076,7 +5168,13 @@ Or just card numbers:
           const cloudIds = new Set(rows.map(r => r.id));
           const grace = Date.now() - 120000;
           const keepLocal = storeTasks.filter(t => !cloudIds.has(t.id) && t.at && new Date(t.at).getTime() > grace);
-          storeTasks = rows.map(r => ({ id: r.id, title: r.title || '', note: r.note || '', col: r.col || 'fulfill', by: r.created_by || '', at: r.updated_at || r.created_at || '' })).concat(keepLocal);
+          storeTasks = rows.map(unpackTask).concat(keepLocal);
+          // finished manual tasks stay visible for a week, then go
+          const weekAgo = Date.now() - 7 * 86400000;
+          storeTasks.filter(t => t.col === 'done' && !t.id.startsWith('auto_') && t.at && new Date(t.at).getTime() < weekAgo).forEach(t => {
+            (async () => { try { await supabaseClient.from('store_tasks').delete().eq('id', t.id); } catch (e) {} })();
+          });
+          storeTasks = storeTasks.filter(t => !(t.col === 'done' && !t.id.startsWith('auto_') && t.at && new Date(t.at).getTime() < weekAgo));
           saveTasksLocal();
         }
       } catch (e) { console.error('store_tasks exception:', e); }
@@ -5094,7 +5192,7 @@ Or just card numbers:
       saveTasksLocal();
       try {
         const { error } = await supabaseClient.from('store_tasks').upsert(
-          { id: t.id, title: t.title, note: t.note, col: t.col, created_by: t.by, updated_at: new Date().toISOString() },
+          { id: t.id, title: t.title, note: packTaskNote(t), col: t.col, created_by: t.by, updated_at: new Date().toISOString() },
           { onConflict: 'id' });
         showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
         if (error) console.error('store_tasks save error:', error);
@@ -5190,27 +5288,30 @@ Or just card numbers:
     }
     // ---- Digest: what changed since you last looked ----
     function taskVisitKey() { return 'tsnac_tasks_visit_' + ((authUser && authUser.email) || ''); }
+    let taskLastVisit = 0;
+    function taskSeenMap() { try { return JSON.parse(localStorage.getItem('tsnac_task_seen_' + ((authUser && authUser.email) || '')) || '{}'); } catch (e) { return {}; } }
+    function markTaskSeen(id) { try { const m = taskSeenMap(); m[id] = new Date().toISOString(); localStorage.setItem('tsnac_task_seen_' + ((authUser && authUser.email) || ''), JSON.stringify(m)); } catch (e) {} }
+    function taskUnread(t) {
+      const me = whoAmI(), seen = taskSeenMap()[t.id] || '';
+      return (t.comments || []).filter(c => c.b !== me && String(c.t) > seen).length;
+    }
+    function taskIsNew(t) { return !!taskLastVisit && t.by !== whoAmI() && t.at && new Date(t.at).getTime() > taskLastVisit; }
     function renderTaskDigest() {
       const el = document.getElementById('taskDigest');
       if (!el) return;
-      let last = 0;
-      try { last = parseInt(localStorage.getItem(taskVisitKey())) || 0; } catch (e) {}
-      const changed = storeTasks.filter(t => t.col !== 'dismissed' && t.col !== 'done' && t.at && new Date(t.at).getTime() > last);
-      if (!last || !changed.length) {
-        el.innerHTML = '';
-      } else {
-        const byCol = {};
-        changed.forEach(t => { const lbl = (TASK_COLS.find(c => c.id === t.col) || {}).label || t.col; byCol[lbl] = (byCol[lbl] || 0) + 1; });
-        const parts = Object.keys(byCol).map(k => `<strong>${byCol[k]}</strong> in ${k}`);
-        el.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; padding:0.65rem 1rem; margin-bottom:1rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;">✨ Since your last visit: ${parts.join(' · ')}</div>`;
-      }
-      try { localStorage.setItem(taskVisitKey(), String(Date.now())); } catch (e) {}
+      const open = storeTasks.filter(t => t.col !== 'dismissed' && t.col !== 'done');
+      const fresh = open.filter(taskIsNew).length;
+      const unread = open.reduce((n, t) => n + taskUnread(t), 0);
+      const parts = [];
+      if (fresh) parts.push(`<strong>${fresh}</strong> new task${fresh > 1 ? 's' : ''}`);
+      if (unread) parts.push(`<strong>${unread}</strong> new comment${unread > 1 ? 's' : ''}`);
+      el.innerHTML = parts.length ? `<div class="tk-digest">✨ Since your last visit: ${parts.join(' and ')}</div>` : '';
     }
     async function openStoreTasksSection() {
       if (!isStoreMgmtUser()) { showSection('dashboard'); return; }
       if (!storeTasksLoaded) await loadStoreTasks();
+      try { taskLastVisit = parseInt(localStorage.getItem(taskVisitKey())) || 0; localStorage.setItem(taskVisitKey(), String(Date.now())); } catch (e) {}
       runTaskAutomations();
-      renderTaskDigest();
       renderStoreTasks();
       // Keep the board fresh: pull the latest every 45s while it's open,
       // so each of you sees the other's changes without reloading.
@@ -5221,7 +5322,7 @@ Or just card numbers:
         await loadStoreTasks();
         runTaskAutomations();
         renderStoreTasks();
-      }, 45000);
+      }, 20000);
     }
     function whoAmI() {
       const e = ((authUser && authUser.email) || '').toLowerCase();
@@ -5230,33 +5331,89 @@ Or just card numbers:
       return e.split('@')[0] || 'user';
     }
     function addStoreTask(col) {
-      const title = (prompt('Task — e.g. "Recreate Zafira" or "Topicals payout paused":') || '').trim();
-      if (!title) return;
-      const note = (prompt('Note (optional — press OK to skip):') || '').trim();
-      const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: col || 'fulfill', by: whoAmI(), at: new Date().toISOString() };
+      const inp = document.getElementById('newTaskTitle'), typeSel = document.getElementById('newTaskType'), urg = document.getElementById('newTaskUrgent');
+      if (col && typeSel) typeSel.value = col;
+      const title = ((inp && inp.value) || '').trim();
+      if (!title) { if (inp) inp.focus(); return; }
+      const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note: '', col: (typeSel && typeSel.value) || 'fulfill', by: whoAmI(), at: new Date().toISOString(), urgent: !!(urg && urg.checked), comments: [], pc: '' };
       storeTasks.push(t);
       pushTask(t);
+      inp.value = ''; if (urg) urg.checked = false;
       renderStoreTasks();
+      inp.focus();
     }
     function editStoreTask(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
-      const title = prompt('Edit task:', t.title);
+      const title = prompt('Task:', t.title);
       if (title === null) return;
       if (title.trim()) t.title = title.trim();
-      const note = prompt('Edit note (empty to remove):', t.note || '');
+      const note = prompt('Note (leave empty for none):', t.note || '');
       if (note !== null) t.note = note.trim();
-      t.by = whoAmI(); t.at = new Date().toISOString();
+      pushTask(t);
+      renderStoreTasks();
+    }
+    function setTaskType(id, col) {
+      const t = storeTasks.find(x => x.id === id); if (!t || t.col === col) return;
+      t.col = col;
       pushTask(t);
       renderStoreTasks();
     }
     async function moveStoreTask(id, dir) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
       const order = TASK_COLS.map(c => c.id);
-      const i = order.indexOf(t.col);
-      const ni = Math.max(0, Math.min(order.length - 1, i + dir));
-      if (ni === i) return;
-      t.col = order[ni]; t.by = whoAmI(); t.at = new Date().toISOString();
+      const ni = Math.max(0, Math.min(order.length - 1, order.indexOf(t.col) + dir));
+      setTaskType(id, order[ni]);
+    }
+    function toggleTaskUrgent(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      t.urgent = !t.urgent;
       pushTask(t);
+      renderStoreTasks();
+    }
+    let openTaskId = null, taskFilter = 'all';
+    function toggleTaskOpen(id) {
+      openTaskId = openTaskId === id ? null : id;
+      if (openTaskId) markTaskSeen(id);
+      renderStoreTasks();
+      const inp = document.getElementById('taskCommentInput'); if (inp && window.innerWidth > 768) inp.focus();
+    }
+    function setTaskFilter(f) {
+      taskFilter = f;
+      const sel = document.getElementById('newTaskType'); if (sel && f !== 'all') sel.value = f;
+      renderStoreTasks();
+    }
+    async function addTaskComment(id) {
+      const inp = document.getElementById('taskCommentInput');
+      const m = ((inp && inp.value) || '').trim();
+      const t = storeTasks.find(x => x.id === id);
+      if (!m || !t) return;
+      inp.value = '';
+      const c = { b: whoAmI(), t: new Date().toISOString(), m };
+      t.comments = (t.comments || []).concat([c]);
+      renderStoreTasks();
+      // pick up anything the other person wrote meanwhile, so no comment is lost
+      try {
+        const { data: rows } = await supabaseClient.from('store_tasks').select('*').eq('id', id);
+        if (rows && rows[0]) t.comments = mergeComments(t.comments, unpackTask(rows[0]).comments);
+      } catch (e) {}
+      markTaskSeen(id);
+      await pushTask(t);
+      renderStoreTasks();
+    }
+    async function reopenStoreTask(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      t.col = t.pc || 'fulfill'; t.pc = ''; t.by = whoAmI();
+      pushTask(t);
+      renderStoreTasks();
+      showToast('Task is open again');
+    }
+    async function removeStoreTask(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      if (!confirm(`Delete "${t.title}" and its comments?`)) return;
+      storeTasks = storeTasks.filter(x => x.id !== id);
+      saveTasksLocal();
+      try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {}
+      if (openTaskId === id) openTaskId = null;
       renderStoreTasks();
     }
     async function clearPayoutFlagFromTask(taskId) {
@@ -5280,28 +5437,21 @@ Or just card numbers:
     }
     async function completeTaskCore(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
-      if (t.id.startsWith('auto_')) {
-        // "Handled": stays gone, and the store's flag (⏸/🚚/🎯) switches off too
-        await clearPayoutFlagFromTask(t.id);
-        t.col = 'dismissed'; t.by = whoAmI(); t.at = new Date().toISOString();
-        pushTask(t);
-      } else {
-        storeTasks = storeTasks.filter(x => x.id !== id);
-        saveTasksLocal();
-        try { await supabaseClient.from('store_tasks').delete().eq('id', id); } catch (e) {}
-      }
+      // finished tasks stay in "Done" so the other person sees who did what
+      if (t.id.startsWith('auto_')) await clearPayoutFlagFromTask(t.id);   // the store's flag switches off too
+      t.pc = t.col;
+      t.col = t.id.startsWith('auto_') ? 'dismissed' : 'done';
+      t.by = whoAmI(); t.at = new Date().toISOString(); t.urgent = false;
+      await pushTask(t);
+      if (openTaskId === id) openTaskId = null;
       logTaskDone();
     }
     async function deleteStoreTask(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
-      const msg = t.id.startsWith('auto_')
-        ? `Mark "${t.title}" as handled?\n\nIt will disappear and only come back if the problem happens again later.`
-        : `Delete "${t.title}"?`;
-      if (!confirm(msg)) return;
       await completeTaskCore(id);
       runTaskAutomations();
       renderStoreTasks();
-      showToast('✓ Cleared');
+      showToast('✓ Done');
     }
     let bulkMode = false;
     const selectedTasks = new Set();
@@ -5309,7 +5459,7 @@ Or just card numbers:
     function toggleTaskSel(id) { if (selectedTasks.has(id)) selectedTasks.delete(id); else selectedTasks.add(id); renderStoreTasks(); }
     async function bulkClearTasks() {
       if (!selectedTasks.size) { showToast('Tap the cards you want to clear first'); return; }
-      if (!confirm(`Clear ${selectedTasks.size} task${selectedTasks.size > 1 ? 's' : ''}?\n\nAuto tasks are marked handled (their flags switch off); manual ones are deleted.`)) return;
+      if (!confirm(`Clear ${selectedTasks.size} task${selectedTasks.size > 1 ? 's' : ''}?\n\nThey move to Done, where both of you can see them.`)) return;
       for (const id of Array.from(selectedTasks)) await completeTaskCore(id);
       selectedTasks.clear();
       bulkMode = false;
@@ -5331,14 +5481,14 @@ Or just card numbers:
       const el = document.getElementById('taskStats');
       if (!el) return;
       const open = storeTasks.filter(t => t.col !== 'done' && t.col !== 'dismissed');
-      const holds = open.filter(t => t.col === 'hold').length;
+      const urgentN = open.filter(t => t.urgent).length;
       const weekAgo = Date.now() - 7 * 86400000;
       const doneWeek = taskDoneLog().filter(x => new Date(x).getTime() >= weekAgo).length;
       const oldest = open.reduce((m, t) => { const d = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0; return Math.max(m, d); }, 0);
       const kpi = (label, val, color, sub) => `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value" style="${color ? 'color:' + color + ';' : ''}">${val}</div><div class="kpi-delta kpi-prev">${sub}</div></div>`;
       el.innerHTML =
-        kpi('Open tasks', open.length, null, open.length ? 'Across all stages' : 'All clear') +
-        kpi('Payment holds', holds, holds > 0 ? 'var(--danger)' : 'var(--success)', holds > 0 ? 'Keep eyes on payouts' : 'None active') +
+        kpi('Open tasks', open.length, null, open.length ? 'Across all types' : 'All clear') +
+        kpi('Urgent', urgentN, urgentN > 0 ? 'var(--danger)' : 'var(--success)', urgentN > 0 ? 'Do these first' : 'Nothing urgent') +
         kpi('Done this week', doneWeek, 'var(--success)', 'Last 7 days') +
         kpi('Oldest open', oldest + 'd', oldest >= 3 ? 'var(--danger)' : null, oldest >= 3 ? 'Needs attention' : 'Fresh');
     }
@@ -5393,50 +5543,97 @@ Or just card numbers:
       el.textContent = n;
       el.style.display = n > 0 ? '' : 'none';
     }
+    function taskDoneCol(t) {
+      if (t.pc) return t.pc;
+      const m = { auto_payout_: 'hold', auto_fulfil_: 'fulfill', auto_recreate_: 'recreate', auto_opt_: 'optimize' };
+      const k = Object.keys(m).find(pre => t.id.startsWith(pre));
+      return k ? m[k] : 'fulfill';
+    }
     function renderStoreTasks() {
       updateTaskBadge();
       const board = document.getElementById('taskBoard');
       if (!board || !isStoreMgmtUser()) return;
+      // keep a half-typed comment across refreshes
+      const oldInp = document.getElementById('taskCommentInput');
+      const draft = oldInp ? oldInp.value : '', hadFocus = oldInp && document.activeElement === oldInp;
       const bb = document.getElementById('bulkBar');
       if (bb) bb.innerHTML = bulkMode
-        ? `<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 1rem; margin-bottom:1rem; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-md); font-size:0.85rem;"><strong>${selectedTasks.size}</strong>&nbsp;selected — tap cards to select<span style="margin-left:auto; display:flex; gap:0.5rem;"><button class="btn btn-sm btn-primary" onclick="bulkClearTasks()">Clear selected</button><button class="btn btn-sm btn-secondary" onclick="toggleBulkMode()">Cancel</button></span></div>`
+        ? `<div class="tk-digest" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;"><span><strong>${selectedTasks.size}</strong> selected. Tap tasks to select them</span><span style="margin-left:auto; display:flex; gap:0.5rem;"><button class="btn btn-sm btn-primary" onclick="bulkClearTasks()">Mark selected done</button><button class="btn btn-sm btn-secondary" onclick="toggleBulkMode()">Cancel</button></span></div>`
         : '';
       const bbtn = document.getElementById('bulkBtn');
-      if (bbtn) bbtn.textContent = bulkMode ? '✕ Cancel' : '☑ Select';
+      if (bbtn) bbtn.textContent = bulkMode ? 'Cancel' : '☑ Select';
       renderTaskStats();
       renderTaskCharts();
-      board.innerHTML = TASK_COLS.map((col, ci) => {
-        const tasks = storeTasks.filter(t => t.col === col.id)
-          .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-        const cards = tasks.map(t => {
-          const auto = t.id.startsWith('auto_');
-          const shown = auto ? t.title.replace(/^[^—]+—\s*/, '') : t.title;
-          const sel = selectedTasks.has(t.id);
-          const days = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0;
-          const stale = days >= 3 ? ` <span style="background:var(--danger-bg); color:var(--danger); font-weight:700; padding:0.05rem 0.35rem; border-radius:4px;">${days}d</span>` : '';
-          const meta = [];
-          if (auto) meta.push('<span style="font-weight:700; color:var(--accent);">⚡</span>');
-          if (t.by && !(auto && t.by === 'Auto')) meta.push(escapeHtml(t.by));
-          if (t.at) meta.push(taskTimeAgo(t.at));
-          return `
-          <div class="task-card${bulkMode ? ' bulk' : ''}${sel ? ' sel' : ''}" style="border-left-color:${col.color};"${bulkMode ? ` onclick="toggleTaskSel('${t.id}')"` : ''}>
-            <div class="task-title">${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span> ` : ''}${escapeHtml(shown)}${auto && t.note && t.note.length <= 12 ? ` <span class="task-tag">${escapeHtml(t.note)}</span>` : ''}</div>
-            ${!auto && t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
-            <div class="task-meta">${meta.join(' · ')}${stale}</div>
-            ${bulkMode ? '' : `<div class="task-actions">
-              ${ci > 0 ? `<button class="task-btn" title="Move left" onclick="moveStoreTask('${t.id}', -1)">◀</button>` : ''}
-              ${ci < TASK_COLS.length - 1 ? `<button class="task-btn" title="Move right" onclick="moveStoreTask('${t.id}', 1)">▶</button>` : ''}
-              <button class="task-btn" title="Edit" onclick="editStoreTask('${t.id}')">✎</button>
-              <button class="task-btn danger" title="Clear" onclick="deleteStoreTask('${t.id}')" style="margin-left:auto;">×</button>
-            </div>`}
+      renderTaskDigest();
+      const open = storeTasks.filter(t => t.col !== 'done' && t.col !== 'dismissed');
+      const colOf = id => TASK_COLS.find(c => c.id === id) || TASK_COLS[0];
+      // filter chips
+      const fEl = document.getElementById('taskFilters');
+      if (fEl) {
+        const chip = (id, label, n, color) => `<button class="tk-chip${taskFilter === id ? ' on' : ''}${n ? '' : ' empty'}" onclick="setTaskFilter('${id}')">${color ? `<i style="background:${color}"></i>` : ''}${label}<b>${n}</b></button>`;
+        fEl.innerHTML = chip('all', 'All', open.length, '') + TASK_COLS.map(c => chip(c.id, c.label, open.filter(t => t.col === c.id).length, c.color)).join('');
+      }
+      const list = open.filter(t => taskFilter === 'all' || t.col === taskFilter)
+        .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || String(a.at || '').localeCompare(String(b.at || '')));
+      const me = whoAmI();
+      const rows = list.map(t => {
+        const col = colOf(t.col);
+        const auto = t.id.startsWith('auto_');
+        const shown = auto ? t.title.replace(/^[^—]+—\s*/, '') : t.title;
+        const sel = selectedTasks.has(t.id), isOpen = openTaskId === t.id && !bulkMode;
+        const days = t.at ? Math.floor((Date.now() - new Date(t.at).getTime()) / 86400000) : 0;
+        const unread = taskUnread(t), nC = (t.comments || []).length;
+        const who = t.by && t.by !== 'Auto' ? escapeHtml(t.by) + ' · ' : '';
+        const chips = (t.urgent ? '<span class="tk-tag urgent">Urgent</span>' : '') + (taskIsNew(t) ? '<span class="tk-tag new">New</span>' : '') +
+          (auto && t.note && t.note.length <= 12 ? `<span class="tk-tag">${escapeHtml(t.note)}</span>` : '');
+        const lastC = nC ? t.comments[nC - 1] : null;
+        const sub = !auto && t.note ? escapeHtml(t.note) : (lastC && !isOpen ? `<b>${escapeHtml(lastC.b)}:</b> ${escapeHtml(lastC.m)}` : '');
+        let panel = '';
+        if (isOpen) {
+          const thread = nC
+            ? t.comments.map(c => `<div class="tk-c${c.b === me ? ' me' : ''}"><div class="tk-c-head"><b>${escapeHtml(c.b)}</b><span>${taskTimeAgo(c.t)}</span></div><div class="tk-c-body">${escapeHtml(c.m)}</div></div>`).join('')
+            : '<div class="tk-empty">No comments yet. Ask your question or write the update here, so it stays with the task.</div>';
+          panel = `<div class="tk-panel">
+            <div class="tk-thread">${thread}</div>
+            <div class="tk-compose"><input type="text" id="taskCommentInput" class="form-input" placeholder="Write a comment" onkeydown="if(event.key==='Enter')addTaskComment('${t.id}')"><button class="btn btn-primary btn-sm" onclick="addTaskComment('${t.id}')">Send</button></div>
+            <div class="tk-tools"><label>Type <select class="form-input" onchange="setTaskType('${t.id}', this.value)">${TASK_COLS.map(c => `<option value="${c.id}"${c.id === t.col ? ' selected' : ''}>${c.label}</option>`).join('')}</select></label>
+              ${auto ? '' : `<button class="btn btn-sm btn-secondary" onclick="editStoreTask('${t.id}')">✎ Edit text</button><button class="btn btn-sm btn-secondary" style="color:var(--danger);" onclick="removeStoreTask('${t.id}')">🗑 Delete</button>`}</div>
           </div>`;
-        }).join('');
-        return `<div class="task-col">
-          <div class="task-col-head"><span class="task-col-dot" style="background:${col.color};"></span>${col.label}<span class="task-count">${tasks.length}</span></div>
-          ${cards}
-          <button class="task-add" onclick="addStoreTask('${col.id}')">+ Add</button>
+        }
+        return `<div class="tk-row${t.urgent ? ' urgent' : ''}${isOpen ? ' open' : ''}${sel ? ' sel' : ''}" style="--c:${col.color};">
+          <div class="tk-line">
+            <div class="tk-main" onclick="${bulkMode ? `toggleTaskSel('${t.id}')` : `toggleTaskOpen('${t.id}')`}">
+              ${bulkMode ? `<span class="task-check">${sel ? '☑' : '☐'}</span>` : ''}
+              <span class="tk-type"><i></i>${col.label}</span>
+              <div class="tk-text"><div class="tk-title">${escapeHtml(shown)}${chips}</div>${sub ? `<div class="tk-note">${sub}</div>` : ''}</div>
+              <span class="tk-meta">${who}${taskTimeAgo(t.at)}${days >= 3 ? ` <span class="tk-stale">${days}d</span>` : ''}</span>
+            </div>
+            ${bulkMode ? '' : `<div class="tk-actions">
+              <button class="tk-btn${unread ? ' unread' : ''}" title="Comments" onclick="toggleTaskOpen('${t.id}')">💬 ${nC || ''}${unread ? `<em>${unread} new</em>` : ''}</button>
+              <button class="tk-btn${t.urgent ? ' is-urgent' : ''}" title="${t.urgent ? 'Remove urgent' : 'Mark urgent'}" onclick="toggleTaskUrgent('${t.id}')">🔥</button>
+              <button class="tk-btn done" onclick="deleteStoreTask('${t.id}')">✓ Done</button>
+            </div>`}
+          </div>${panel}
         </div>`;
       }).join('');
+      board.innerHTML = rows || `<div class="tk-empty big">${open.length ? 'Nothing of this type is open.' : 'No open tasks. Add one above when something needs doing.'}</div>`;
+      const inp = document.getElementById('taskCommentInput');
+      if (inp && draft) inp.value = draft;
+      if (inp && hadFocus) inp.focus();
+      const th = board.querySelector('.tk-thread'); if (th) th.scrollTop = th.scrollHeight;
+      // done feed: who finished what
+      const dEl = document.getElementById('taskDoneFeed');
+      if (dEl) {
+        const cut = Date.now() - 3 * 86400000;
+        const done = storeTasks.filter(t => (t.col === 'done' || t.col === 'dismissed') && t.at && new Date(t.at).getTime() > cut)
+          .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+        const wasOpen = dEl.querySelector('details') ? dEl.querySelector('details').open : true;
+        dEl.innerHTML = done.length ? `<details class="tk-done-feed"${wasOpen ? ' open' : ''}><summary>Done in the last 3 days <b>${done.length}</b></summary>${done.map(t => {
+          const auto = t.id.startsWith('auto_');
+          const shown = auto ? t.title.replace(/^[^—]+—\s*/, '') : t.title;
+          return `<div class="tk-done-row"><span class="tk-done-tick">✓</span><span class="tk-done-title">${escapeHtml(shown)}</span><span class="tk-type"><i style="background:${colOf(taskDoneCol(t)).color}"></i>${colOf(taskDoneCol(t)).label}</span><span class="tk-meta">${t.by && t.by !== 'Auto' ? escapeHtml(t.by) + ' · ' : ''}${taskTimeAgo(t.at)}</span>${auto ? '' : `<button class="tk-btn" onclick="reopenStoreTask('${t.id}')">↩ Undo</button>`}</div>`;
+        }).join('')}</details>` : '';
+      }
     }
     // ===== Suppliers / COGS (owner only) =====
     // Suppliers invoice you a daily amount — that IS your cost of goods.
