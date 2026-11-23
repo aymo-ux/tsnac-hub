@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text y='.9em' x='50%' text-anchor='middle' font-size='70'>📊</text></svg>">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -1294,13 +1294,221 @@
       .nav-item { padding: 0.55rem 0.65rem; font-size: 0.82rem; }
     }
 
+
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN LAYER 2 — clean light, minimal. One accent, hairlines,
+       flat surfaces, sentence-case labels, numbers in tabular mono.
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg-primary: #fafafa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f3f4f5;
+      --bg-card: #ffffff;
+      --bg-hover: #eeeff1;
+      --text-primary: #17181c;
+      --text-secondary: #565c68;
+      --text-muted: #8b919d;
+      --border: #ececef;
+      --border-light: #e0e1e6;
+      --border-hover: #c6c8cf;
+      --accent: #4b4ded;
+      --accent-light: #6a6cf5;
+      --accent-dark: #3a3cd0;
+      --accent-soft: rgba(75, 77, 237, 0.07);
+      --success: #0b7f57;
+      --warning: #a86200;
+      --danger: #cf3636;
+      --ink: #17181c;
+      --ink-contrast: #ffffff;
+      --shadow-sm: none;
+      --shadow-md: 0 1px 2px rgba(23, 24, 28, 0.04), 0 4px 12px rgba(23, 24, 28, 0.05);
+      --shadow-lg: 0 2px 6px rgba(23, 24, 28, 0.05), 0 12px 32px rgba(23, 24, 28, 0.10);
+      --radius-sm: 8px; --radius-md: 10px; --radius-lg: 12px; --radius-xl: 14px;
+    }
+    [data-theme="dark"] {
+      --ink: #f3f4f6; --ink-contrast: #111214;
+      --border: rgba(255,255,255,0.08); --border-light: rgba(255,255,255,0.13); --border-hover: rgba(255,255,255,0.24);
+      --bg-primary: #0e0f11; --bg-secondary: #151619; --bg-card: #151619; --bg-tertiary: #1d1f23; --bg-hover: #26282e;
+      --text-primary: #f3f4f6; --text-secondary: #a8b0bd; --text-muted: #727986;
+      --success: #34c38f; --warning: #e0a13a; --danger: #f06a6a; --accent: #8284ff; --accent-soft: rgba(130,132,255,0.14);
+    }
+    body { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-feature-settings: 'tnum' 0; letter-spacing: 0; line-height: 1.5; }
+    input, select, textarea, button { font-family: inherit; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: 232px; padding: 1.1rem 0.75rem 0.9rem; background: var(--bg-primary); border-right: 1px solid var(--border); }
+    .main { margin-left: 232px; padding: 1.75rem 2.25rem 3rem; }
+    .logo { font-weight: 650; font-size: 0.98rem; letter-spacing: -0.01em; padding: 0 0.4rem; }
+    .logo-icon { width: 26px; height: 26px; border-radius: 7px; background: var(--ink); color: var(--ink-contrast); font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: none; }
+    .user-info { background: transparent; border: 0; padding: 0.35rem 0.5rem 0.2rem; margin-bottom: 0.9rem; }
+    .user-info:hover { border: 0; }
+    .user-name { font-size: 0.86rem; font-weight: 600; }
+    .user-role { font-size: 0.74rem; text-transform: none; }
+    .nav-section { margin-bottom: 1.05rem; }
+    .nav-title { font-size: 0.74rem; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-muted); padding: 0 0.6rem; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.3rem; position: relative; }
+    .nav-item { gap: 0.6rem; padding: 0.44rem 0.6rem; font-size: 0.86rem; font-weight: 500; border-radius: 7px; margin-bottom: 1px; color: var(--text-secondary); }
+    .nav-item .ni { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.85; }
+    .nav-item:hover { background: var(--bg-hover); }
+    .nav-item.active { background: var(--bg-hover); color: var(--text-primary); font-weight: 600; }
+    .nav-item.active .ni { opacity: 1; color: var(--accent); }
+    .nav-item.active::before { display: none; }
+    .nav-badge { position: static; margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; font-size: 0.68rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; background: var(--danger); color: #fff; font-family: 'JetBrains Mono', monospace; }
+    .nav-fold-head { cursor: pointer; user-select: none; border-radius: 6px; padding-top: 0.2rem; padding-bottom: 0.2rem; }
+    .nav-fold-head:hover { color: var(--text-primary); }
+    .nav-fold-chev { display: inline-block; transition: transform 0.15s; font-size: 0.9rem; line-height: 1; }
+    .nav-fold.open .nav-fold-chev { transform: rotate(90deg); }
+    .nav-fold .nav-fold-body { display: none; }
+    .nav-fold.open .nav-fold-body { display: block; }
+    .nav-fold.open #setupBadge { display: none !important; }
+    .user-switcher { border-top: 1px solid var(--border); padding-top: 0.7rem; }
+    .side-foot { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+    .side-foot-btn { flex: 1; padding: 0.45rem 0.5rem; background: transparent; border: 1px solid var(--border-light); border-radius: 7px; color: var(--text-secondary); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: var(--transition); }
+    .side-foot-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .theme-toggle { width: 28px; height: 28px; background: transparent; border-color: transparent; font-size: 0.9rem; }
+
+    /* ── Page chrome ── */
+    .header { margin-bottom: 1.4rem; align-items: center; gap: 1rem; }
+    .page-title { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.02em; }
+    .page-subtitle { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.2rem; }
+    #globalSearch { box-shadow: none !important; background: var(--bg-card) !important; border-radius: 9px !important; padding: 0.65rem 0.9rem !important; font-size: 0.9rem !important; }
+    #globalSearchContainer { margin-bottom: 1.4rem !important; max-width: 560px; }
+
+    /* ── Buttons ── */
+    .btn { padding: 0.5rem 0.85rem; border-radius: 8px; font-size: 0.86rem; font-weight: 550; min-height: 36px; box-shadow: none; }
+    .btn-primary { background: var(--ink); color: var(--ink-contrast); border-color: var(--ink); box-shadow: none; }
+    .btn-primary:hover { background: var(--ink); opacity: 0.86; transform: none; box-shadow: none; }
+    .btn-secondary { background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--bg-tertiary); border-color: var(--border-hover); }
+    .btn:active { transform: scale(0.98); }
+    .btn-sm { min-height: 30px; padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+
+    /* ── Surfaces ── */
+    .card { border-radius: var(--radius-lg); box-shadow: none; border-color: var(--border-light); }
+    .card:hover { border-color: var(--border-light); }
+    .card-title { font-size: 0.9rem; font-weight: 600; }
+    .stat-card { box-shadow: none; border-color: var(--border-light); border-radius: var(--radius-lg); padding: 0.95rem 1.1rem; }
+    .stat-card:hover { transform: none; box-shadow: none; border-color: var(--border-light); }
+    .stat-label { text-transform: none; letter-spacing: 0; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.35rem; }
+    .stat-value { font-size: 1.45rem; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .form-input, select { border-radius: 8px; }
+
+    /* ── Tables: easier to read ── */
+    .table th { text-transform: none; letter-spacing: 0; font-size: 0.78rem; font-weight: 550; color: var(--text-secondary); background: var(--bg-card); position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-light); }
+    .table td { font-size: 0.88rem; font-variant-numeric: tabular-nums; border-bottom-color: var(--border); }
+    .table tbody tr:hover { background: var(--bg-tertiary); }
+    .table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent); }
+    .table tbody tr:hover td { background: var(--bg-tertiary); }
+
+    /* ── Nothing hides on hover any more ── */
+    .task-actions { opacity: 1; }
+    .trend-mini { opacity: 1; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 0.78rem; margin-left: 0.35rem; background: var(--bg-card); vertical-align: middle; filter: saturate(0.7); }
+    .trend-mini:hover { border-color: var(--border-hover); background: var(--bg-tertiary); filter: none; }
+    .task-btn { min-width: 28px; min-height: 28px; }
+
+    /* ── Home ── */
+    .home-money { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border-light); border-radius: var(--radius-lg); background: var(--bg-card); margin-bottom: 1rem; }
+    .home-money > div { padding: 1rem 1.25rem; border-left: 1px solid var(--border); }
+    .home-money > div:first-child { border-left: 0; }
+    .hm-label { font-size: 0.8rem; color: var(--text-secondary); }
+    .hm-num { font-family: 'JetBrains Mono', monospace; font-size: 1.55rem; font-weight: 600; letter-spacing: -0.03em; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+    .hm-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
+    .home-jobs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+    .job { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; }
+    .job.lead { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 1.5rem; padding: 1.4rem 1.5rem; }
+    .job-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+    .job-name { font-size: 0.86rem; color: var(--text-secondary); font-weight: 500; }
+    .job-state { font-size: 1.12rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; }
+    .job.lead .job-state { font-size: 1.5rem; letter-spacing: -0.025em; }
+    .job-note { font-size: 0.86rem; color: var(--text-secondary); }
+    .job-done .job-state { color: var(--success); }
+    .job-bar { height: 6px; background: var(--bg-tertiary); border-radius: 99px; overflow: hidden; }
+    .job-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s; }
+    .job-done .job-bar > i { background: var(--success); }
+    .job-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: auto; }
+    .job-list { display: flex; flex-direction: column; }
+    .job-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--border); font-size: 0.86rem; min-width: 0; }
+    .job-row:first-child { border-top: 0; }
+    .job-row-main { flex: 1; min-width: 0; }
+    .job-row-title { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .job-row-sub { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .pill-count { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border: 1px solid var(--border-light); border-radius: 99px; font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-card); cursor: pointer; }
+    .pill-count b { font-family: 'JetBrains Mono', monospace; color: var(--text-primary); font-weight: 600; }
+    .home-stats { grid-template-columns: repeat(4, 1fr) !important; margin-bottom: 1.25rem; }
+    .home-hide { display: none !important; }
+
+    .job.wide { grid-column: 1 / -1; }
+    .stat-card.info .stat-value, .stat-card.success .stat-value, .stat-card.purple .stat-value { color: var(--text-primary); }
+    .stat-card { border-left-width: 1px !important; }
+    /* ── Daily tracking ── */
+    .day-total { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border: 1px solid var(--border-light); border-radius: var(--radius-lg); background: var(--bg-card); margin-bottom: 1.1rem; }
+    .day-total-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 500; }
+    .day-total-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.1rem; }
+    .day-total-num { font-family: 'JetBrains Mono', monospace; font-size: 1.9rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+    .more-menu { position: relative; }
+    .more-menu > summary { list-style: none; cursor: pointer; }
+    .more-menu > summary::-webkit-details-marker { display: none; }
+    .more-menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; min-width: 210px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 0.3rem; }
+    .more-menu-list button { display: block; width: 100%; text-align: left; padding: 0.5rem 0.65rem; border: 0; background: transparent; border-radius: 7px; font-size: 0.86rem; color: var(--text-primary); cursor: pointer; }
+    .more-menu-list button:hover { background: var(--bg-tertiary); }
+    .chip-toggle { padding: 0.42rem 0.8rem; border: 1px solid var(--border-light); border-radius: 99px; background: var(--bg-card); color: var(--text-secondary); font-size: 0.84rem; font-weight: 550; cursor: pointer; min-height: 34px; white-space: nowrap; }
+    .chip-toggle[aria-pressed="true"] { background: var(--ink); color: var(--ink-contrast); border-color: var(--ink); }
+    .quick-spend-input { font-variant-numeric: tabular-nums; }
+
+    .quick-store-label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); padding: 0.6rem 0.25rem 0.3rem; }
+    .bb-pair { display: flex; gap: 0.35rem; align-items: center; }
+    .bb-pair .bb-input { width: 74px !important; }
+    #section-tracking.quick-mode .day-total, #section-tracking.quick-mode .page-subtitle { display: none; }
+    @media (max-width: 768px) {
+      body.in-quick #globalSearchContainer { display: none; }
+      .quick-hints { display: none !important; }
+      .bb-pair { flex-direction: column; gap: 0.2rem; }
+      .bb-pair .bb-input { width: 68px !important; font-size: 13px !important; padding: 0.2rem 0.3rem !important; }
+      .quick-spend-input { width: 96px !important; }
+    }
+    .bb-lab { display: flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; color: var(--text-muted); }
+    .task-col-head, .task-stat-label, .opt-mlabel, .opt-pill { text-transform: none; letter-spacing: 0; }
+    .task-col-head { font-size: 0.86rem; font-weight: 600; }
+    .auto-save-indicator { pointer-events: none; }
+    @media (max-width: 768px) { .auto-save-indicator { bottom: calc(72px + env(safe-area-inset-bottom)) !important; } .toast, #toast { bottom: calc(72px + env(safe-area-inset-bottom)) !important; } }
+    /* ── Phone ── */
+    .tabbar { display: none; }
+    @media (max-width: 768px) {
+      .main { margin-left: 0; padding: 4.6rem 1rem 5.5rem; }
+      .sidebar { width: 270px; background: var(--bg-secondary); }
+      .header { flex-direction: column; align-items: stretch; gap: 0.7rem; margin-bottom: 1rem; }
+      .page-title { font-size: 1.3rem; }
+      .header-actions { width: 100%; }
+      .header-actions .btn { flex: 1; justify-content: center; }
+      .home-money { grid-template-columns: repeat(2, 1fr); }
+      .home-money > div:nth-child(3) { border-left: 0; }
+      .home-money > div:nth-child(n+3) { border-top: 1px solid var(--border); }
+      .home-jobs { grid-template-columns: 1fr; }
+      .job.lead { flex-direction: column; align-items: stretch; gap: 0.8rem; padding: 1.15rem 1.15rem; }
+      .job.lead .job-state { font-size: 1.25rem; }
+      .job-actions .btn { flex: 1; justify-content: center; min-height: 44px; }
+      .home-stats { grid-template-columns: repeat(2, 1fr) !important; }
+      .hm-num { font-size: 1.25rem; }
+      .day-total-num { font-size: 1.5rem; }
+      input, select, textarea { font-size: 16px !important; }
+      .quick-entry-row { padding: 0.7rem 0.75rem !important; }
+      .quick-spend-input { min-height: 44px; }
+      .tabbar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; background: var(--bg-secondary); border-top: 1px solid var(--border-light); padding: 0.3rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom)); }
+      .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0.35rem 0.1rem; border: 0; background: transparent; color: var(--text-muted); font-size: 0.68rem; font-weight: 550; cursor: pointer; position: relative; min-height: 48px; }
+      .tab svg { width: 21px; height: 21px; }
+      .tab.on { color: var(--text-primary); }
+      .tab.on svg { color: var(--accent); }
+      .tab-badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 0.62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+      .more-menu-list { right: auto; left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { .job-bar > i, .nav-fold-chev { transition: none; } }
   </style>
 </head>
 <body>
   <!-- Mobile Header -->
   <div class="mobile-header">
     <div class="logo">
-      <div class="logo-icon">📊</div>
+      <div class="logo-icon" aria-hidden="true">T</div>
       <span>TSNAC Hub</span>
     </div>
     <button class="hamburger" onclick="toggleSidebar()">
@@ -1313,12 +1521,13 @@
   <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
   <!-- Auto-save Indicator -->
   <div class="auto-save-indicator" id="autoSaveIndicator">✓ Saved</div>
+  <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
   <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="logo" style="justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 0.65rem;">
-          <div class="logo-icon">📊</div>
+          <div class="logo-icon" aria-hidden="true">T</div>
           <span>TSNAC Hub</span>
         </div>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Switch light / dark" aria-label="Toggle dark mode">🌙</button>
@@ -1345,63 +1554,30 @@
       </div>
       <nav class="nav">
         <div class="nav-section">
-          <div class="nav-title">Main</div>
-          <div class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')">
-            <span>📈</span> Dashboard
-          </div>
-          <div class="nav-item" data-section="tracking" onclick="showSection('tracking')">
-            <span>📋</span> Daily Tracking
-          </div>
+          <div class="nav-title">Daily</div>
+          <div class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="nl">Home</span></div>
+          <div class="nav-item" data-section="tracking" onclick="showSection('tracking')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="m3.5 6 1.2 1.2 2.3-2.4M3.5 12l1.2 1.2 2.3-2.4M3.5 18l1.2 1.2 2.3-2.4"/></svg><span class="nl">Daily tracking</span></div>
+          <div class="nav-item" data-section="alerts" onclick="showSection('alerts')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="nl">Notifications</span><span class="nav-badge" id="alertBadge">0</span></div>
         </div>
         <div class="nav-section" id="ownerNavSection" style="display: none;">
-          <div class="nav-title">Private</div>
-          <div class="nav-item" data-section="analyze" onclick="showSection('analyze')">
-            <span>📊</span> Analyze
-          </div>
-          <div class="nav-item" data-section="opthub" onclick="showSection('opthub')">
-            <span>🎯</span> Optimization
-          </div>
-          <div class="nav-item" data-section="revenue" onclick="showSection('revenue')">
-            <span>💰</span> Revenue
-          </div>
-          <div class="nav-item" data-section="suppliers" onclick="showSection('suppliers')">
-            <span>🧾</span> Suppliers
-          </div>
-          <div class="nav-item" data-section="pnl" onclick="showSection('pnl')">
-            <span>📒</span> P&amp;L
-          </div>
-          <div class="nav-item" onclick="exportBackup()" title="Download a copy of all your data">
-            <span>💾</span> Backup
-          </div>
+          <div class="nav-title">Money</div>
+          <div class="nav-item" data-section="revenue" onclick="showSection('revenue')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.3C14.3 8.5 13.3 8 12 8c-1.6 0-2.8.8-2.8 2 0 2.7 5.6 1.3 5.6 4 0 1.2-1.2 2-2.8 2-1.3 0-2.4-.5-2.9-1.4M12 6.3v11.4"/></svg><span class="nl">Revenue</span></div>
+          <div class="nav-item" data-section="pnl" onclick="showSection('pnl')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="nl">Profit &amp; loss</span></div>
+          <div class="nav-item" data-section="analyze" onclick="showSection('analyze')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V4M17 20v-7M2.5 20h19"/></svg><span class="nl">Analyze</span></div>
+          <div class="nav-item" data-section="opthub" onclick="showSection('opthub')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span class="nl">Optimization</span></div>
+          <div class="nav-item" data-section="suppliers" onclick="showSection('suppliers')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5v8l-9 5-9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg><span class="nl">Suppliers</span></div>
         </div>
         <div class="nav-section" id="mgmtNavSection" style="display: none;">
           <div class="nav-title">Team</div>
-          <div class="nav-item" data-section="storetasks" onclick="showSection('storetasks')">
-            <span>🗂</span> Store Tasks
-            <span class="nav-badge" id="taskBadge" style="display: none;">0</span>
-          </div>
+          <div class="nav-item" data-section="storetasks" onclick="showSection('storetasks')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.2"/><rect x="9.5" y="4" width="5" height="10" rx="1.2"/><rect x="16" y="4" width="5" height="13" rx="1.2"/></svg><span class="nl">Store tasks</span><span class="nav-badge" id="taskBadge" style="display: none;">0</span></div>
         </div>
-        <div class="nav-section">
-          <div class="nav-title">Management</div>
-          <div class="nav-item" data-section="stores" onclick="showSection('stores')">
-            <span>🏪</span> Stores
-          </div>
-          <div class="nav-item" data-section="profiles" onclick="showSection('profiles')">
-            <span>👤</span> Profiles
-          </div>
-          <div class="nav-item" data-section="accounts" onclick="showSection('accounts')">
-            <span>📢</span> Ad Accounts
-          </div>
-          <div class="nav-item" data-section="suspended" onclick="showSection('suspended')">
-            <span>🚫</span> Suspended
-            <span class="nav-badge" id="suspendedBadge" style="display: none;">0</span>
-          </div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-title">Alerts</div>
-          <div class="nav-item" data-section="alerts" onclick="showSection('alerts')">
-            <span>🔔</span> Notifications
-            <span class="nav-badge" id="alertBadge">0</span>
+        <div class="nav-section nav-fold" id="setupNav">
+          <div class="nav-title nav-fold-head" onclick="toggleSetupNav()" role="button" tabindex="0" onkeydown="if(event.key==='Enter')toggleSetupNav()">Setup <span class="nav-fold-chev" aria-hidden="true">›</span><span class="nav-badge" id="setupBadge" style="display:none;">0</span></div>
+          <div class="nav-fold-body">
+          <div class="nav-item" data-section="stores" onclick="showSection('stores')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10v10h15V10"/><path d="M3 9.5 5 4h14l2 5.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/></svg><span class="nl">Stores</span></div>
+          <div class="nav-item" data-section="accounts" onclick="showSection('accounts')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l6 4.5v-13L6 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4.2 4.2 0 0 1 0 6M18.8 6.5a8 8 0 0 1 0 11"/></svg><span class="nl">Ad accounts</span></div>
+          <div class="nav-item" data-section="profiles" onclick="showSection('profiles')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span class="nl">Profiles</span></div>
+          <div class="nav-item" data-section="suspended" onclick="showSection('suspended')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></svg><span class="nl">Suspended</span><span class="nav-badge" id="suspendedBadge" style="display: none;">0</span></div>
           </div>
         </div>
       </nav>
@@ -1412,7 +1588,10 @@
           <option value="tracker">📊 Tracker</option>
           <option value="designer">🎨 Designer</option>
         </select>
-        <button onclick="logout()" style="width: 100%; margin-top: 0.75rem; padding: 0.7rem; background: var(--danger); border: none; border-radius: 10px; color: white; font-family: inherit; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#dc2626';" onmouseout="this.style.background='var(--danger)';">🚪 Logout</button>
+<div class="side-foot">
+          <button class="side-foot-btn" id="backupFootBtn" onclick="exportBackup()" title="Download a copy of all your data" style="display:none;">Backup</button>
+          <button class="side-foot-btn" onclick="logout()">Log out</button>
+        </div>
       </div>
     </aside>
     <!-- Main Content -->
@@ -1437,34 +1616,34 @@
             <p class="page-subtitle" id="dashboardSubtitle">Overview</p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-primary" onclick="openDailyNote()" title="Build the daily WhatsApp note — just copy and paste">
-              📋 Daily Note
-            </button>
+            <button class="btn btn-secondary" onclick="openDailyNote()" title="Build the daily WhatsApp note, ready to copy and paste">Daily note</button>
           </div>
         </div>
-        <div class="stats-grid" style="grid-template-columns: repeat(7, 1fr);">
+        <div id="homeMoney"></div>
+        <div id="homeJobs" class="home-jobs"></div>
+        <div class="stats-grid home-stats">
           <div class="stat-card info">
-            <div class="stat-label">Yesterday's Spend</div>
+            <div class="stat-label">Spend yesterday</div>
             <div class="stat-value" id="statSpend">$0</div>
           </div>
           <div class="stat-card success">
-            <div class="stat-label">Active Accounts</div>
+            <div class="stat-label">Active accounts</div>
             <div class="stat-value" id="statActive">0</div>
           </div>
-          <div class="stat-card purple">
+          <div class="stat-card home-hide purple">
             <div class="stat-label">Top Performers</div>
             <div class="stat-value" id="statPerformers">0</div>
           </div>
-          <div class="stat-card" style="border-left: 3px solid var(--teal);">
+          <div class="stat-card home-hide" style="border-left: 3px solid var(--teal);">
             <div class="stat-label">New Stores</div>
             <div class="stat-value" id="statNewStores" style="color: var(--teal);">0</div>
           </div>
-          <div class="stat-card" style="border-left: 3px solid #10b981;">
+          <div class="stat-card home-hide" style="border-left: 3px solid #10b981;">
             <div class="stat-label">Tracking</div>
             <div class="stat-value" id="statTracking" style="color: #10b981;">0</div>
           </div>
           <div class="stat-card warning">
-            <div class="stat-label">Needs Attention</div>
+            <div class="stat-label">Need attention</div>
             <div class="stat-value" id="statWarning">0</div>
           </div>
           <div class="stat-card danger">
@@ -1517,42 +1696,35 @@
             <p class="page-subtitle">Daily spend, budget, and bid per account • <span style="color: var(--success);">Saves automatically ✓</span></p>
           </div>
           <div class="header-actions" style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-primary" onclick="showQuickEntry()" title="Fast keyboard entry — type a number, press Enter to jump to the next account">
-              ⚡ Quick Entry
-            </button>
-            <button class="btn btn-secondary" onclick="syncLocalToCloud()" title="Upload your data to cloud">
-              ☁️ Sync
-            </button>
-            <button class="btn btn-secondary" onclick="forceReimportSpend()" title="Reload data from cloud">
-              🔄 Reload
-            </button>
-            <button class="btn btn-secondary" id="exportCsvBtn" onclick="exportTrackingCSV()" title="Download spend history as CSV" style="display: none;">
-              ⬇️ Export CSV
-            </button>
-            <button class="btn btn-secondary" onclick="toggleTrackingView()">
-              📊 Toggle View
-            </button>
+            <button class="btn btn-primary" onclick="showQuickEntry()" title="Type a number, press Enter to jump to the next account">Fast entry</button>
+            <button class="btn btn-secondary" onclick="toggleTrackingView()" title="Switch between the day list and the month grid">Month grid</button>
+            <details class="more-menu">
+              <summary class="btn btn-secondary" aria-label="More actions">More</summary>
+              <div class="more-menu-list">
+                <button onclick="forceReimportSpend(); this.closest('details').open=false;">Reload from cloud</button>
+                <button onclick="syncLocalToCloud(); this.closest('details').open=false;">Push this device to cloud</button>
+                <button id="exportCsvBtn" onclick="exportTrackingCSV(); this.closest('details').open=false;" style="display: none;">Export CSV</button>
+              </div>
+            </details>
           </div>
         </div>
         <!-- Date Selector -->
         <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
           <button class="btn btn-secondary" onclick="changeTrackingDay(-1)" style="padding: 0.5rem 0.75rem;">◀ Yesterday</button>
-          <button class="btn btn-primary" id="todayBtn" onclick="goToToday()" style="padding: 0.5rem 1rem;">📅 Today</button>
+          <button class="btn btn-primary" id="todayBtn" onclick="goToToday()" style="padding: 0.5rem 1rem;">Today</button>
           <button class="btn btn-secondary" onclick="changeTrackingDay(1)" style="padding: 0.5rem 0.75rem;" id="tomorrowBtn">Tomorrow ▶</button>
-          <button class="btn btn-secondary" id="rankSpendBtn" onclick="toggleSpendRanking()" style="padding: 0.5rem 0.85rem;" title="Sort accounts by spend, highest first — for optimization">🔽 Rank by Spend</button>
+          <button class="btn btn-secondary" id="rankSpendBtn" onclick="toggleSpendRanking()" style="padding: 0.5rem 0.85rem;" title="Sort accounts by spend, highest first">Rank by spend</button>
           <span style="margin-left: 1rem; color: var(--text-secondary); font-size: 0.9rem;" id="selectedDateLabel"></span>
         </div>
         <!-- Today's Total Spend Box -->
-        <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);">
-          <div class="card-body" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;">
-            <div>
-              <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;" id="spendBoxLabel">Today's Total Spend</div>
-              <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 0.25rem;" id="todayDateDisplay"></div>
-            </div>
-            <div style="text-align: right;">
-              <div id="todayTotalSpend" style="font-size: 2.5rem; font-weight: 700; color: white;">$0</div>
-              <div style="font-size: 0.85rem; color: rgba(255,255,255,0.7);" id="todayAccountCount">0 accounts</div>
-            </div>
+        <div class="day-total">
+          <div>
+            <div class="day-total-label" id="spendBoxLabel">Today's Total Spend</div>
+            <div class="day-total-sub" id="todayDateDisplay"></div>
+          </div>
+          <div style="text-align: right;">
+            <div class="day-total-num" id="todayTotalSpend">$0</div>
+            <div class="day-total-sub" id="todayAccountCount">0 accounts</div>
           </div>
         </div>
         <!-- Calendar/Grid View -->
@@ -1591,6 +1763,7 @@
                 <input type="text" id="quickEntrySearch" placeholder="🔎 Filter by store or account..." oninput="filterQuickEntry(this.value)"
                   style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem;">
               </div>
+              <button class="chip-toggle" id="quickMissingBtn" onclick="toggleQuickMissing()" aria-pressed="false">Missing only</button>
               <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
                 <div style="min-width: 160px;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 3px;">
@@ -1601,14 +1774,14 @@
                   </div>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Day Total</div>
-                  <div id="quickDayTotal" style="font-size: 1.3rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace;">$0</div>
+                  <div style="font-size: 0.78rem; color: var(--text-secondary);">Day total</div>
+                  <div id="quickDayTotal" style="font-size: 1.3rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;">$0</div>
                 </div>
-                <button class="btn btn-secondary" onclick="exitQuickEntry()" title="Back to card view" style="padding: 0.5rem 0.9rem;">✕ Done</button>
+                <button class="btn btn-secondary" onclick="exitQuickEntry()" title="Back to the day list" style="padding: 0.5rem 0.9rem;">Done</button>
               </div>
             </div>
           </div>
-          <div style="font-size: 0.78rem; color: var(--text-muted); margin: 0 0.25rem 0.75rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+          <div class="quick-hints" style="font-size: 0.78rem; color: var(--text-muted); margin: 0 0.25rem 0.75rem; display: flex; gap: 1rem; flex-wrap: wrap;">
             <span>↵ <strong>Enter</strong> = next account</span>
             <span>⇧↵ <strong>Shift+Enter</strong> = previous</span>
             <span><strong>Tab</strong> also works · empty = not entered yet</span>
@@ -3426,12 +3599,12 @@ Or just card numbers:
                 </div>
               </div>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">🚀 Launch</button>` : ''}
-                <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">📊</button>
-                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">⭐</button>` : ''}
-                <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">📈</button>
-                <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View Assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">📋</button>
-                ${perms.canDeleteStore ? `<button class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.45rem 0.6rem; min-width: 38px;" onclick="deleteStore('${store.id}')" title="Delete Store">🗑️</button>` : ''}
+                ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">Launch</button>` : ''}
+                <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">${store.hasTracking ? 'Tracking on' : 'Tracking'}</button>
+                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">${store.isPerformer ? 'Top store' : 'Mark top'}</button>` : ''}
+                <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">Trend</button>
+                <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">Assets</button>
+                ${perms.canDeleteStore ? `<button class="btn btn-sm btn-secondary" style="color: var(--danger); padding: 0.45rem 0.6rem; min-width: 38px;" onclick="deleteStore('${store.id}')" title="Archive this store. Its numbers stay counted">Archive</button>` : ''}
               </div>
             </div>
           </div>
@@ -3458,7 +3631,8 @@ Or just card numbers:
       const dateStr = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       document.getElementById('todayDateDisplay').textContent = dateStr;
       document.getElementById('spendBoxLabel').textContent = isToday ? "Today's Total Spend" : "Total Spend";
-      document.getElementById('todayBtn').style.background = isToday ? 'var(--accent)' : 'var(--bg-tertiary)';
+      document.getElementById('todayBtn').className = 'btn ' + (isToday ? 'btn-primary' : 'btn-secondary');
+      document.getElementById('todayBtn').style.background = '';
       document.getElementById('tomorrowBtn').style.display = isToday ? 'none' : 'inline-block';
       document.getElementById('selectedDateLabel').textContent = isToday ? '' : `Viewing: ${dateStr}`;
       const storeGroups = {};
@@ -3783,6 +3957,7 @@ Or just card numbers:
         ? localValid.length
         : localValid.filter(k => !cloudKeys.has(k)).length;
       revenueLoaded = true;
+      if (typeof renderHome === 'function' && document.getElementById('section-dashboard')?.classList.contains('active')) { try { renderHome(); } catch (e) {} }
       // Anything the cloud is missing gets pushed up automatically, silently
       if (revUnsyncedCount > 0) setTimeout(() => syncAllRevenueToCloud(true), 800);
     }
@@ -6380,7 +6555,7 @@ Or just card numbers:
       quickEntries.forEach(([storeId, accs]) => {
         const store = getStore(storeId);
         html += `<div class="quick-store-block" style="margin-bottom: 0.5rem;">
-          <div class="quick-store-label" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 0.5rem 0.25rem 0.35rem;">📦 ${escapeHtml(store?.name || 'Unknown Store')}</div>`;
+          <div class="quick-store-label">${escapeHtml(store?.name || 'Unknown store')}</div>`;
         accs.forEach(account => {
           const profile = getProfile(account.profileId);
           const vcc = getVCC(account.vccId);
@@ -6397,9 +6572,9 @@ Or just card numbers:
                 <div style="font-weight:600; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(name)}</div>
                 <div style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">••••${last4}</div>
               </div>
-              <div style="display:flex; flex-direction:column; gap:0.15rem;" title="Campaign settings — update these whenever you change budget or bid">
-                <input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="budget" value="${account.budget != null ? account.budget : ''}" placeholder="Budget $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
-                <input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="bid" value="${account.bid != null ? account.bid : ''}" placeholder="Bid $" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);">
+              <div class="bb-pair" title="Campaign settings. Update these whenever you change budget or bid">
+                <label class="bb-lab"><span>Budget</span><input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="budget" value="${account.budget != null ? account.budget : ''}" placeholder="$" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);"></label>
+                <label class="bb-lab"><span>Bid</span><input type="number" inputmode="decimal" step="0.01" min="0" class="bb-input" data-account="${account.id}" data-field="bid" value="${account.bid != null ? account.bid : ''}" placeholder="$" onchange="saveAccountBB(this)" onfocus="this.select()" style="width:86px; padding:0.25rem 0.4rem; text-align:right; font-family:'JetBrains Mono',monospace; font-size:0.76rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-tertiary); color:var(--text-primary);"></label>
               </div>
               <div style="display:flex; align-items:center; gap:0.3rem;">
                 <span style="color:var(--text-muted); font-weight:600;">$</span>
@@ -9045,6 +9220,249 @@ Or just card numbers:
           .catch(error => { console.log('SW registration failed:', error); });
       });
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // HOME — every person lands on their own "what do I do now" page
+    // ══════════════════════════════════════════════════════════════
+    function homeKey(off) {
+      const d = new Date(getThailandDate() + 'T12:00:00'); d.setDate(d.getDate() - off);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function homeSpendProgress() {
+      const today = getThailandDate();
+      const accs = liveAccounts().filter(a => a.status === 'active');
+      let entered = 0, total = 0;
+      accs.forEach(a => {
+        const k = `${a.id}_${today}`;
+        if (Object.prototype.hasOwnProperty.call(dailySpendHistory, k)) { entered++; total += parseFloat(dailySpendHistory[k]) || 0; }
+      });
+      return { entered, count: accs.length, missing: accs.length - entered, total };
+    }
+    function homeRevenueProgress() {
+      const y = homeKey(1);
+      const stores = liveStores().filter(st => storeSpendForDate(st.id, y) > 0);
+      const entered = stores.filter(st => dailyRevenue[`${st.id}_${y}`] !== undefined).length;
+      return { key: y, count: stores.length, entered, missing: stores.length - entered };
+    }
+    function openSpendEntry() {
+      showSection('tracking');
+      selectedTrackingDate = getThailandDate();
+      renderTracking();
+      quickMissingOnly = homeSpendProgress().missing > 0;
+      showQuickEntry();
+    }
+    function openRevenueEntry(key) {
+      showSection('revenue');
+      const inp = document.getElementById('revenueDate'); if (inp) inp.value = key;
+      onRevenueDateChange(key);
+      openRevenueQuick();
+    }
+    function renderHome() {
+      const jobsEl = document.getElementById('homeJobs');
+      if (!jobsEl) return;
+      const finance = isOwner(), mgmt = isStoreMgmtUser();
+      // greeting
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+      const h = now.getHours();
+      const hello = h < 12 ? 'Good morning' : (h < 18 ? 'Good afternoon' : 'Good evening');
+      const name = (dbUser && dbUser.name) ? dbUser.name.split(' ')[0] : '';
+      const t = document.getElementById('dashboardTitle'), st = document.getElementById('dashboardSubtitle');
+      if (t) t.textContent = name ? `${hello}, ${name}` : hello;
+      if (st) st.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+      // ── money strip (finance only) ──
+      const moneyEl = document.getElementById('homeMoney');
+      if (moneyEl) {
+        if (finance) {
+          const y = homeKey(1);
+          const rev = dayTotalRevenue(y), ads = dayTotalAdSpend(y);
+          const roas = ads > 0 ? rev / ads : null;
+          let mRev = 0, mAds = 0;
+          const dayOfMonth = parseInt(getThailandDate().slice(8), 10);
+          for (let n = 1; n < dayOfMonth; n++) { const k = homeKey(n); mRev += dayTotalRevenue(k); mAds += dayTotalAdSpend(k); }
+          const mRoas = mAds > 0 ? mRev / mAds : null;
+          const profit = rev - ads;
+          moneyEl.innerHTML = `<div class="home-money">
+            <div><div class="hm-label">Revenue yesterday</div><div class="hm-num">${fmtMoney(rev)}</div><div class="hm-sub">${fmtMoney(mRev)} this month</div></div>
+            <div><div class="hm-label">Ad spend yesterday</div><div class="hm-num">${fmtMoney(ads)}</div><div class="hm-sub">${fmtMoney(mAds)} this month</div></div>
+            <div><div class="hm-label">ROAS yesterday</div><div class="hm-num" style="color:${roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)')};">${roas === null ? 'n/a' : roas.toFixed(2) + 'x'}</div><div class="hm-sub">${mRoas === null ? 'No spend yet this month' : mRoas.toFixed(2) + 'x this month'}</div></div>
+            <div><div class="hm-label">Left after ads</div><div class="hm-num" style="color:${profit >= 0 ? 'var(--text-primary)' : 'var(--danger)'};">${fmtMoney(profit)}</div><div class="hm-sub">${fmtMoney(mRev - mAds)} this month</div></div>
+          </div>`;
+        } else moneyEl.innerHTML = '';
+      }
+
+      const jobs = [];
+      // ── job: today's spend ──
+      const sp = homeSpendProgress();
+      const spDone = sp.count > 0 && sp.missing === 0;
+      const pct = sp.count ? Math.round(sp.entered / sp.count * 100) : 0;
+      jobs.push(`<div class="job ${finance ? '' : 'lead'} ${spDone ? 'job-done' : ''}">
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.6rem;">
+          <div class="job-name">Today's ad spend</div>
+          <div class="job-state">${sp.count === 0 ? 'No active ad accounts yet' : (spDone ? `All ${sp.count} accounts are entered` : `${sp.missing} account${sp.missing === 1 ? '' : 's'} still need${sp.missing === 1 ? 's' : ''} today's spend`)}</div>
+          <div class="job-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+          <div class="job-note">${sp.entered} of ${sp.count} entered, ${fmtMoney(sp.total)} so far</div>
+        </div>
+        <div class="job-actions"><button class="btn ${spDone ? 'btn-secondary' : 'btn-primary'}" onclick="openSpendEntry()">${spDone ? 'Review today' : "Enter today's spend"}</button></div>
+      </div>`);
+
+      // ── job: yesterday's revenue (finance) ──
+      if (finance) {
+        const rp = homeRevenueProgress();
+        const rDone = rp.missing === 0;
+        const rpct = rp.count ? Math.round(rp.entered / rp.count * 100) : 100;
+        jobs.push(`<div class="job ${rDone ? 'job-done' : ''}">
+          <div class="job-name">Yesterday's revenue</div>
+          <div class="job-state">${rp.count === 0 ? 'No stores spent yesterday' : (rDone ? 'Every store has its revenue' : `${rp.missing} store${rp.missing === 1 ? '' : 's'} still need${rp.missing === 1 ? 's' : ''} revenue`)}</div>
+          <div class="job-bar" role="progressbar" aria-valuenow="${rpct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${rpct}%"></i></div>
+          <div class="job-note">${rp.entered} of ${rp.count} stores that spent yesterday</div>
+          <div class="job-actions"><button class="btn ${rDone ? 'btn-secondary' : 'btn-primary'}" onclick="openRevenueEntry('${rp.key}')">${rDone ? 'Review revenue' : 'Enter revenue'}</button></div>
+        </div>`);
+      }
+
+      // ── job: needs attention ──
+      const alerts = buildAlerts().filter(a => a.custom !== 'backup');
+      const crit = alerts.filter(a => alertGroupOf(a.type) === 'critical').length;
+      const act = alerts.filter(a => alertGroupOf(a.type) === 'action').length;
+      const urgent = alerts.filter(a => ['critical', 'action'].includes(alertGroupOf(a.type)));
+      const dotColor = a => alertGroupOf(a.type) === 'critical' ? 'var(--danger)' : 'var(--warning)';
+      const stateTxt = urgent.length === 0 ? 'Nothing needs you right now'
+        : [crit ? `${crit} critical` : '', act ? `${act} to check` : ''].filter(Boolean).join(', ');
+      jobs.push(`<div class="job ${urgent.length === 0 ? 'job-done' : ''}">
+        <div class="job-name">Needs attention</div>
+        <div class="job-state">${stateTxt}</div>
+        ${urgent.length ? `<div class="job-list">${urgent.slice(0, 3).map(a => `
+          <div class="job-row">
+            <span class="dot" style="background:${dotColor(a)};"></span>
+            <div class="job-row-main"><div class="job-row-title">${escapeHtml(a.title)}</div><div class="job-row-sub">${escapeHtml(a.desc)}</div></div>
+            <button class="btn btn-secondary btn-sm" onclick="handleAlertAction('${a.accountId || ''}', '${a.vccId || ''}', '${a.storeId || ''}')">${a.action}</button>
+          </div>`).join('')}</div>` : ''}
+        <div class="job-actions"><button class="btn btn-secondary" onclick="showSection('alerts')">${alerts.length > 3 ? `See all ${alerts.length}` : 'Open notifications'}</button></div>
+      </div>`);
+
+      // ── job: store tasks (you + Elias) ──
+      if (mgmt) {
+        const open = storeTasks.filter(x => x.col !== 'done' && x.col !== 'dismissed');
+        jobs.push(`<div class="job ${open.length === 0 ? 'job-done' : ''}">
+          <div class="job-name">Store tasks</div>
+          <div class="job-state">${open.length === 0 ? 'The board is clear' : `${open.length} open task${open.length === 1 ? '' : 's'}`}</div>
+          <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">${TASK_COLS.map(c => {
+            const n = open.filter(x => x.col === c.id).length;
+            return n ? `<span class="pill-count" onclick="showSection('storetasks')"><span class="dot" style="background:${c.color};"></span>${c.label} <b>${n}</b></span>` : '';
+          }).join('')}</div>
+          <div class="job-actions"><button class="btn btn-secondary" onclick="showSection('storetasks')">Open the board</button></div>
+        </div>`);
+      }
+
+      // ── job: optimization (finance) ──
+      if (finance) {
+        const cur = optDateKeys(1, 7).reverse(), prev = optPrevKeys(cur);
+        let cut = 0, watch = 0, scale = 0;
+        liveStores().forEach(store => {
+          const v = optVerdict(optStoreStats(store.id, cur, prev)).id;
+          if (v === 'cut') cut++; else if (v === 'watch') watch++; else if (v === 'scale') scale++;
+        });
+        const quiet = cut + watch === 0;
+        jobs.push(`<div class="job ${quiet ? 'job-done' : ''}">
+          <div class="job-name">Scale or cut</div>
+          <div class="job-state">${quiet ? 'No store is losing money' : [cut ? `${cut} losing money` : '', watch ? `${watch} slipping` : ''].filter(Boolean).join(', ')}</div>
+          <div class="job-note">${scale} store${scale === 1 ? '' : 's'} ready to scale. Based on the last 7 days against the 7 before.</div>
+          <div class="job-actions"><button class="btn btn-secondary" onclick="showSection('opthub')">Open optimization</button></div>
+        </div>`);
+      }
+      const inGrid = finance ? jobs.length : jobs.length - 1;
+      if (inGrid % 2 === 1) jobs[jobs.length - 1] = jobs[jobs.length - 1].replace('<div class="job ', '<div class="job wide ');
+      jobsEl.innerHTML = jobs.join('');
+    }
+
+    // ── Fast entry: show only the accounts that are still missing ──
+    let quickMissingOnly = false;
+    function applyQuickMissing() {
+      const rows = Array.from(document.querySelectorAll('.quick-entry-row'));
+      const missingCount = rows.filter(r => { const i = r.querySelector('.quick-spend-input'); return i && i.dataset.entered !== 'true'; }).length;
+      if (missingCount === 0) quickMissingOnly = false;
+      const btn = document.getElementById('quickMissingBtn');
+      if (btn) { btn.setAttribute('aria-pressed', quickMissingOnly ? 'true' : 'false'); btn.textContent = missingCount ? `Missing only (${missingCount})` : 'All entered'; btn.disabled = missingCount === 0; }
+      const q = ((document.getElementById('quickEntrySearch') || {}).value || '').toLowerCase().trim();
+      rows.forEach(row => {
+        const inp = row.querySelector('.quick-spend-input');
+        const hide = quickMissingOnly && inp && inp.dataset.entered === 'true';
+        row.style.display = ((!q || row.dataset.name.includes(q)) && !hide) ? 'flex' : 'none';
+      });
+      document.querySelectorAll('.quick-store-block').forEach(block => {
+        block.style.display = Array.from(block.querySelectorAll('.quick-entry-row')).some(r => r.style.display !== 'none') ? 'block' : 'none';
+      });
+    }
+    function toggleQuickMissing() {
+      quickMissingOnly = !quickMissingOnly;
+      applyQuickMissing();
+      const first = Array.from(document.querySelectorAll('.quick-spend-input')).find(i => i.closest('.quick-entry-row').style.display !== 'none' && i.dataset.entered !== 'true');
+      if (first) { first.focus(); first.select(); }
+    }
+
+    // ── Sidebar "Setup" group folds away; phone gets a tab bar ──
+    function setupNavOpen() {
+      let v = null; try { v = localStorage.getItem('tsnac_setup_open'); } catch (e) {}
+      return v === null ? !isOwner() : v === '1';
+    }
+    function toggleSetupNav() {
+      const el = document.getElementById('setupNav'); if (!el) return;
+      const open = !el.classList.contains('open');
+      el.classList.toggle('open', open);
+      try { localStorage.setItem('tsnac_setup_open', open ? '1' : '0'); } catch (e) {}
+    }
+    function renderTabbar() {
+      const bar = document.getElementById('tabbar'); if (!bar) return;
+      const icon = sec => { const el = document.querySelector(`.nav-item[data-section="${sec}"] svg`); return el ? el.outerHTML : ''; };
+      const tabs = isOwner()
+        ? [['dashboard', 'Home'], ['tracking', 'Spend'], ['revenue', 'Revenue'], [isStoreMgmtUser() ? 'storetasks' : 'alerts', isStoreMgmtUser() ? 'Tasks' : 'Alerts']]
+        : [['dashboard', 'Home'], ['tracking', 'Spend'], ['stores', 'Stores'], ['alerts', 'Alerts']];
+      bar.innerHTML = tabs.map(([sec, label]) => `<button class="tab" data-tab="${sec}" onclick="showSection('${sec}')">${icon(sec)}<span>${label}</span></button>`).join('') +
+        `<button class="tab" data-tab="__more" onclick="toggleSidebar()"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button>`;
+    }
+    function syncChrome() {
+      const active = document.querySelector('.section.active');
+      const id = active ? active.id.replace('section-', '') : 'dashboard';
+      document.querySelectorAll('#tabbar .tab').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+      const setup = document.getElementById('setupNav');
+      if (setup) {
+        const inside = ['stores', 'accounts', 'profiles', 'suspended'].includes(id);
+        setup.classList.toggle('open', inside || setupNavOpen());
+        const sb = document.getElementById('suspendedBadge'), gb = document.getElementById('setupBadge');
+        if (sb && gb) { const n = parseInt(sb.textContent, 10) || 0; gb.textContent = n; gb.style.display = (n > 0 && sb.style.display !== 'none') ? 'inline-flex' : 'none'; }
+      }
+      const put = (tab, badgeId) => {
+        const b = document.querySelector(`#tabbar .tab[data-tab="${tab}"]`), src = document.getElementById(badgeId);
+        if (!b || !src) return;
+        let dot = b.querySelector('.tab-badge');
+        const n = parseInt(src.textContent, 10) || 0;
+        if (n > 0 && src.style.display !== 'none') { if (!dot) { dot = document.createElement('span'); dot.className = 'tab-badge'; b.appendChild(dot); } dot.textContent = n; }
+        else if (dot) dot.remove();
+      };
+      put('alerts', 'alertBadge'); put('storetasks', 'taskBadge');
+      const bf = document.getElementById('backupFootBtn'); if (bf) bf.style.display = isOwner() ? '' : 'none';
+      document.querySelectorAll('details.more-menu[open]').forEach(d => { d.open = false; });
+    }
+    // hook the new layer into the existing flow without rewriting it
+    (function () {
+      const baseShow = showSection;           showSection = function (id) { baseShow(id); syncChrome(); };
+      const baseDash = renderDashboard;       renderDashboard = function () { baseDash.apply(this, arguments); try { renderHome(); } catch (e) { console.error('home', e); } };
+      const baseBadges = updateBadges;        updateBadges = function () { baseBadges.apply(this, arguments); syncChrome(); };
+      const baseTaskBadge = updateTaskBadge;  updateTaskBadge = function () { baseTaskBadge.apply(this, arguments); syncChrome(); if (document.getElementById('section-dashboard')?.classList.contains('active')) { try { renderHome(); } catch (e) {} } };
+      const baseQuick = renderQuickEntry;     renderQuickEntry = function () { baseQuick.apply(this, arguments); applyQuickMissing(); };
+      filterQuickEntry = function () { applyQuickMissing(); };
+      const syncQuickMode = () => {
+        const on = (typeof trackingViewMode !== 'undefined' && trackingViewMode === 'quick') && document.getElementById('section-tracking')?.classList.contains('active');
+        document.getElementById('section-tracking')?.classList.toggle('quick-mode', !!on);
+        document.body.classList.toggle('in-quick', !!on);
+      };
+      const baseSQ = showQuickEntry;   showQuickEntry = function () { baseSQ.apply(this, arguments); syncQuickMode(); };
+      const baseEQ = exitQuickEntry;   exitQuickEntry = function () { baseEQ.apply(this, arguments); syncQuickMode(); };
+      const baseTV = toggleTrackingView; toggleTrackingView = function () { baseTV.apply(this, arguments); syncQuickMode(); };
+      const baseShow2 = showSection;   showSection = function (id) { baseShow2(id); syncQuickMode(); };
+      const baseInit = init;                  init = async function () { await baseInit(); renderTabbar(); syncChrome(); };
+      document.addEventListener('click', e => { document.querySelectorAll('details.more-menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
+    })();
     syncThemeToggle();
     init();
   </script>
