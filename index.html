@@ -1610,6 +1610,31 @@
     .arch-grade.good { background: var(--success-bg); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); }
     [data-theme="dark"] .arch-grade.winner { background: #3a2f0d; color: #f2cf66; border-color: #6b5518; }
     .arch-life { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.3rem; } .arch-life b { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-primary); }
+
+    /* ── Archive page ── */
+    .arch-bar { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
+    .arch-bar #archSearch { flex: 1; min-width: 200px; max-width: 340px; }
+    .arch-sort { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--text-secondary); margin-left: auto; white-space: nowrap; } .arch-sort select { width: 160px; }
+    .arch-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 0.7rem; }
+    .arch-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(0, 0.9fr); gap: 1.4rem; align-items: center; padding: 1rem 1.2rem 0.8rem; }
+    .arch-name { font-weight: 650; font-size: 1.05rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.2rem; }
+    .arch-dates { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.3rem; } .arch-dates b { color: var(--text-primary); font-weight: 600; }
+    .arch-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+    .arch-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 1.02rem; margin-top: 0.15rem; white-space: nowrap; }
+    .arch-graph svg { height: 44px; }
+    .arch-bottom { display: flex; gap: 0.5rem; align-items: center; padding: 0 1.2rem 1rem; } .arch-bottom .arch-note { flex: 1; min-width: 0; }
+    .arch-months { border-top: 1px solid var(--border-light); padding: 0.6rem 1.2rem 0.9rem; }
+    .arch-m { display: grid; grid-template-columns: 1.1fr 1fr 1fr 0.7fr 1fr 1.6fr; gap: 0.8rem; align-items: center; padding: 0.38rem 0; font-size: 0.84rem; font-family: 'JetBrains Mono', monospace; border-bottom: 1px solid var(--border-light); }
+    .arch-m:last-child { border-bottom: 0; } .arch-m span:first-child { font-family: inherit; font-family: 'Geist', sans-serif; font-weight: 600; }
+    .arch-m.head { font-family: 'Geist', sans-serif; font-size: 0.72rem; color: var(--text-muted); } .arch-m.head span:first-child { font-weight: 400; }
+    .arch-mbar { height: 8px; background: var(--bg-tertiary); border-radius: 999px; overflow: hidden; } .arch-mbar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+    @media (max-width: 1100px) { .arch-top { grid-template-columns: 1fr 1fr; } .arch-graph { grid-column: 1 / -1; } }
+    @media (max-width: 768px) {
+      .arch-top { grid-template-columns: 1fr; gap: 0.8rem; } .arch-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .arch-bottom { flex-wrap: wrap; } .arch-bottom .arch-note { flex: 1 1 100%; } .arch-bottom .btn { flex: 1; }
+      .arch-sort { margin-left: 0; width: 100%; } .arch-sort select { flex: 1; width: auto; } .arch-bar #archSearch { max-width: none; flex: 1 1 100%; }
+      .arch-m { grid-template-columns: 1.2fr 1fr 1fr 0.8fr; font-size: 0.76rem; gap: 0.4rem; } .arch-m span:nth-child(5), .arch-m span:nth-child(6) { display: none; }
+    }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -1718,6 +1743,7 @@
           <div class="nav-item" data-section="analyze" onclick="showSection('analyze')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V4M17 20v-7M2.5 20h19"/></svg><span class="nl">Analyze</span></div>
           <div class="nav-item" data-section="opthub" onclick="showSection('opthub')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span class="nl">Optimization</span></div>
           <div class="nav-item" data-section="suppliers" onclick="showSection('suppliers')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5v8l-9 5-9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg><span class="nl">Suppliers</span></div>
+          <div class="nav-item" data-section="archive" onclick="showSection('archive')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg><span>Archive</span></div>
         </div>
         <div class="nav-section" id="mgmtNavSection" style="display: none;">
           <div class="nav-title">Team</div>
@@ -1994,6 +2020,25 @@
         <div id="alertsList"></div>
       </section>
 
+      <section class="section" id="section-archive">
+        <div class="header">
+          <div>
+            <h1 class="page-title">Archive</h1>
+            <p class="page-subtitle" id="archSubtitle">Every archived store with its full history</p>
+          </div>
+        </div>
+        <div id="archSummary" class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;"></div>
+        <div class="arch-bar">
+          <input type="text" id="archSearch" class="form-input" placeholder="Search archived stores" oninput="renderArchive()">
+          <div id="archFilters" class="tk-filters" style="margin:0;"></div>
+          <label class="arch-sort">Sort by
+            <select id="archSort" class="form-input" onchange="renderArchive()">
+              <option value="best">Best first</option><option value="rev">Revenue</option><option value="roas">ROAS</option><option value="profit">Left after ads</option><option value="recent">Last active</option><option value="name">Name</option>
+            </select>
+          </label>
+        </div>
+        <div id="archList"></div>
+      </section>
       <section class="section" id="section-opthub">
         <div class="header">
           <div>
@@ -3210,6 +3255,7 @@ Or just card numbers:
       if (sectionId === 'pnl' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'opthub' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'archive' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'suppliers' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'storetasks' && !isStoreMgmtUser()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -3235,6 +3281,7 @@ Or just card numbers:
         case 'pnl': openPnlSection(); break;
         case 'analyze': openAnalyzeSection(); break;
         case 'opthub': renderOptHub(); break;
+        case 'archive': openArchiveSection(); break;
         case 'suppliers': openSuppliersSection(); break;
         case 'storetasks': openStoreTasksSection(); break;
       }
@@ -3260,7 +3307,7 @@ Or just card numbers:
           bn.innerHTML = `👀 Viewing as ${names[userId]} (${roles[userId]}) — exactly what they see. Private pages and the Team board are hidden. <button onclick="exitPreview()" style="margin-left:auto; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.55); color:white; border-radius:6px; padding:0.2rem 0.7rem; cursor:pointer; font-family:inherit; font-weight:600;">Return to my view</button>`;
           const act = document.querySelector('.section.active');
           const cur = act ? act.id.replace('section-', '') : 'dashboard';
-          if (['analyze', 'revenue', 'suppliers', 'pnl', 'storetasks'].includes(cur)) showSection('dashboard');
+          if (['analyze', 'revenue', 'suppliers', 'pnl', 'storetasks', 'archive', 'opthub'].includes(cur)) showSection('dashboard');
         } else if (bn) bn.remove();
       }
       const perms = permissions[userId];
@@ -3703,10 +3750,10 @@ Or just card numbers:
       if (archivedCount > 0) {
         html += `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; margin-bottom:0.9rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-card); font-size:0.85rem;">
           <span style="color:var(--text-secondary);">${archivedCount} archived store${archivedCount > 1 ? 's' : ''} — their spend and revenue are still counted in your totals.</span>
-          <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="toggleShowArchived()">${showArchived ? 'Hide archived' : 'Show archived'}</button>
+          ${isOwner() ? `<button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="showSection('archive')">Open Archive</button>` : `<button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="toggleShowArchived()">${showArchived ? 'Hide archived' : 'Show archived'}</button>`}
         </div>`;
       }
-      const baseStores = showArchived ? [...(data.stores || [])] : liveStores();
+      const baseStores = (showArchived && !isOwner()) ? [...(data.stores || [])] : liveStores();
       const sortedStores = baseStores.sort((a, b) => {
         const aAccounts = data.accounts.google.filter(acc => acc.storeId === a.id).length +
                           data.accounts.tiktok.filter(acc => acc.storeId === a.id).length +
@@ -8822,6 +8869,121 @@ Or just card numbers:
       renderAccounts();
       renderDashboard();
       updateBadges();
+      if (document.getElementById('section-archive')?.classList.contains('active')) renderArchive();
+    }
+    // ── Archive page (Ayman and Elias): every archived store with its whole history ──
+    let archFilter = 'all';
+    const archOpen = new Set();
+    async function openArchiveSection() {
+      if (!isOwner()) { showSection('dashboard'); return; }
+      if (!revenueLoaded) { try { await loadRevenue(); } catch (e) {} }
+      renderArchive();
+    }
+    function archiveStoreHistory(storeId) {
+      const sid = String(storeId), days = {};
+      const accIds = new Set();
+      ['google', 'tiktok', 'facebook'].forEach(ch => (data.accounts[ch] || []).forEach(a => { if (String(a.storeId) === sid) accIds.add(String(a.id)); }));
+      Object.keys(dailyRevenue || {}).forEach(k => { if (k.slice(0, -11) === sid) { const d = k.slice(-10), v = parseFloat(dailyRevenue[k]) || 0; if (v) (days[d] = days[d] || { rev: 0, spend: 0 }).rev += v; } });
+      Object.keys(dailySpendHistory || {}).forEach(k => { if (accIds.has(k.slice(0, -11))) { const d = k.slice(-10), v = parseFloat(dailySpendHistory[k]) || 0; if (v) (days[d] = days[d] || { rev: 0, spend: 0 }).spend += v; } });
+      const keys = Object.keys(days).sort();
+      let rev = 0, spend = 0, best = null;
+      const months = {};
+      keys.forEach(d => {
+        const x = days[d]; rev += x.rev; spend += x.spend;
+        if (x.rev > 0 && (!best || x.rev > best.rev)) best = { date: d, rev: x.rev };
+        const m = d.slice(0, 7); const mm = months[m] = months[m] || { rev: 0, spend: 0 }; mm.rev += x.rev; mm.spend += x.spend;
+      });
+      const mKeys = Object.keys(months).sort();
+      let bestMonth = null;
+      mKeys.forEach(m => { if (months[m].rev > 0 && (!bestMonth || months[m].rev > bestMonth.rev)) bestMonth = { month: m, rev: months[m].rev }; });
+      // daily line across the whole life, gaps filled with zero
+      const series = [];
+      if (keys.length) {
+        const end = new Date(keys[keys.length - 1] + 'T12:00:00');
+        for (let d = new Date(keys[0] + 'T12:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          series.push(days[k] ? days[k].rev : 0);
+        }
+      }
+      return { rev, spend, roas: spend > 0 ? rev / spend : null, profit: rev - spend, first: keys[0] || '', last: keys[keys.length - 1] || '', activeDays: keys.length, best, bestMonth, months, mKeys, series };
+    }
+    function archDate(k) { return k ? new Date(k + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
+    function archMonth(m) { return new Date(m + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); }
+    function toggleArchOpen(id) { if (archOpen.has(id)) archOpen.delete(id); else archOpen.add(id); renderArchive(); }
+    function setArchFilter(f) { archFilter = f; renderArchive(); }
+    async function saveArchiveNote(storeId, value) {
+      const st = (data.stores || []).find(x => String(x.id) === String(storeId)); if (!st) return;
+      const assets = st.assets || {};
+      if ((assets.archiveNote || '') === value.trim()) return;
+      assets.archiveNote = value.trim(); st.assets = assets;
+      try { await updateStoreInSupabase(st.id, { assets: assets }); showAutoSaveIndicator('✓ Saved'); } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); }
+    }
+    function renderArchive() {
+      const listEl = document.getElementById('archList');
+      if (!listEl || !isOwner()) return;
+      const me = isAymanOnly();
+      // keep a half-typed note across refreshes
+      const act = document.activeElement, keepNote = act && act.classList && act.classList.contains('arch-note') ? { id: act.dataset.id, v: act.value, a: act.selectionStart } : null;
+      const all = (data.stores || []).filter(st => isStoreArchived(st.id)).map(st => ({ st, h: archiveStoreHistory(st.id), g: archivedGrade(st) }));
+      const tot = all.reduce((t, x) => ({ rev: t.rev + x.h.rev, spend: t.spend + x.h.spend }), { rev: 0, spend: 0 });
+      const card = (label, val, cls) => `<div class="stat-card ${cls || ''}"><div class="stat-label">${label}</div><div class="stat-value">${val}</div></div>`;
+      const sumEl = document.getElementById('archSummary');
+      if (sumEl) sumEl.innerHTML = card('Archived stores', all.length) + card('Lifetime revenue', fmtMoney(tot.rev), 'success') + card('Lifetime ad spend', fmtMoney(tot.spend), 'info') + card('ROAS', tot.spend > 0 ? (tot.rev / tot.spend).toFixed(2) + 'x' : '—', 'purple');
+      const fEl = document.getElementById('archFilters');
+      if (fEl) {
+        if (me) {
+          const n = g => all.filter(x => g === 'all' || (g === 'other' ? !x.g : x.g === g)).length;
+          const chip = (id, label) => `<button class="tk-chip${archFilter === id ? ' on' : ''}${n(id) ? '' : ' empty'}" onclick="setArchFilter('${id}')">${label}<b>${n(id)}</b></button>`;
+          fEl.innerHTML = chip('all', 'All') + chip('winner', 'Winners') + chip('good', 'Good') + chip('other', 'Others');
+        } else { fEl.innerHTML = ''; archFilter = 'all'; }
+      }
+      const q = ((document.getElementById('archSearch') || {}).value || '').toLowerCase().trim();
+      const sort = (document.getElementById('archSort') || {}).value || 'best';
+      const gRank = x => ({ winner: 0, good: 1 }[x.g] ?? 2);
+      const sorters = {
+        best: (a, b) => (me ? gRank(a) - gRank(b) : 0) || b.h.rev - a.h.rev,
+        rev: (a, b) => b.h.rev - a.h.rev,
+        roas: (a, b) => (b.h.roas ?? -1) - (a.h.roas ?? -1),
+        profit: (a, b) => b.h.profit - a.h.profit,
+        recent: (a, b) => String(b.h.last).localeCompare(String(a.h.last)),
+        name: (a, b) => a.st.name.localeCompare(b.st.name)
+      };
+      const list = all.filter(x => (!q || x.st.name.toLowerCase().includes(q)) && (archFilter === 'all' || (archFilter === 'other' ? !x.g : x.g === archFilter))).sort(sorters[sort] || sorters.best);
+      if (!all.length) { listEl.innerHTML = '<div class="tk-empty big">No archived stores yet. When you archive a store, it moves here with its whole history.</div>'; return; }
+      if (!list.length) { listEl.innerHTML = '<div class="tk-empty big">No archived store matches.</div>'; return; }
+      listEl.innerHTML = list.map(({ st, h }) => {
+        const id = String(st.id), open = archOpen.has(id);
+        const stat = (label, val, color) => `<div><div class="opt-mlabel">${label}</div><div class="arch-val" style="${color ? 'color:' + color : ''}">${val}</div></div>`;
+        const roasColor = h.roas === null ? '' : (h.roas >= 3 ? 'var(--success)' : (h.roas < 1 ? 'var(--danger)' : ''));
+        const dates = h.first ? `Ran <b>${archDate(h.first)}</b> to <b>${archDate(h.last)}</b> · ${h.activeDays} day${h.activeDays === 1 ? '' : 's'} with data` : 'No revenue or ad spend recorded';
+        const bests = [h.best ? `Best day <b>${fmtMoney(h.best.rev)}</b> on ${archDate(h.best.date)}` : '', h.bestMonth ? `Best month <b>${fmtMoney(h.bestMonth.rev)}</b> in ${archMonth(h.bestMonth.month)}` : ''].filter(Boolean).join(' · ');
+        let months = '';
+        if (open) {
+          const maxM = Math.max(...h.mKeys.map(m => h.months[m].rev), 1);
+          months = `<div class="arch-months"><div class="arch-m head"><span>Month</span><span>Revenue</span><span>Ad spend</span><span>ROAS</span><span>Left after ads</span><span></span></div>${h.mKeys.slice().reverse().map(m => {
+            const x = h.months[m];
+            return `<div class="arch-m"><span>${archMonth(m)}</span><span>${fmtMoney(x.rev)}</span><span>${fmtMoney(x.spend)}</span><span>${x.spend > 0 ? (x.rev / x.spend).toFixed(2) + 'x' : '—'}</span><span style="color:${x.rev - x.spend < 0 ? 'var(--danger)' : 'var(--success)'}">${fmtMoney(x.rev - x.spend)}</span><span class="arch-mbar"><i style="width:${Math.round(x.rev / maxM * 100)}%"></i></span></div>`;
+          }).join('') || '<div class="tk-empty">No monthly data.</div>'}</div>`;
+        }
+        return `<div class="arch-card">
+          <div class="arch-top">
+            <div class="arch-id">
+              <div class="arch-name">${escapeHtml(st.name)}${archivedGradeBadge(st)}</div>
+              ${st.url ? `<div class="store-url">${escapeHtml(st.url)}</div>` : ''}
+              <div class="arch-dates">${dates}</div>
+              ${bests ? `<div class="arch-dates">${bests}</div>` : ''}
+            </div>
+            <div class="arch-stats">${stat('Revenue', fmtMoney(h.rev))}${stat('Ad spend', fmtMoney(h.spend))}${stat('ROAS', h.roas !== null ? h.roas.toFixed(2) + 'x' : '—', roasColor)}${stat('Left after ads', fmtMoney(h.profit), h.profit < 0 ? 'var(--danger)' : 'var(--success)')}</div>
+            <div class="arch-graph">${h.series.length > 1 ? sparkline(h.series, 'var(--accent)', true) : ''}<div class="opt-mlabel" style="margin-top:0.2rem;">Revenue per day, whole life</div></div>
+          </div>
+          <div class="arch-bottom">
+            <input type="text" class="form-input arch-note" data-id="${id}" value="${escapeHtml((st.assets && st.assets.archiveNote) || '')}" placeholder="Note: why it was archived, what to remember" onchange="saveArchiveNote('${id}', this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+            <button class="btn btn-sm btn-secondary" onclick="toggleArchOpen('${id}')" ${h.mKeys.length ? '' : 'disabled'}>${open ? 'Hide months' : 'Monthly history'}</button>
+            <button class="btn btn-sm btn-secondary" onclick="restoreStore('${id}')">↩ Restore</button>
+          </div>${months}
+        </div>`;
+      }).join('');
+      if (keepNote) { const e = listEl.querySelector(`.arch-note[data-id="${keepNote.id}"]`); if (e) { e.value = keepNote.v; e.focus(); try { e.setSelectionRange(keepNote.a, keepNote.a); } catch (x) {} } }
     }
     // ── Archived stores: which ones were winners (only Ayman sees this) ──
     function isAymanOnly() { return !!authUser && String(authUser.email || '').toLowerCase() === OWNER_EMAIL.toLowerCase(); }
