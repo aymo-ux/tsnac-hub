@@ -1605,6 +1605,11 @@
       #section-storetasks .task-stats, #section-storetasks .header-actions { display: none; }
       .tk-done-row { flex-wrap: wrap; gap: 0.3rem 0.6rem; } .tk-done-title { flex: 1 1 100%; }
     }
+    .arch-grade { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem; vertical-align: middle; }
+    .arch-grade.winner { background: #fdf1c7; color: #8a5a00; border: 1px solid #e9c865; } .arch-grade.winner .ic { color: inherit; }
+    .arch-grade.good { background: var(--success-bg); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); }
+    [data-theme="dark"] .arch-grade.winner { background: #3a2f0d; color: #f2cf66; border-color: #6b5518; }
+    .arch-life { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.3rem; } .arch-life b { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-primary); }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -3715,6 +3720,12 @@ Or just card numbers:
         if (b.isPerformer && !a.isPerformer) return 1;
         return 0;
       });
+      // Ayman: archived winners first, then good ones, then the rest
+      if (showArchived && isAymanOnly()) {
+        const rank = st => !isStoreArchived(st.id) ? 0 : ({ winner: 1, good: 2 }[archivedGrade(st)] || 3);
+        const order = new Map(sortedStores.map((st, i) => [st, i]));
+        sortedStores.sort((a, b) => rank(a) - rank(b) || order.get(a) - order.get(b));
+      }
       sortedStores.forEach(store => {
         const googleAccounts = data.accounts.google.filter(a => a.storeId === store.id);
         const tiktokAccounts = data.accounts.tiktok.filter(a => a.storeId === store.id);
@@ -3728,9 +3739,9 @@ Or just card numbers:
               <div class="store-header">
                 <div>
                   <div class="store-name">${escapeHtml(store.name)}
-                    <span style="background: var(--bg-tertiary); color: var(--text-secondary); border:1px solid var(--border-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem;">ARCHIVED</span>
+                    <span style="background: var(--bg-tertiary); color: var(--text-secondary); border:1px solid var(--border-light); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.5rem;">ARCHIVED</span>${archivedGradeBadge(store)}
                   </div>
-                  <div class="store-url">${escapeHtml(store.url || '')}</div>
+                  <div class="store-url">${escapeHtml(store.url || '')}</div>${archivedLifetimeLine(store)}
                 </div>
                 <div style="display:flex; gap:0.5rem;">
                   <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend">📈</button>
@@ -8811,6 +8822,41 @@ Or just card numbers:
       renderAccounts();
       renderDashboard();
       updateBadges();
+    }
+    // ── Archived stores: which ones were winners (only Ayman sees this) ──
+    function isAymanOnly() { return !!authUser && String(authUser.email || '').toLowerCase() === OWNER_EMAIL.toLowerCase(); }
+    let lifetimeCache = null;
+    function storeLifetimeTotals(storeId) {
+      if (!lifetimeCache) {
+        const rev = {}, spend = {}, accStore = {};
+        ['google', 'tiktok', 'facebook'].forEach(ch => (data.accounts[ch] || []).forEach(a => { accStore[String(a.id)] = String(a.storeId); }));
+        Object.keys(dailyRevenue || {}).forEach(k => { const sid = k.slice(0, -11); rev[sid] = (rev[sid] || 0) + (parseFloat(dailyRevenue[k]) || 0); });
+        Object.keys(dailySpendHistory || {}).forEach(k => { const sid = accStore[k.slice(0, -11)]; if (sid != null) spend[sid] = (spend[sid] || 0) + (parseFloat(dailySpendHistory[k]) || 0); });
+        lifetimeCache = { rev, spend };
+        setTimeout(() => { lifetimeCache = null; }, 0);   // fresh numbers on every render
+      }
+      const r = lifetimeCache.rev[String(storeId)] || 0, sp = lifetimeCache.spend[String(storeId)] || 0;
+      return { rev: r, spend: sp, roas: sp > 0 ? r / sp : null };
+    }
+    // Winner: 3x or better on $1,000+ revenue, or it was a top store. Good: 2x or better on $500+ revenue.
+    function archivedGrade(store) {
+      const t = storeLifetimeTotals(store.id);
+      if ((t.roas !== null && t.roas >= 3 && t.rev >= 1000) || store.isPerformer) return 'winner';
+      if (t.roas !== null && t.roas >= 2 && t.rev >= 500) return 'good';
+      return '';
+    }
+    function archivedGradeBadge(store) {
+      if (!isAymanOnly()) return '';
+      const g = archivedGrade(store);
+      if (g === 'winner') return '<span class="arch-grade winner" title="Lifetime ROAS 3x or better on $1,000+ revenue, or it was a top store">⭐ Winner</span>';
+      if (g === 'good') return '<span class="arch-grade good" title="Lifetime ROAS 2x or better on $500+ revenue">✓ Good</span>';
+      return '';
+    }
+    function archivedLifetimeLine(store) {
+      if (!isAymanOnly()) return '';
+      const t = storeLifetimeTotals(store.id);
+      if (!t.rev && !t.spend) return '<div class="arch-life">No revenue or ad spend recorded</div>';
+      return `<div class="arch-life">Lifetime: <b>${fmtMoney(t.rev)}</b> revenue · <b>${fmtMoney(t.spend)}</b> ads · <b>${t.roas !== null ? t.roas.toFixed(2) + 'x' : 'no ads'}</b></div>`;
     }
     function toggleShowArchived() {
       showArchived = !showArchived;
