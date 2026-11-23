@@ -1497,6 +1497,53 @@
     .tone-chip { display: inline-block; margin-left: 0.45rem; padding: 0.08rem 0.45rem; border-radius: 999px; font-size: 0.66rem; font-weight: 700; vertical-align: 0.08em; }
     .tone-chip.bad { background: var(--danger); color: #fff; } .tone-chip.orange { background: var(--orange); color: #fff; }
     .tone-chip.warn { background: var(--warning); color: #fff; } .tone-chip.info { background: var(--info); color: #fff; }
+
+    /* ── Charts: tooltip + draw-in motion ── */
+    .ch-tip { position: absolute; top: 6px; left: 0; pointer-events: none; opacity: 0; transition: opacity 0.12s ease; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; padding: 0.55rem 0.7rem; box-shadow: 0 8px 24px rgba(15, 17, 26, 0.12); font-size: 0.78rem; min-width: 168px; z-index: 5; white-space: nowrap; }
+    .ch-tip-date { font-weight: 650; margin-bottom: 0.3rem; color: var(--text-primary); }
+    .ch-tip-row { display: flex; align-items: center; gap: 0.45rem; color: var(--text-secondary); padding: 0.1rem 0; }
+    .ch-tip-row i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ch-tip-row b { margin-left: auto; padding-left: 1rem; font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text-primary); }
+    .ch-hd, .ch-cross { transition: opacity 0.1s ease; pointer-events: none; }
+    .kpi-spark, .hero-spark { overflow: hidden; }
+    @keyframes chGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    @keyframes chDraw { from { clip-path: inset(-12px 100% -12px -12px); } to { clip-path: inset(-12px -12px -12px -12px); } }
+    @keyframes chFade { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: no-preference) {
+      body.chart-anim svg[preserveAspectRatio] rect:has(> title) { transform-box: fill-box; transform-origin: 50% 100%; animation: chGrow 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--d, 0ms); }
+      body.chart-anim svg[preserveAspectRatio] rect.ch-down:has(> title) { transform-origin: 50% 0; }
+      body.chart-anim svg[preserveAspectRatio] path { animation: chDraw 0.95s cubic-bezier(0.4, 0, 0.2, 1) both; }
+      body.chart-anim svg[preserveAspectRatio] circle:not(.ch-hd), body.chart-anim svg[preserveAspectRatio] rect:has(> title) + text { animation: chFade 0.35s ease 0.6s both; }
+      body.chart-anim svg[preserveAspectRatio] line[stroke-dasharray]:not(.ch-cross) { animation: chFade 0.4s ease 0.5s both; }
+    }
+
+    /* ── Phone: number cards never squeeze, wide tables keep their first column ── */
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.6rem !important; }
+      .stats-grid .stat-card { padding: 0.85rem 0.9rem !important; min-width: 0; }
+      .stats-grid .stat-value { font-size: 1.3rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .stats-grid .stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .header { flex-wrap: wrap; gap: 0.6rem; }
+      #pnlTable th:first-child, #pnlTable td:first-child, #revenueTableHead th:first-child, #revenueTableBody td:first-child { position: sticky; left: 0; z-index: 2; background: var(--bg-card); box-shadow: 1px 0 0 var(--border); }
+      #pnlTable input { min-width: 78px; }
+      .analyze-top { grid-template-columns: 1fr !important; }
+      .analyze-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .kpi-value { font-size: 1.15rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .hero-value { font-size: 2rem !important; }
+      .ch-tip { min-width: 140px; font-size: 0.72rem; }
+      #pnlMonthLabel { min-width: 0 !important; flex: none; font-size: 0.88rem; white-space: nowrap; }
+      div:has(> #pnlMonthLabel) { flex-wrap: wrap; gap: 0.4rem !important; }
+      .opt-row { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 0.7rem 0.8rem !important; padding: 0.85rem 0.9rem !important; }
+      .opt-row > div:nth-child(2) { grid-column: 1 / 3; grid-row: 1; min-width: 0; }
+      .opt-row > div:nth-child(1) { grid-column: 3; grid-row: 1; justify-self: end; }
+      .opt-row > div:nth-child(3) { display: none; }
+      .opt-row > div:nth-child(7) { grid-column: 1; grid-row: 2; }
+      .opt-row > div:nth-child(4) { grid-column: 2; grid-row: 2; }
+      .opt-row > div:nth-child(5) { grid-column: 3; grid-row: 2; display: block !important; }
+      .opt-row > div:nth-child(6) { grid-column: 1 / 3; grid-row: 3; }
+      .opt-row > div:nth-child(8) { grid-column: 3; grid-row: 3; justify-self: end; }
+    }
+    @media (min-width: 769px) and (max-width: 1100px) { .opt-row > div:nth-child(3) { display: none; } }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -2005,6 +2052,15 @@
         </div>
 
         <div class="card" style="padding: 1.1rem 1.3rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 1rem; flex-wrap: wrap;">
+            <span style="font-weight: 650; font-size: 0.98rem;">Revenue, ad spend and profit by day</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Move over the chart to read a day. Click a metric to show or hide it</span>
+          </div>
+          <div id="analyzeMetricChips" class="metric-chips"></div>
+          <div id="analyzeComboChart"></div>
+        </div>
+
+        <div class="card" style="padding: 1.1rem 1.3rem;">
           <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.9rem; gap: 1rem; flex-wrap: wrap;">
             <span style="font-weight: 650; font-size: 0.98rem;">Where the money goes</span>
             <span style="font-size: 0.8rem; color: var(--text-muted);">Revenue → costs → net profit</span>
@@ -2012,14 +2068,6 @@
           <div id="analyzeWaterfall"></div>
         </div>
 
-        <div class="card" style="padding: 1.1rem 1.3rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 1rem; flex-wrap: wrap;">
-            <span style="font-weight: 650; font-size: 0.98rem;">Performance over time</span>
-            <span style="font-size: 0.78rem; color: var(--text-muted);">Click a metric to show or hide it</span>
-          </div>
-          <div id="analyzeMetricChips" class="metric-chips"></div>
-          <div id="analyzeComboChart"></div>
-        </div>
 
 
         <div class="card">
@@ -3369,7 +3417,7 @@ Or just card numbers:
       });
       // ROAS line + dots on the right axis
       const pts = roas.map((v, i) => [xAt(i), yRoas(v)]);
-      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      const line = smoothPath(pts);
       let dots = '';
       pts.forEach((p, i) => { dots += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--pink)"><title>ROAS ${roas[i].toFixed(2)}x</title></circle>`; });
       // breakeven ROAS = 1x reference
@@ -4507,14 +4555,17 @@ Or just card numbers:
       const vals = keys.map(k => parseFloat(dailyRevenue[`${storeId}_${k}`]) || 0);
       const max = Math.max(...vals, 1);
       const n = vals.length;
-      const w = 130, gap = n > 20 ? 1 : 3;
-      const bw = Math.max(2, Math.floor((w - gap * (n - 1)) / n));
-      const h = 36;
-      const bars = vals.map((v, i) => {
-        const bh = Math.max(2, Math.round(v / max * (h - 4)));
-        return `<rect x="${i * (bw + gap)}" y="${h - bh}" width="${bw}" height="${bh}" rx="1" fill="${i >= split ? 'var(--accent)' : 'var(--border)'}"><title>${optShortDate(keys[i])}: $${v}</title></rect>`;
-      }).join('');
-      return `<svg class="opt-spark" width="${n * (bw + gap) - gap}" height="${h}" viewBox="0 0 ${n * (bw + gap) - gap} ${h}" aria-hidden="true">${bars}</svg>`;
+      const w = 130, h = 36;
+      const pts = vals.map((v, i) => [n === 1 ? w / 2 : (i / (n - 1)) * w, h - 3 - (v / max) * (h - 7)]);
+      const curPts = pts.slice(Math.max(0, split - 1));
+      const g = fadeDef('var(--accent)', 0.28);
+      const prevLine = split > 1 ? `<path d="${smoothPath(pts.slice(0, split))}" fill="none" stroke="var(--border-hover)" stroke-width="1.6" stroke-linecap="round"/>` : '';
+      const curLine = smoothPath(curPts);
+      const last = pts[n - 1], first = curPts[0];
+      return `<svg class="opt-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="overflow:visible" aria-hidden="true"><defs>${g.def}</defs>${prevLine}
+        <path d="${curLine} L${last[0].toFixed(1)},${h} L${first[0].toFixed(1)},${h} Z" fill="url(#${g.id})"/>
+        <path d="${curLine}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.4" fill="var(--accent)"/></svg>`;
     }
     const OPT_VSTYLE = {
       cut:    { bg: 'var(--danger-bg, rgba(239,68,68,0.12))',  fg: 'var(--danger)' },
@@ -6064,6 +6115,33 @@ Or just card numbers:
       if (prev === 0 || prev == null) return null;
       return ((cur - prev) / Math.abs(prev)) * 100;
     }
+    // Smooth curve through points that never overshoots the data (monotone cubic)
+    function smoothPath(pts) {
+      const n = pts.length;
+      if (!n) return '';
+      const f = v => v.toFixed(1);
+      if (n < 3) return pts.map((q, i) => `${i ? 'L' : 'M'}${f(q[0])},${f(q[1])}`).join(' ');
+      const dx = [], m = [];
+      for (let i = 0; i < n - 1; i++) { dx[i] = (pts[i + 1][0] - pts[i][0]) || 1; m[i] = (pts[i + 1][1] - pts[i][1]) / dx[i]; }
+      const t = [m[0]];
+      for (let i = 1; i < n - 1; i++) {
+        if (m[i - 1] * m[i] <= 0) t[i] = 0;
+        else t[i] = 3 * (dx[i - 1] + dx[i]) / ((2 * dx[i] + dx[i - 1]) / m[i - 1] + (dx[i] + 2 * dx[i - 1]) / m[i]);
+      }
+      t[n - 1] = m[n - 2];
+      let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+      for (let i = 0; i < n - 1; i++) {
+        const h = dx[i] / 3;
+        d += ` C${f(pts[i][0] + h)},${f(pts[i][1] + t[i] * h)} ${f(pts[i + 1][0] - h)},${f(pts[i + 1][1] - t[i + 1] * h)} ${f(pts[i + 1][0])},${f(pts[i + 1][1])}`;
+      }
+      return d;
+    }
+    let chGid = 0;
+    // soft colour fade under a line
+    function fadeDef(color, top) {
+      const id = 'chg' + (++chGid);
+      return { id, def: `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${color};stop-opacity:${top}"/><stop offset="1" style="stop-color:${color};stop-opacity:0"/></linearGradient>` };
+    }
     // Tiny sparkline — shows the SHAPE of a metric, not just its number
     function sparkline(vals, color, filled) {
       if (!vals || !vals.length) return '';
@@ -6071,15 +6149,14 @@ Or just card numbers:
       const span = (max - min) || 1;
       const pts = vals.map((v, i) => {
         const x = (i / Math.max(1, vals.length - 1)) * W;
-        const y = H - ((v - min) / span) * (H - 3) - 1.5;
+        const y = H - ((v - min) / span) * (H - 4) - 2;
         return [x, y];
       });
-      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-      const area = filled ? `<path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.1"/>` : '';
-      const last = pts[pts.length - 1];
+      const line = smoothPath(pts);
+      const g = fadeDef(color, filled ? 0.3 : 0.18);
       return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block; overflow:visible;">
-        ${area}<path d="${line}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
-        <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.4" fill="${color}"/></svg>`;
+        <defs>${g.def}</defs><path d="${line} L${W},${H} L0,${H} Z" fill="url(#${g.id})"/>
+        <path d="${line}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
     }
     function dailySeries(keys, kind) {
       const rate = (pnlFeeRate || 0) / 100;
@@ -6181,7 +6258,7 @@ Or just card numbers:
           fill = 'var(--danger)';
           running = end;
         }
-        bars += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${height.toFixed(1)}" rx="4" fill="${fill}" opacity="${st.type === 'cost' ? 0.72 : 0.95}"><title>${st.label}: ${fmtMoney(st.value)}</title></rect>`;
+        bars += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${height.toFixed(1)}" rx="6" class="${st.type === 'cost' ? 'ch-down' : ''}" fill="${fill}" opacity="${st.type === 'cost' ? 0.72 : 0.95}"><title>${st.label}: ${fmtMoney(st.value)}</title></rect>`;
         bars += `<text x="${(x + bw / 2).toFixed(1)}" y="${(top - 7).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace" fill="var(--text-primary)">${st.type === 'cost' ? '−' : ''}${fmtMoney(Math.abs(st.value))}</text>`;
         labels += `<text x="${(x + bw / 2).toFixed(1)}" y="${(H - 22).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--text-secondary)" font-weight="600">${st.label}</text>`;
         if (i < steps.length - 1) {
@@ -6281,7 +6358,7 @@ Or just card numbers:
       const allRatio = ratioKeys.flatMap(k => series[k]);
       const mMax = Math.max(...allMoney, 0), mMin = Math.min(...allMoney, 0);
       const rMax = Math.max(...allRatio, 0), rMin = Math.min(...allRatio, 0);
-      const W = 900, H = 300, padL = 62, padR = ratioKeys.length ? 54 : 14, padT = 16, padB = 34;
+      const W = 900, H = 320, padL = 62, padR = ratioKeys.length ? 54 : 14, padT = 16, padB = 34;
       const innerW = W - padL - padR, innerH = H - padT - padB;
       const spanM = (mMax - mMin) || 1, spanR = (rMax - rMin) || 1;
       const n = keys.length;
@@ -6295,7 +6372,7 @@ Or just card numbers:
         grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1" opacity="0.7"/>`;
         if (moneyKeys.length) {
           const v = mMax - (spanM / 4) * g;
-          axis += `<text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono',monospace">${fmtMoney(v)}</text>`;
+          axis += `<text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono',monospace">${(v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US')}</text>`;
         }
         if (ratioKeys.length) {
           const v = rMax - (spanR / 4) * g;
@@ -6310,32 +6387,30 @@ Or just card numbers:
         zero = `<line x1="${padL}" y1="${zy.toFixed(1)}" x2="${W - padR}" y2="${zy.toFixed(1)}" stroke="var(--border-hover)" stroke-width="1" stroke-dasharray="3 3"/>`;
       }
       // lines
-      let lines = '', dots = '';
+      let lines = '', dots = '', defs = '', hdots = '';
       sel.forEach(k => {
         const meta = ANALYZE_METRICS[k], vals = series[k];
         const yf = meta.kind === 'money' ? yMoney : yRatio;
         const pts = vals.map((v, i) => [xAt(i), yf(v)]);
-        const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-        if (k === 'revenue' && moneyKeys.length) {
-          lines += `<path d="${d} L${xAt(n - 1).toFixed(1)},${(padT + innerH).toFixed(1)} L${xAt(0).toFixed(1)},${(padT + innerH).toFixed(1)} Z" fill="${meta.color}" opacity="0.07"/>`;
+        const d = smoothPath(pts);
+        if (meta.kind === 'money' && n > 1) {
+          const g = fadeDef(meta.color, k === 'revenue' ? 0.2 : 0.12);
+          defs += g.def;
+          const floor = mMin < 0 ? yMoney(0) : padT + innerH;
+          lines += `<path d="${d} L${xAt(n - 1).toFixed(1)},${floor.toFixed(1)} L${xAt(0).toFixed(1)},${floor.toFixed(1)} Z" fill="url(#${g.id})"/>`;
         }
-        lines += `<path d="${d}" fill="none" stroke="${meta.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+        lines += `<path d="${d}" fill="none" stroke="${meta.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+        hdots += `<circle class="ch-hd" data-k="${k}" r="4.2" fill="${meta.color}" stroke="var(--bg-card)" stroke-width="2" style="opacity:0"/>`;
         const last = pts[pts.length - 1];
         dots += `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3.2" fill="${meta.color}"/>`;
       });
-      // hover columns with a tooltip listing every selected metric for that day
+      // hover columns: one per day
       let hovers = '';
+      const colW = innerW / Math.max(1, n - 1 || 1);
       keys.forEach((k, i) => {
-        const d = new Date(k + 'T12:00:00');
-        const title = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '\n' +
-          sel.map(mk => {
-            const v = series[mk][i], meta = ANALYZE_METRICS[mk];
-            const txt = meta.kind === 'money' ? fmtMoney(v) : (mk === 'margin' ? v.toFixed(1) + '%' : v.toFixed(2) + 'x');
-            return meta.label + ': ' + txt;
-          }).join('\n');
-        const w = innerW / Math.max(1, n);
-        hovers += `<rect x="${(xAt(i) - w / 2).toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${innerH}" fill="transparent"><title>${title}</title></rect>`;
+        hovers += `<rect data-i="${i}" x="${(xAt(i) - colW / 2).toFixed(1)}" y="${padT}" width="${colW.toFixed(1)}" height="${innerH}" fill="transparent"/>`;
       });
+      const cross = `<line class="ch-cross" x1="0" x2="0" y1="${padT}" y2="${padT + innerH}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3 3" style="opacity:0"/>`;
       // x labels
       let xl = '';
       const every = Math.ceil(n / 12);
@@ -6344,7 +6419,35 @@ Or just card numbers:
         const d = new Date(k + 'T12:00:00');
         xl += `<text x="${xAt(i).toFixed(1)}" y="${(H - 12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${d.getDate()}/${d.getMonth() + 1}</text>`;
       });
-      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;">${grid}${zero}${axis}${lines}${dots}${hovers}${xl}</svg>`;
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible;"><defs>${defs}</defs>${grid}${zero}${axis}${lines}${dots}${cross}${hdots}${xl}${hovers}</svg><div class="ch-tip"></div>`;
+      // move the mouse (or a finger) over the chart to read any day
+      el.style.position = 'relative';
+      const svg = el.querySelector('svg'), tip = el.querySelector('.ch-tip'), crossEl = svg.querySelector('.ch-cross');
+      const hide = () => { tip.style.opacity = 0; crossEl.style.opacity = 0; svg.querySelectorAll('.ch-hd').forEach(c => c.style.opacity = 0); };
+      const show = e => {
+        const r = e.target.closest ? e.target.closest('[data-i]') : null;
+        if (!r) { hide(); return; }
+        const i = +r.dataset.i, x = xAt(i);
+        crossEl.setAttribute('x1', x); crossEl.setAttribute('x2', x); crossEl.style.opacity = 1;
+        svg.querySelectorAll('.ch-hd').forEach(c => {
+          const mk = c.dataset.k, yf = ANALYZE_METRICS[mk].kind === 'money' ? yMoney : yRatio;
+          c.setAttribute('cx', x); c.setAttribute('cy', yf(series[mk][i])); c.style.opacity = 1;
+        });
+        const d = new Date(keys[i] + 'T12:00:00');
+        tip.innerHTML = `<div class="ch-tip-date">${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>` + sel.map(mk => {
+          const v = series[mk][i], meta = ANALYZE_METRICS[mk];
+          const txt = meta.kind === 'money' ? fmtMoney(v) : (mk === 'margin' ? v.toFixed(1) + '%' : v.toFixed(2) + 'x');
+          return `<div class="ch-tip-row"><i style="background:${meta.color}"></i><span>${meta.label}</span><b>${txt}</b></div>`;
+        }).join('');
+        const bw = el.getBoundingClientRect().width, px = (x / W) * bw, right = px < bw / 2;
+        tip.style.left = px + 'px';
+        tip.style.transform = right ? 'translateX(14px)' : 'translateX(calc(-100% - 14px))';
+        tip.style.opacity = 1;
+      };
+      svg.addEventListener('mousemove', show);
+      svg.addEventListener('touchstart', e => { const t = e.touches[0]; const tg = document.elementFromPoint(t.clientX, t.clientY); if (tg) show({ target: tg }); }, { passive: true });
+      svg.addEventListener('touchmove', e => { const t = e.touches[0]; const tg = document.elementFromPoint(t.clientX, t.clientY); if (tg) show({ target: tg }); }, { passive: true });
+      svg.addEventListener('mouseleave', hide);
     }
     function renderMetricChips(el, keys) {
       if (!el) return;
@@ -9664,6 +9767,28 @@ Or just card numbers:
     document.addEventListener('change', e => { if (e.target && e.target.nodeName === 'SELECT') tintSelect(e.target); }, true);
     tintSelectsIn(document.body);
     new MutationObserver(muts => { for (const mu of muts) mu.addedNodes.forEach(tintSelectsIn); }).observe(document.body, { childList: true, subtree: true });
+
+    // ── Chart motion: graphs draw themselves in when a page opens or the dates change ──
+    let chartMotionTimer = null;
+    function chartMotion(ms) {
+      document.body.classList.add('chart-anim');
+      clearTimeout(chartMotionTimer);
+      chartMotionTimer = setTimeout(() => document.body.classList.remove('chart-anim'), ms || 1700);
+    }
+    function staggerBars(root) {
+      if (root.nodeType !== 1 || !document.body.classList.contains('chart-anim')) return;
+      const svgs = root.nodeName === 'svg' ? [root] : root.querySelectorAll('svg[preserveAspectRatio]');
+      svgs.forEach(svg => {
+        const vb = svg.viewBox && svg.viewBox.baseVal, W = (vb && vb.width) || 1;
+        svg.querySelectorAll('rect').forEach(r => { if (r.firstElementChild && r.firstElementChild.nodeName === 'title') r.style.setProperty('--d', Math.round((parseFloat(r.getAttribute('x')) || 0) / W * 420) + 'ms'); });
+      });
+    }
+    new MutationObserver(muts => { for (const mu of muts) mu.addedNodes.forEach(staggerBars); }).observe(document.body, { childList: true, subtree: true });
+    (function () {
+      const wrap = name => { const base = window[name]; if (typeof base !== 'function') return; window[name] = function () { chartMotion(); return base.apply(this, arguments); }; };
+      ['showSection', 'setAnalyzePeriod', 'setAnalyzeQuick', 'applyAnalyzeCustom', 'toggleAnalyzeMetric', 'setOptRange', 'setOptCustom'].forEach(wrap);
+      chartMotion(3500);
+    })();
     syncThemeToggle();
     init();
   </script>
