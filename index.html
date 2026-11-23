@@ -3881,6 +3881,7 @@ Or just card numbers:
         trackingEntries.sort((A, B) =>
           B[1].reduce((s, a) => s + daySpendOf(a), 0) - A[1].reduce((s, a) => s + daySpendOf(a), 0));
       }
+      issuesFirst(trackingEntries, e => e[1]);
       trackingEntries.forEach(([groupKey, storeAccounts], gi) => {
         const isShared = groupKey.startsWith('grp::');
         const groupName = isShared ? groupKey.slice(5) : null;
@@ -7070,6 +7071,7 @@ Or just card numbers:
         quickEntries.sort((A, B) =>
           B[1].reduce((s, a) => s + qDaySpend(a), 0) - A[1].reduce((s, a) => s + qDaySpend(a), 0));
       }
+      issuesFirst(quickEntries, e => e[1]);
       quickEntries.forEach(([storeId, accs]) => {
         const store = getStore(storeId);
         html += `<div class="quick-store-block" style="margin-bottom: 0.5rem;">
@@ -7398,6 +7400,7 @@ Or just card numbers:
       const groupMonth = g => days.reduce((sum, d) => sum + groupDay(g, d.date), 0);
       if (calendarSortDay) groups.sort((a, b) => groupDay(b, calendarSortDay) - groupDay(a, calendarSortDay));
       else groups.sort((a, b) => groupMonth(b) - groupMonth(a));
+      issuesFirst(groups, g => g.accs);
       // ---- rows ----
       const OFF_PILL = ` <span style="font-size:0.6rem; font-weight:700; color:var(--danger); border:1px solid var(--danger); border-radius:4px; padding:0.02rem 0.28rem; opacity:0.75;">OFF</span>`;
       let bodyHtml = '';
@@ -10310,6 +10313,16 @@ Or just card numbers:
       if (a.adsStatus === 'under_review') return { tone: 'info', label: 'In review' };
       if (a.adsStatus === 'paused') return { tone: 'info', label: 'Paused' };
       return { tone: '', label: '' };
+    }
+    // Stores with a problem always come first: red, then payment, then verify, then waiting.
+    // Inside each level the existing order (by spend, by day, by type) is kept.
+    const TONE_RANK = { bad: 0, orange: 1, warn: 2, info: 3 };
+    function groupIssueRank(accs) { return Math.min(4, ...(accs || []).map(a => TONE_RANK[accTone(a).tone] ?? 4)); }
+    function issuesFirst(list, accsOf) {
+      const pos = new Map(list.map((x, i) => [x, i]));
+      list.sort((a, b) => groupIssueRank(accsOf(a)) - groupIssueRank(accsOf(b)) || pos.get(a) - pos.get(b));
+      (accsOf ? list : []).forEach(x => { const accs = accsOf(x); const p2 = new Map(accs.map((a, i) => [a, i])); accs.sort((a, b) => (TONE_RANK[accTone(a).tone] ?? 4) - (TONE_RANK[accTone(b).tone] ?? 4) || p2.get(a) - p2.get(b)); });
+      return list;
     }
     function accToneChip(a) { const t = accTone(a); return t.tone ? `<span class="tone-chip ${t.tone}">${t.label}</span>` : ''; }
     const SELECT_TONE = { active: 'ok', ready: 'ok', inactive: 'bad', suspended: 'bad', off: 'bad', payment_issue: 'orange', needs_verif: 'warn', warming: 'warn', under_review: 'info', paused: 'info', available: 'info' };
