@@ -1583,6 +1583,8 @@
     .tk-c.me { align-self: flex-end; background: var(--accent-soft); }
     .tk-c-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.72rem; color: var(--text-muted); } .tk-c-head b { color: var(--text-primary); font-size: 0.76rem; }
     .tk-c-body { font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .tk-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0.6rem; margin-bottom: 0.8rem; } .tk-edit label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.74rem; color: var(--text-muted); }
+    .tk-new #newTaskNote { flex: 1.4; min-width: 0; }
     .tk-compose { display: flex; gap: 0.5rem; } .tk-compose input { flex: 1; min-width: 0; }
     .tk-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.7rem; font-size: 0.8rem; color: var(--text-secondary); }
     .tk-tools label { display: flex; align-items: center; gap: 0.4rem; } .tk-tools select { width: 150px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -1599,6 +1601,7 @@
       .tk-main { flex-wrap: wrap; gap: 0.3rem 0.6rem; } .tk-type { width: auto; order: 1; } .tk-text { flex: 1 1 100%; order: 0; } .tk-meta { order: 2; margin-left: auto; }
       .tk-actions .tk-btn { flex: 1; justify-content: center; height: 38px; } .tk-actions .tk-btn.done { flex: 2; }
       .tk-c { max-width: 90%; }
+      .tk-edit { grid-template-columns: 1fr; } .tk-new #newTaskNote { flex: 1 1 100%; order: -1; } .tk-new #newTaskTitle { order: -2 !important; }
       #section-storetasks .task-stats, #section-storetasks .header-actions { display: none; }
       .tk-done-row { flex-wrap: wrap; gap: 0.3rem 0.6rem; } .tk-done-title { flex: 1 1 100%; }
     }
@@ -2218,11 +2221,12 @@
         </div>
         <div id="taskStats" class="task-stats"></div>
         <div class="tk-new">
-          <select id="newTaskType" class="form-input" aria-label="Task type">
+          <select id="newTaskType" class="form-input" aria-label="Task type" onchange="syncNewTaskForm()">
             <option value="fulfill">To fulfill</option><option value="recreate">Recreate</option><option value="hold">Payment hold</option>
-            <option value="bills">Bills due</option><option value="recycle">Recycle</option><option value="optimize">Optimize ads</option>
+            <option value="bills">Bills due</option><option value="recycle">Recycle</option><option value="optimize">Optimize ads</option><option value="other">Others</option>
           </select>
           <input type="text" id="newTaskTitle" class="form-input" placeholder="New task, e.g. Recreate Zafira" onkeydown="if(event.key==='Enter')addStoreTask()">
+          <input type="text" id="newTaskNote" class="form-input" placeholder="What needs to be done?" style="display:none;" onkeydown="if(event.key==='Enter')addStoreTask()">
           <label class="tk-urgent-check"><input type="checkbox" id="newTaskUrgent"> Urgent</label>
           <button class="btn btn-primary" onclick="addStoreTask()">Add task</button>
         </div>
@@ -5099,7 +5103,8 @@ Or just card numbers:
       { id: 'hold',     label: 'Payment hold', icon: '⚠️', color: 'var(--danger)' },
       { id: 'bills',    label: 'Bills due',    icon: '💵', color: 'var(--success)' },
       { id: 'recycle',  label: 'Recycle',      icon: '🔁', color: 'var(--purple)' },
-      { id: 'optimize', label: 'Optimize ads', icon: '🎯', color: 'var(--orange)' }
+      { id: 'optimize', label: 'Optimize ads', icon: '🎯', color: 'var(--orange)' },
+      { id: 'other',    label: 'Others',       icon: '📋', color: '#6b7280' }
     ];
     let storeTasks = [];   // { id, title, note, col, by, at }
     let storeTasksLoaded = false;
@@ -5332,15 +5337,38 @@ Or just card numbers:
     }
     function addStoreTask(col) {
       const inp = document.getElementById('newTaskTitle'), typeSel = document.getElementById('newTaskType'), urg = document.getElementById('newTaskUrgent');
-      if (col && typeSel) typeSel.value = col;
+      const noteInp = document.getElementById('newTaskNote');
+      if (col && typeSel) { typeSel.value = col; syncNewTaskForm(); }
       const title = ((inp && inp.value) || '').trim();
       if (!title) { if (inp) inp.focus(); return; }
-      const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note: '', col: (typeSel && typeSel.value) || 'fulfill', by: whoAmI(), at: new Date().toISOString(), urgent: !!(urg && urg.checked), comments: [], pc: '' };
+      const isOther = typeSel && typeSel.value === 'other';
+      const note = isOther && noteInp ? noteInp.value.trim() : '';
+      if (isOther && !note && document.activeElement === inp) { noteInp.focus(); return; }   // Enter on the name jumps to "what"
+      if (noteInp) noteInp.value = '';
+      const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: (typeSel && typeSel.value) || 'fulfill', by: whoAmI(), at: new Date().toISOString(), urgent: !!(urg && urg.checked), comments: [], pc: '' };
       storeTasks.push(t);
       pushTask(t);
       inp.value = ''; if (urg) urg.checked = false;
       renderStoreTasks();
       inp.focus();
+    }
+    // "Others" tasks get a second box to say what needs doing
+    function syncNewTaskForm() {
+      const sel = document.getElementById('newTaskType'), note = document.getElementById('newTaskNote'), title = document.getElementById('newTaskTitle');
+      if (!sel || !note) return;
+      const other = sel.value === 'other';
+      note.style.display = other ? '' : 'none';
+      if (title) title.placeholder = other ? 'Store or name' : 'New task, e.g. Recreate Zafira';
+    }
+    // name and details are edited right inside the task
+    function saveTaskText(id) {
+      const t = storeTasks.find(x => x.id === id); if (!t) return;
+      const ti = document.getElementById('taskEditTitle'), ni = document.getElementById('taskEditNote');
+      const title = ti ? ti.value.trim() : t.title, note = ni ? ni.value.trim() : t.note;
+      if ((!title || title === t.title) && note === (t.note || '')) return;
+      if (title) t.title = title;
+      t.note = note;
+      pushTask(t);
     }
     function editStoreTask(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
@@ -5379,7 +5407,7 @@ Or just card numbers:
     }
     function setTaskFilter(f) {
       taskFilter = f;
-      const sel = document.getElementById('newTaskType'); if (sel && f !== 'all') sel.value = f;
+      const sel = document.getElementById('newTaskType'); if (sel && f !== 'all') { sel.value = f; syncNewTaskForm(); }
       renderStoreTasks();
     }
     async function addTaskComment(id) {
@@ -5556,6 +5584,7 @@ Or just card numbers:
       // keep a half-typed comment across refreshes
       const oldInp = document.getElementById('taskCommentInput');
       const draft = oldInp ? oldInp.value : '', hadFocus = oldInp && document.activeElement === oldInp;
+      const keep = {}; ['taskEditTitle', 'taskEditNote'].forEach(k => { const e = document.getElementById(k); if (e && document.activeElement === e) keep[k] = { v: e.value, a: e.selectionStart }; });
       const bb = document.getElementById('bulkBar');
       if (bb) bb.innerHTML = bulkMode
         ? `<div class="tk-digest" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;"><span><strong>${selectedTasks.size}</strong> selected. Tap tasks to select them</span><span style="margin-left:auto; display:flex; gap:0.5rem;"><button class="btn btn-sm btn-primary" onclick="bulkClearTasks()">Mark selected done</button><button class="btn btn-sm btn-secondary" onclick="toggleBulkMode()">Cancel</button></span></div>`
@@ -5593,11 +5622,12 @@ Or just card numbers:
           const thread = nC
             ? t.comments.map(c => `<div class="tk-c${c.b === me ? ' me' : ''}"><div class="tk-c-head"><b>${escapeHtml(c.b)}</b><span>${taskTimeAgo(c.t)}</span></div><div class="tk-c-body">${escapeHtml(c.m)}</div></div>`).join('')
             : '<div class="tk-empty">No comments yet. Ask your question or write the update here, so it stays with the task.</div>';
-          panel = `<div class="tk-panel">
+          const edit = auto ? '' : `<div class="tk-edit"><label>Name<input type="text" id="taskEditTitle" class="form-input" value="${escapeHtml(t.title)}" onchange="saveTaskText('${t.id}')" onkeydown="if(event.key==='Enter')this.blur()"></label><label>What needs to be done<input type="text" id="taskEditNote" class="form-input" value="${escapeHtml(t.note || '')}" placeholder="Add details" onchange="saveTaskText('${t.id}')" onkeydown="if(event.key==='Enter')this.blur()"></label></div>`;
+          panel = `<div class="tk-panel">${edit}
             <div class="tk-thread">${thread}</div>
             <div class="tk-compose"><input type="text" id="taskCommentInput" class="form-input" placeholder="Write a comment" onkeydown="if(event.key==='Enter')addTaskComment('${t.id}')"><button class="btn btn-primary btn-sm" onclick="addTaskComment('${t.id}')">Send</button></div>
             <div class="tk-tools"><label>Type <select class="form-input" onchange="setTaskType('${t.id}', this.value)">${TASK_COLS.map(c => `<option value="${c.id}"${c.id === t.col ? ' selected' : ''}>${c.label}</option>`).join('')}</select></label>
-              ${auto ? '' : `<button class="btn btn-sm btn-secondary" onclick="editStoreTask('${t.id}')">✎ Edit text</button><button class="btn btn-sm btn-secondary" style="color:var(--danger);" onclick="removeStoreTask('${t.id}')">🗑 Delete</button>`}</div>
+              ${auto ? '' : `<button class="btn btn-sm btn-secondary" style="color:var(--danger);" onclick="removeStoreTask('${t.id}')">🗑 Delete</button>`}</div>
           </div>`;
         }
         return `<div class="tk-row${t.urgent ? ' urgent' : ''}${isOpen ? ' open' : ''}${sel ? ' sel' : ''}" style="--c:${col.color};">
@@ -5620,6 +5650,7 @@ Or just card numbers:
       const inp = document.getElementById('taskCommentInput');
       if (inp && draft) inp.value = draft;
       if (inp && hadFocus) inp.focus();
+      Object.keys(keep).forEach(k => { const e = document.getElementById(k); if (e) { e.value = keep[k].v; e.focus(); try { e.setSelectionRange(keep[k].a, keep[k].a); } catch (x) {} } });
       const th = board.querySelector('.tk-thread'); if (th) th.scrollTop = th.scrollHeight;
       // done feed: who finished what
       const dEl = document.getElementById('taskDoneFeed');
