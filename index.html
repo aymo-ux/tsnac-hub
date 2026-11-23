@@ -3687,9 +3687,6 @@ Or just card numbers:
               </div>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 ${isNew ? `<button class="btn btn-sm btn-primary" onclick="showSection('accounts'); openModal('addAccount');">Launch</button>` : ''}
-                <button class="btn btn-sm ${store.hasTracking ? 'btn-success' : 'btn-secondary'}" onclick="toggleTracking('${store.id}')" title="${store.hasTracking ? 'Remove Tracking' : 'Add Tracking'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">${store.hasTracking ? 'Tracking on' : 'Tracking'}</button>
-                ${perms.canSetPerformer ? `<button class="btn btn-sm ${store.isPerformer ? 'btn-warning' : 'btn-secondary'}" onclick="togglePerformer('${store.id}')" title="${store.isPerformer ? 'Remove Top Performer' : 'Set as Top Performer'}" style="padding: 0.45rem 0.6rem; min-width: 38px;">${store.isPerformer ? 'Top store' : 'Mark top'}</button>` : ''}
-                <button class="btn btn-sm btn-secondary" onclick="openStoreTrend('${store.id}')" title="Last 14 days spend" style="padding: 0.45rem 0.6rem; min-width: 38px;">Trend</button>
                 <button class="btn btn-sm btn-secondary" onclick="viewAssets('${store.id}')" title="View assets" style="padding: 0.45rem 0.6rem; min-width: 38px;">Assets</button>
                 ${perms.canDeleteStore ? `<button class="btn btn-sm btn-secondary" style="color: var(--danger); padding: 0.45rem 0.6rem; min-width: 38px;" onclick="deleteStore('${store.id}')" title="Archive this store. Its numbers stay counted">Archive</button>` : ''}
               </div>
