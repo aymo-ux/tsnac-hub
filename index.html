@@ -2539,7 +2539,10 @@ Or just card numbers:
           <input type="date" id="revQuickDateEnd" class="form-input" style="width: auto;" onchange="renderRevenueQuick()">
         </div>
         <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">Type a number, press <strong>Enter</strong> for the next store. <span id="revQuickRangeNote"></span></div>
-        <input type="text" id="revQuickFilter" class="form-input" placeholder="Filter stores" oninput="filterRevQuick(this.value)" style="margin-bottom: 0.6rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem;">
+          <input type="text" id="revQuickFilter" class="form-input" placeholder="Filter stores" oninput="filterRevQuick(this.value)" style="flex: 1; min-width: 0;">
+          <button class="chip-toggle" id="revQuickMissingBtn" onclick="toggleRevQuickMissing()" aria-pressed="false" style="white-space: nowrap;">Missing only</button>
+        </div>
         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
           <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 999px; overflow: hidden;"><div id="revQuickBar" style="height: 100%; width: 0; background: var(--success); transition: width 0.2s;"></div></div>
           <span id="revQuickProgress" style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">0 / 0</span>
@@ -3950,7 +3953,7 @@ Or just card numbers:
                   </div>
                   <div style="text-align: right;">
                     <div style="font-size: 0.75rem; color: var(--text-secondary);">${isToday ? "Today" : "Spend"}</div>
-                    <input type="number" style="width: 80px; padding: 0.4rem; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);" value="${daySpend}" onchange="autoSaveTrackingForDate('${account.id}', this.value, '${dateKey}'); updateDayTotal();">
+                    <input type="number" style="width: 80px; padding: 0.4rem; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary);" value="${dailySpendHistory[account.id + '_' + dateKey] !== undefined ? daySpend : ''}" placeholder="—" onchange="autoSaveTrackingForDate('${account.id}', this.value, '${dateKey}'); updateDayTotal();">
                   </div>
                 </div>
               </div>`;
@@ -4105,9 +4108,24 @@ Or just card numbers:
       });
       document.getElementById('todayTotalSpend').textContent = '$' + dayTotal.toFixed(0);
     }
+    // Empty box = not entered: the day is removed, here and in the cloud. A typed 0 is kept as 0.
+    async function clearSpendForDate(accountId, dateKey) {
+      delete dailySpendHistory[`${accountId}_${dateKey}`];
+      try { localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory)); } catch (e) {}
+      try { await supabaseClient.from('daily_spend').delete().eq('account_id', String(accountId)).eq('date', dateKey); } catch (e) {}
+      let account = null;
+      ['google', 'tiktok', 'facebook'].forEach(ch => { const hit = (data.accounts[ch] || []).find(a => a.id == accountId); if (hit) account = hit; });
+      if (account) {
+        account.lifetimeSpend = calculateLifetimeSpend(accountId);
+        if (dateKey === getThailandDate()) account.spend = 0;
+        try { await updateAdAccountInSupabase(accountId, dateKey === getThailandDate() ? { spend: 0, lifetime_spend: account.lifetimeSpend } : { lifetime_spend: account.lifetimeSpend }); } catch (e) {}
+      }
+      showAutoSaveIndicator('✓ Saved');
+    }
     async function autoSaveTrackingForDate(accountId, value, dateKey) {
       const account = data.accounts[currentChannel].find(a => a.id == accountId);
       if (!account) return;
+      if (String(value == null ? '' : value).trim() === '') { await clearSpendForDate(accountId, dateKey); return; }
       const spendValue = parseFloat(value) || 0;
       dailySpendHistory[`${accountId}_${dateKey}`] = spendValue;
       try { localStorage.setItem('dailySpendHistory', JSON.stringify(dailySpendHistory)); } catch (e) {}
@@ -4237,7 +4255,32 @@ Or just card numbers:
         console.warn('revenue sync incomplete:', firstErr);
       }
     }
+    // Empty box = not entered (the cloud row is removed). A typed 0 is a real entry and stays 0.
+    async function deleteRevenueDays(storeId, keys) {
+      for (const k of keys) {
+        let ok = false;
+        try { const { error } = await supabaseClient.from('daily_revenue').delete().eq('store_id', String(storeId)).eq('date', k); ok = !error; } catch (e) {}
+        if (!ok) { try { await supabaseClient.from('daily_revenue').upsert({ store_id: String(storeId), date: k, amount: 0 }, { onConflict: 'store_id,date' }); } catch (e) {} }
+      }
+      showAutoSaveIndicator('✓ Saved');
+    }
     async function saveRevenue(storeId, dateKey, value) {
+      const raw = String(value == null ? '' : value).trim();
+      if (storeId !== MANUAL_REV_STORE) {
+        if (raw === '') {
+          delete dailyRevenue[`${storeId}_${dateKey}`];
+          saveRevenueLocal(); renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
+          deleteRevenueDays(storeId, [dateKey]);
+          return;
+        }
+        dailyRevenue[`${storeId}_${dateKey}`] = parseFloat(raw) || 0;
+        saveRevenueLocal(); renderRevenue(); if (typeof renderPnl === 'function') renderPnl();
+        try {
+          const { error } = await supabaseClient.from('daily_revenue').upsert({ store_id: String(storeId), date: dateKey, amount: parseFloat(raw) || 0 }, { onConflict: 'store_id,date' });
+          showAutoSaveIndicator(error ? '✓ Saved on this device' : '✓ Saved');
+        } catch (e) { showAutoSaveIndicator('✓ Saved on this device'); }
+        return;
+      }
       const amount = parseFloat(value) || 0;
       if (amount) dailyRevenue[`${storeId}_${dateKey}`] = amount;
       else delete dailyRevenue[`${storeId}_${dateKey}`];
@@ -4340,6 +4383,7 @@ Or just card numbers:
     function onRevQuickFromChange() {
       const fromEl = document.getElementById('revQuickDate'), toEl = document.getElementById('revQuickDateEnd');
       if (fromEl && toEl && (!toEl.value || toEl.value < fromEl.value)) toEl.value = fromEl.value;
+      if (revQuickMissingOnly) revQuickMissingFrozen = new Set(revQuickMissingNow());
       renderRevenueQuick();
     }
     function openRevenueQuick() {
@@ -4347,9 +4391,10 @@ Or just card numbers:
       const d = document.getElementById('revQuickDate'); if (d) d.value = revenueDateKey();
       const e = document.getElementById('revQuickDateEnd'); if (e) e.value = revenueDateKey();
       const f = document.getElementById('revQuickFilter'); if (f) f.value = '';
+      revQuickMissingOnly = false; revQuickMissingFrozen = new Set();
       renderRevenueQuick();
       openModal('revenueQuick');
-      setTimeout(() => { const first = document.querySelector('.rev-quick-input'); if (first) { first.focus(); first.select(); } }, 60);
+      setTimeout(() => revQuickFocusFirstEmpty(), 60);
     }
     function renderRevenueQuick() {
       const list = document.getElementById('revQuickList'); if (!list) return;
@@ -4360,12 +4405,13 @@ Or just card numbers:
       let html = '';
       stores.forEach((store, idx) => {
         let sum = 0, spend = 0;
-        keys.forEach(k => { sum += dailyRevenue[`${store.id}_${k}`] || 0; spend += storeSpendForDate(store.id, k); });
-        const entered = sum > 0;
+        let anyKey = false;
+        keys.forEach(k => { const v = dailyRevenue[`${store.id}_${k}`]; if (v !== undefined) anyKey = true; sum += v || 0; spend += storeSpendForDate(store.id, k); });
+        const entered = anyKey;   // a typed 0 counts as entered
         const roas = spend > 0 ? sum / spend : null;
         const roasColor = roas === null ? 'var(--text-muted)' : (roas >= 1 ? 'var(--success)' : 'var(--danger)');
         const meta = `<span class="rev-quick-meta" style="display:block; font-size:0.72rem; color:var(--text-muted); font-weight:400; margin-top:0.1rem;">Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(spend)}</span> · ROAS <span style="font-weight:700; color:${roasColor};">${roas === null ? '—' : roas.toFixed(2) + 'x'}</span>${storeBBText(store.id)}</span>`;
-        html += `<div class="rev-quick-row" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
+        html += `<div class="rev-quick-row" data-store="${escapeHtml(String(store.id))}" data-name="${escapeHtml((store.name || '').toLowerCase())}" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.4rem; border-left:3px solid ${entered ? 'var(--success)' : 'var(--border-light)'}; border-bottom:1px solid var(--border);">
           <span class="rev-quick-dot" style="width:8px; height:8px; border-radius:50%; background:${entered ? 'var(--success)' : 'var(--text-muted)'}; opacity:${entered ? '1' : '0.4'}; flex-shrink:0;"></span>
           <span style="flex:1; min-width:0;"><span style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(store.name)}${store.isPerformer ? ' ⭐' : ''}<span class="trend-mini" onclick="event.stopPropagation(); openStoreTrend('${store.id}')" title="Spend, revenue & ROAS — last 14 days">📈</span><span class="trend-mini" onclick="event.stopPropagation(); togglePayoutHold('${store.id}')" title="${store.payoutHold ? 'Payout hold is ON — click to clear' : 'Mark payout hold (payouts paused) — creates a task for Elias'}" style="${store.payoutHold ? 'opacity:1; background:var(--danger-bg); border-radius:4px;' : ''}">⏸</span><span class="trend-mini" onclick="event.stopPropagation(); toggleFulfillNeeded('${store.id}')" title="${store.fulfillNeeded ? 'Fulfillment is marked — click to clear' : 'Mark fulfillment needed — creates a board task'}" style="${store.fulfillNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🚚</span><span class="trend-mini" onclick="event.stopPropagation(); toggleRecreateNeeded('${store.id}')" title="${store.recreateNeeded ? 'Recreate is marked — click to clear' : 'Mark store for recreation — creates a board task'}" style="${store.recreateNeeded ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">♻️</span><span class="trend-mini" onclick="openOptimizeMenu(event, '${store.id}')" title="${store.optimizeAds ? 'Optimize (' + (OPT_LABEL[store.optimizeAds] || 'ads') + ') is marked — click to clear' : 'Optimize ads — choose budget, bid or other'}" style="${store.optimizeAds ? 'opacity:1; background:var(--accent-soft); border-radius:4px;' : ''}">🎯</span>${store.payoutHold ? '<span style="font-size:0.65rem; font-weight:700; color:var(--danger); margin-left:0.3rem;">PAYOUT HOLD</span>' : ''}${store.fulfillNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--accent); margin-left:0.3rem;">FULFILL</span>' : ''}${store.recreateNeeded ? '<span style="font-size:0.65rem; font-weight:700; color:var(--warning); margin-left:0.3rem;">RECREATE</span>' : ''}${store.optimizeAds ? `<span style="font-size:0.65rem; font-weight:700; color:var(--orange); margin-left:0.3rem;">OPTIMIZE${OPT_LABEL[store.optimizeAds] ? ' · ' + OPT_LABEL[store.optimizeAds].toUpperCase() : ''}</span>` : ''}</span>${meta}</span>
           <input type="number" inputmode="decimal" step="0.01" min="0" class="rev-quick-input form-input" data-store="${escapeHtml(String(store.id))}" data-idx="${idx}" data-entered="${entered ? 'true' : 'false'}" value="${entered ? (Math.round(sum * 100) / 100) : ''}" placeholder="-" style="width:120px; text-align:right; font-family:'JetBrains Mono',monospace;" onfocus="this.select()" onkeydown="revQuickKey(event, ${idx})" onchange="revQuickSave(this)">
@@ -4373,7 +4419,39 @@ Or just card numbers:
       });
       list.innerHTML = html || '<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">No stores yet</div>';
       updateRevQuickTotals();
-      const f = document.getElementById('revQuickFilter'); if (f && f.value) filterRevQuick(f.value);
+      revQuickSyncMissingBtn();
+      filterRevQuick((document.getElementById('revQuickFilter') || {}).value || '');
+    }
+    // "Missing only": stores that spent on ads in these days but have no revenue yet.
+    // The set is fixed when it is switched on, so a store stays in view while you fill it.
+    let revQuickMissingOnly = false, revQuickMissingFrozen = new Set();
+    function revQuickMissingNow() {
+      const keys = revQuickRangeKeys();
+      return liveStores().filter(st => keys.some(k => storeSpendForDate(st.id, k) > 0) && !keys.some(k => dailyRevenue[`${st.id}_${k}`] !== undefined)).map(st => String(st.id));
+    }
+    function revQuickSyncMissingBtn() {
+      const btn = document.getElementById('revQuickMissingBtn'); if (!btn) return;
+      const n = revQuickMissingNow().length;
+      if (!n && !revQuickMissingFrozen.size) revQuickMissingOnly = false;
+      btn.setAttribute('aria-pressed', revQuickMissingOnly ? 'true' : 'false');
+      btn.textContent = n ? `Missing only (${n})` : (revQuickMissingOnly ? 'Missing only (all done)' : 'Nothing missing');
+      btn.disabled = !n && !revQuickMissingOnly;
+    }
+    function setRevQuickMissing(on) {
+      revQuickMissingOnly = !!on;
+      revQuickMissingFrozen = new Set(on ? revQuickMissingNow() : []);
+      if (on && !revQuickMissingFrozen.size) revQuickMissingOnly = false;
+      revQuickSyncMissingBtn();
+      filterRevQuick((document.getElementById('revQuickFilter') || {}).value || '');
+    }
+    function toggleRevQuickMissing() {
+      setRevQuickMissing(!revQuickMissingOnly);
+      setTimeout(() => revQuickFocusFirstEmpty(), 30);
+    }
+    function revQuickFocusFirstEmpty() {
+      const vis = Array.from(document.querySelectorAll('.rev-quick-input')).filter(i => i.closest('.rev-quick-row').style.display !== 'none');
+      const t = vis.find(i => i.dataset.entered !== 'true') || vis[0];
+      if (t) { t.focus(); t.select(); }
     }
     // A gentle brake on typos: 10000 instead of 100 should ask before saving
     function revenueLooksLikeTypo(storeId, perDayAmount) {
@@ -4425,7 +4503,8 @@ Or just card numbers:
         row.style.borderLeftColor = 'var(--border-light)';
         dot.style.background = 'var(--text-muted)'; dot.style.opacity = '0.4';
         keys.forEach(k => { delete dailyRevenue[`${storeId}_${k}`]; });
-        persistRevenueDays(storeId, keys.map(k => ({ date: k, amount: 0 })));
+        saveRevenueLocal();
+        deleteRevenueDays(storeId, keys);
       } else {
         input.dataset.entered = 'true';
         row.style.borderLeftColor = 'var(--success)';
@@ -4454,6 +4533,7 @@ Or just card numbers:
       const meta = row.querySelector('.rev-quick-meta');
       if (meta) meta.innerHTML = `Spend <span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(sp)}</span> · ROAS <span style="font-weight:700; color:${rs === null ? 'var(--text-muted)' : (rs >= 1 ? 'var(--success)' : 'var(--danger)')};">${rs === null ? '—' : rs.toFixed(2) + 'x'}</span>${storeBBText(storeId)}`;
       updateRevQuickTotals();
+      revQuickSyncMissingBtn();
     }
     function updateRevQuickTotals() {
       const inputs = document.querySelectorAll('.rev-quick-input');
@@ -4466,7 +4546,10 @@ Or just card numbers:
     }
     function filterRevQuick(query) {
       const q = (query || '').toLowerCase().trim();
-      document.querySelectorAll('.rev-quick-row').forEach(row => { row.style.display = (!q || row.dataset.name.includes(q)) ? 'flex' : 'none'; });
+      document.querySelectorAll('.rev-quick-row').forEach(row => {
+        const hide = revQuickMissingOnly && !revQuickMissingFrozen.has(row.dataset.store);
+        row.style.display = ((!q || row.dataset.name.includes(q)) && !hide) ? 'flex' : 'none';
+      });
     }
     function storeSpendForDate(storeId, dateKey) {
       let s = 0;
@@ -4589,7 +4672,7 @@ Or just card numbers:
         const profitColor = profit > 0 ? 'var(--success)' : (profit < 0 ? 'var(--danger)' : 'var(--text-muted)');
         const archTag = archived ? ' <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); border:1px solid var(--border-light); border-radius:4px; padding:0.1rem 0.35rem;">ARCHIVED</span>' : '';
         const revCell = (revenueView === 'day' && !archived && !revBulk)
-          ? `<input type="number" step="0.01" min="0" class="form-input" style="width:110px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${rev || ''}" placeholder="0" onchange="saveRevenue('${store.id}','${dateKey}',this.value)">`
+          ? `<input type="number" step="0.01" min="0" class="form-input" style="width:110px; text-align:right; font-family:'JetBrains Mono',monospace;" value="${dailyRevenue[store.id + '_' + dateKey] !== undefined ? rev : ''}" placeholder="—" onchange="saveRevenue('${store.id}','${dateKey}',this.value)">`
           : `<span style="font-family:'JetBrains Mono',monospace;">${fmtMoney(rev)}</span>`;
         const selRow = selRevStores.has(String(store.id));
         const rowActions = revBulk ? '' : (archived
@@ -7136,7 +7219,7 @@ Or just card numbers:
         input.dataset.entered = 'false';
         row.style.borderLeftColor = 'var(--border-light)';
         dot.style.background = 'var(--text-muted)'; dot.style.opacity = '0.4';
-        // do not write a value when cleared (treated as not entered)
+        clearSpendForDate(accountId, selectedTrackingDate);   // cleared = not entered
       } else {
         const value = parseFloat(raw) || 0;
         input.dataset.entered = 'true';
@@ -7341,7 +7424,7 @@ Or just card numbers:
             if (spend > 0) { rowTotal += spend; dayTotals[d.date] += spend; }
             const isToday = d.date === getThailandDate();
             const isSortedCol = calendarSortDay === d.date;
-            bodyHtml += `<td style="text-align: center; padding: 0.25rem; ${isSortedCol ? 'background: var(--accent-soft);' : ''}"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${spend || ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
+            bodyHtml += `<td style="text-align: center; padding: 0.25rem; ${isSortedCol ? 'background: var(--accent-soft);' : ''}"><input type="number" class="form-input" style="width: 50px; padding: 0.25rem; text-align: center; font-size: 0.8rem; ${isToday ? 'border-color: var(--accent);' : ''}" value="${(spend || dailySpendHistory[account.id + '_' + d.date] !== undefined) ? spend : ''}" placeholder="-" data-account-id="${account.id}" data-date="${d.date}" onchange="updateDailySpend('${account.id}', '${d.date}', this.value)"></td>`;
           });
           grandTotal += rowTotal;
           bodyHtml += `<td style="text-align: center; font-weight: 600; color: var(--success); background: var(--bg-tertiary);">$${Math.round(rowTotal * 100) / 100}</td></tr>`;
@@ -7388,6 +7471,7 @@ Or just card numbers:
       }
     }
     async function updateDailySpend(accountId, date, value) {
+      if (String(value == null ? '' : value).trim() === '') { await clearSpendForDate(accountId, date); updateTodayTotal(); renderTrackingCalendar(); return; }
       const spend = parseFloat(value) || 0;
       const key = `${accountId}_${date}`;
       dailySpendHistory[key] = spend;
@@ -9872,6 +9956,8 @@ Or just card numbers:
       const inp = document.getElementById('revenueDate'); if (inp) inp.value = key;
       onRevenueDateChange(key);
       openRevenueQuick();
+      setRevQuickMissing(true);   // straight to the stores that still need a number
+      setTimeout(() => revQuickFocusFirstEmpty(), 80);
     }
     function renderHome() {
       const jobsEl = document.getElementById('homeJobs');
