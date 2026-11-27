@@ -1643,6 +1643,25 @@
       .cal-grid .cal-c1 { width: 120px; min-width: 120px; max-width: 120px; box-shadow: 1px 0 0 var(--border); font-size: 0.82rem; }
       .cal-grid .cal-c2 { position: static; width: 84px; min-width: 84px; max-width: 84px; box-shadow: none; }
     }
+
+    /* ── Team report ── */
+    .tr-row { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 0.45rem; }
+    .tr-row.none { background: color-mix(in srgb, var(--danger-bg) 45%, var(--bg-card)); }
+    .tr-line { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1rem; cursor: pointer; flex-wrap: wrap; } .tr-row.none .tr-line { cursor: default; }
+    .tr-day { font-weight: 650; width: 105px; flex: none; }
+    .tr-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; flex: 1; min-width: 200px; }
+    .tk-tag.ok { background: var(--success-bg); color: var(--success); } .tk-tag.warn { background: var(--warning-bg); color: var(--warning); }
+    .tr-nums { display: flex; gap: 1.4rem; } .tr-nums span { display: flex; flex-direction: column; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+    .tr-nums b { font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
+    .tr-meta { font-size: 0.8rem; color: var(--text-secondary); } .tr-caret { font-size: 0.78rem; color: var(--accent); font-weight: 600; width: 50px; text-align: right; }
+    .tr-detail { border-top: 1px solid var(--border-light); padding: 0.7rem 1rem 0.9rem; }
+    .tr-warn { background: var(--danger-bg); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.84rem; margin-bottom: 0.7rem; line-height: 1.6; }
+    .tr-ev { display: grid; grid-template-columns: 1.3fr 2.2fr 0.8fr 1.2fr; gap: 0.8rem; padding: 0.3rem 0; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); align-items: center; }
+    .tr-ev:last-child { border-bottom: 0; } .tr-ev.head { font-size: 0.7rem; color: var(--text-muted); }
+    .tr-ev span:first-child, .tr-ev span:last-child { font-family: 'JetBrains Mono', monospace; } .tr-ev.head span { font-family: inherit !important; }
+    .tr-ev em { font-style: normal; font-family: 'Geist', sans-serif; font-size: 0.7rem; color: var(--warning); margin-left: 0.3rem; }
+    .tr-ev.sus { background: var(--danger-bg); }
+    @media (max-width: 768px) { .tr-nums { flex-wrap: wrap; gap: 0.6rem 1.2rem; } .tr-ev { grid-template-columns: 1fr 1.6fr; } .tr-day { width: auto; } #trSummary { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -1752,6 +1771,7 @@
           <div class="nav-item" data-section="opthub" onclick="showSection('opthub')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span class="nl">Optimization</span></div>
           <div class="nav-item" data-section="suppliers" onclick="showSection('suppliers')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5v8l-9 5-9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg><span class="nl">Suppliers</span></div>
           <div class="nav-item" data-section="archive" onclick="showSection('archive')"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg><span>Archive</span></div>
+          <div class="nav-item" id="teamReportNav" data-section="teamreport" onclick="showSection('teamreport')" style="display:none;"><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg><span>Team report</span></div>
         </div>
         <div class="nav-section" id="mgmtNavSection" style="display: none;">
           <div class="nav-title">Team</div>
@@ -2028,6 +2048,24 @@
         <div id="alertsList"></div>
       </section>
 
+      <section class="section" id="section-teamreport">
+        <div class="header">
+          <div>
+            <h1 class="page-title">Team report</h1>
+            <p class="page-subtitle">When spend was entered, how long it took, and which entries to check. Only you see this page</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" onclick="openTeamReport()">Refresh</button>
+          </div>
+        </div>
+        <div class="arch-bar">
+          <label class="arch-sort" style="margin-left:0;">Person <select id="trPerson" class="form-input" onchange="renderTeamReport()"></select></label>
+          <label class="arch-sort" style="margin-left:0;">Month <select id="trMonth" class="form-input" onchange="renderTeamReport()"></select></label>
+          <label class="arch-sort" style="margin-left:0;">Work starts at <input type="time" id="trStart" class="form-input" style="width:150px;" onchange="saveTrStart(this.value)"></label>
+        </div>
+        <div id="trSummary" class="stats-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1rem;"></div>
+        <div id="trList"></div>
+      </section>
       <section class="section" id="section-archive">
         <div class="header">
           <div>
@@ -3267,6 +3305,7 @@ Or just card numbers:
       if (sectionId === 'analyze' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'opthub' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'archive' && !isOwner()) { sectionId = 'dashboard'; }
+      if (sectionId === 'teamreport' && !isAymanOnly()) { sectionId = 'dashboard'; }
       if (sectionId === 'suppliers' && !isOwner()) { sectionId = 'dashboard'; }
       if (sectionId === 'storetasks' && !isStoreMgmtUser()) { sectionId = 'dashboard'; }
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -3293,6 +3332,7 @@ Or just card numbers:
         case 'analyze': openAnalyzeSection(); break;
         case 'opthub': renderOptHub(); break;
         case 'archive': openArchiveSection(); break;
+        case 'teamreport': openTeamReport(); break;
         case 'suppliers': openSuppliersSection(); break;
         case 'storetasks': openStoreTasksSection(); break;
       }
@@ -3318,7 +3358,7 @@ Or just card numbers:
           bn.innerHTML = `👀 Viewing as ${names[userId]} (${roles[userId]}) — exactly what they see. Private pages and the Team board are hidden. <button onclick="exitPreview()" style="margin-left:auto; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.55); color:white; border-radius:6px; padding:0.2rem 0.7rem; cursor:pointer; font-family:inherit; font-weight:600;">Return to my view</button>`;
           const act = document.querySelector('.section.active');
           const cur = act ? act.id.replace('section-', '') : 'dashboard';
-          if (['analyze', 'revenue', 'suppliers', 'pnl', 'storetasks', 'archive', 'opthub'].includes(cur)) showSection('dashboard');
+          if (['analyze', 'revenue', 'suppliers', 'pnl', 'storetasks', 'archive', 'opthub', 'teamreport'].includes(cur)) showSection('dashboard');
         } else if (bn) bn.remove();
       }
       const perms = permissions[userId];
@@ -3842,6 +3882,7 @@ Or just card numbers:
     function renderTracking() {
       const csvBtn = document.getElementById('exportCsvBtn');
       if (csvBtn) csvBtn.style.display = isStoreMgmtUser() ? '' : 'none';
+      const trNav = document.getElementById('teamReportNav'); if (trNav) trNav.style.display = isAymanOnly() ? '' : 'none';
       const moreMenu = document.getElementById('trackingMoreMenu');
       if (moreMenu) moreMenu.style.display = (authUser && String(authUser.email || '').toLowerCase() === OWNER_EMAIL.toLowerCase()) ? '' : 'none';
       const accounts = liveAccounts().filter(a => a.status === 'active');
@@ -5326,7 +5367,7 @@ Or just card numbers:
           const cloudIds = new Set(rows.map(r => r.id));
           const grace = Date.now() - 120000;
           const keepLocal = storeTasks.filter(t => !cloudIds.has(t.id) && t.at && new Date(t.at).getTime() > grace);
-          storeTasks = rows.map(unpackTask).concat(keepLocal);
+          storeTasks = rows.filter(r => !String(r.id).startsWith('actlog_')).map(unpackTask).concat(keepLocal);
           // finished manual tasks stay visible for a week, then go
           const weekAgo = Date.now() - 7 * 86400000;
           storeTasks.filter(t => t.col === 'done' && !t.id.startsWith('auto_') && t.at && new Date(t.at).getTime() < weekAgo).forEach(t => {
@@ -10393,6 +10434,202 @@ Or just card numbers:
       ['showSection', 'setAnalyzePeriod', 'setAnalyzeQuick', 'applyAnalyzeCustom', 'toggleAnalyzeMetric', 'setOptRange', 'setOptCustom'].forEach(wrap);
       chartMotion(3500);
     })();
+
+    // ══════════════════════════════════════════════════════════════
+    // ENTRY LOG + TEAM REPORT
+    // Every spend entry is recorded with its exact time: who, which account,
+    // which day, old number → new number. Nothing is shown to the person
+    // typing. Only Ayman can open the report.
+    // ══════════════════════════════════════════════════════════════
+    const ACT = { doc: null, timer: null, depth: 0, merged: false };
+    function actEmail() { return String((authUser && authUser.email) || '').toLowerCase(); }
+    function actKey(day, email) { return 'actlog_' + day + '_' + email; }
+    function actDayMinus(day, n) { const d = new Date(day + 'T12:00:00'); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function actDoc() {
+      const email = actEmail(); if (!email) return null;
+      const day = getThailandDate();
+      if (ACT.doc && ACT.doc.day === day && ACT.doc.email === email) return ACT.doc;
+      let doc = null;
+      try { doc = JSON.parse(localStorage.getItem('tsnac_al_' + day + '_' + email) || 'null'); } catch (e) {}
+      ACT.doc = (doc && doc.day === day) ? doc : { day, email, name: (document.getElementById('currentUserName') || {}).textContent || email, ev: [], opens: [] };
+      ACT.merged = false;
+      try { Object.keys(localStorage).filter(k => k.startsWith('tsnac_al_') && k < 'tsnac_al_' + actDayMinus(day, 3)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+      return ACT.doc;
+    }
+    async function actFetch(key) {
+      try { const { data: rows, error } = await supabaseClient.from('app_settings').select('*').eq('key', key); if (!error && rows && rows[0]) return JSON.parse(rows[0].value); } catch (e) {}
+      try { const { data: rows, error } = await supabaseClient.from('store_tasks').select('*').eq('id', key); if (!error && rows && rows[0]) return JSON.parse(rows[0].note); } catch (e) {}
+      return null;
+    }
+    function actMergeEvents(a, b) {
+      const seen = new Set(), out = [];
+      (a || []).concat(b || []).forEach(e => { const k = [e.t, e.a, e.d, e.v, e.p].join('|'); if (!seen.has(k)) { seen.add(k); out.push(e); } });
+      return out.sort((x, y) => x.t - y.t);
+    }
+    async function actSave() {
+      const doc = actDoc(); if (!doc) return;
+      // entries made earlier today on another device are kept
+      if (!ACT.merged) {
+        ACT.merged = true;
+        const cloud = await actFetch(actKey(doc.day, doc.email));
+        if (cloud) { doc.ev = actMergeEvents(cloud.ev, doc.ev); doc.opens = [...new Set((cloud.opens || []).concat(doc.opens || []))].sort((x, y) => x - y); }
+      }
+      try { const pr = homeSpendProgress(); doc.tot = pr.count; doc.miss = pr.missing; } catch (e) {}
+      const key = actKey(doc.day, doc.email), value = JSON.stringify(doc);
+      try { localStorage.setItem('tsnac_al_' + doc.day + '_' + doc.email, value); } catch (e) {}
+      let ok = false;
+      try { const { error } = await supabaseClient.from('app_settings').upsert({ key, value }, { onConflict: 'key' }); ok = !error; } catch (e) {}
+      if (!ok) { try { await supabaseClient.from('store_tasks').upsert({ id: key, title: 'log', note: value, col: 'log', created_by: doc.name, updated_at: new Date().toISOString() }, { onConflict: 'id' }); } catch (e) {} }
+    }
+    function actQueueSave(ms) { clearTimeout(ACT.timer); ACT.timer = setTimeout(actSave, ms == null ? 2500 : ms); }
+    function actLog(accountId, dateKey, v, prev) {
+      const doc = actDoc(); if (!doc) return;
+      if (v === prev) return;
+      const e = { t: Math.floor(Date.now() / 1000), a: String(accountId), d: dateKey, v: v, p: prev };
+      if (v === 0) { const before = parseFloat(dailySpendHistory[`${accountId}_${actDayMinus(dateKey, 1)}`]) || 0; if (before > 0) e.y = Math.round(before); }   // 0 on an account that spent the day before
+      doc.ev.push(e);
+      try { localStorage.setItem('tsnac_al_' + doc.day + '_' + doc.email, JSON.stringify(doc)); } catch (x) {}
+      actQueueSave();
+    }
+    (function () {
+      const num = raw => { const t = String(raw == null ? '' : raw).trim(); return t === '' ? null : (parseFloat(t) || 0); };
+      const prevOf = (acc, date) => { const x = dailySpendHistory[`${acc}_${date}`]; return x === undefined ? null : (parseFloat(x) || 0); };
+      const wrap = (name, pick) => {
+        const base = window[name]; if (typeof base !== 'function') return;
+        window[name] = function () {
+          let info = null;
+          if (ACT.depth === 0) { try { info = pick.apply(null, arguments); if (info) info.prev = prevOf(info.acc, info.date); } catch (e) { info = null; } }
+          ACT.depth++;
+          let out;
+          try { out = base.apply(this, arguments); } finally { ACT.depth--; }
+          if (info) { try { actLog(info.acc, info.date, info.v, info.prev); } catch (e) {} }
+          return out;
+        };
+      };
+      wrap('autoSaveTrackingForDate', (acc, value, date) => ({ acc, date, v: num(value) }));
+      wrap('updateDailySpend', (acc, date, value) => ({ acc, date, v: num(value) }));
+      wrap('clearSpendForDate', (acc, date) => ({ acc, date, v: null }));
+      wrap('autoSaveTracking', (acc, field, value) => field === 'spend' ? ({ acc, date: getThailandDate(), v: num(value) }) : null);
+      // when the app is opened, and a last save when it is closed
+      setTimeout(() => { const doc = actDoc(); if (doc) { doc.opens = (doc.opens || []).concat([Math.floor(Date.now() / 1000)]).slice(-40); actQueueSave(1500); } const n = document.getElementById('teamReportNav'); if (n) n.style.display = isAymanOnly() ? '' : 'none'; }, 4000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && ACT.doc && ACT.timer) { clearTimeout(ACT.timer); ACT.timer = null; actSave(); } });
+    })();
+
+    // ── report (Ayman only) ──
+    let trDocs = [];
+    const TR_NAMES = { 'aymo@maleistung.com': 'Ayman', 'emoade4@gmail.com': 'Elias', 'jpaduano0123@gmail.com': 'Jeannie', 'arabellapaduano88@gmail.com': 'Arabella' };
+    function trName(email) { return TR_NAMES[email] || email.split('@')[0]; }
+    function trStartMinutes() { const v = (localStorage.getItem('tsnac_tr_start') || '10:00').split(':'); return (parseInt(v[0]) || 0) * 60 + (parseInt(v[1]) || 0); }
+    function saveTrStart(v) { try { localStorage.setItem('tsnac_tr_start', v || '10:00'); } catch (e) {} renderTeamReport(); }
+    function trClock(t) { return new Date(t * 1000).toLocaleTimeString('en-GB', { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit' }); }
+    function trMinOfDay(t) { const p = trClock(t).split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
+    function trDur(sec) { const m = Math.round(sec / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0'); }
+    async function trLoadAll() {
+      const docs = {};
+      const take = (key, raw) => { if (!String(key).startsWith('actlog_')) return; try { const d = JSON.parse(raw); if (d && d.day && d.email) { const cur = docs[key]; docs[key] = cur ? Object.assign(d, { ev: actMergeEvents(cur.ev, d.ev) }) : d; } } catch (e) {} };
+      const page = async (table, keyF, valF) => {
+        try {
+          for (let from = 0; ; from += 1000) {
+            const { data: rows, error } = await supabaseClient.from(table).select('*').range(from, from + 999);
+            if (error || !rows) break;
+            rows.forEach(r => take(r[keyF], r[valF]));
+            if (rows.length < 1000) break;
+          }
+        } catch (e) {}
+      };
+      await page('app_settings', 'key', 'value');
+      await page('store_tasks', 'id', 'note');
+      if (ACT.doc) take(actKey(ACT.doc.day, ACT.doc.email), JSON.stringify(ACT.doc));   // own live entries
+      return Object.values(docs);
+    }
+    async function openTeamReport() {
+      if (!isAymanOnly()) { showSection('dashboard'); return; }
+      const list = document.getElementById('trList');
+      if (list && !trDocs.length) list.innerHTML = '<div class="tk-empty big">Loading the log</div>';
+      trDocs = await trLoadAll();
+      const pSel = document.getElementById('trPerson'), mSel = document.getElementById('trMonth'), st = document.getElementById('trStart');
+      const emails = [...new Set(trDocs.map(d => d.email))].sort((a, b) => trName(a).localeCompare(trName(b)));
+      const keepP = pSel.value, keepM = mSel.value;
+      pSel.innerHTML = emails.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(trName(e))}</option>`).join('') || '<option value="">Nobody yet</option>';
+      pSel.value = emails.includes(keepP) ? keepP : (emails.find(e => e.startsWith('jpaduano')) || emails.find(e => e !== OWNER_EMAIL.toLowerCase()) || emails[0] || '');
+      const today = getThailandDate(), months = [];
+      for (let i = 0; i < 6; i++) { const d = new Date(today.slice(0, 7) + '-15T12:00:00'); d.setMonth(d.getMonth() - i); months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }
+      mSel.innerHTML = months.map(m => `<option value="${m}">${new Date(m + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</option>`).join('');
+      mSel.value = months.includes(keepM) ? keepM : months[0];
+      if (st) st.value = localStorage.getItem('tsnac_tr_start') || '10:00';
+      renderTeamReport();
+    }
+    function trStats(doc) {
+      const ev = (doc.ev || []).slice().sort((a, b) => a.t - b.t);
+      const yday = actDayMinus(doc.day, 1);
+      const o = { doc, ev, n: ev.length, start: ev.length ? ev[0].t : null, end: ev.length ? ev[ev.length - 1].t : null, open: (doc.opens || [])[0] || null };
+      let active = 0; for (let i = 1; i < ev.length; i++) active += Math.min(ev[i].t - ev[i - 1].t, 300);
+      o.active = active; o.span = ev.length ? o.end - o.start : 0;
+      const last = {}; ev.forEach(e => { last[e.a + '_' + e.d] = e; });
+      const finals = Object.values(last);
+      o.entered = finals.filter(e => e.d === yday && e.v !== null).length;
+      o.zeros = finals.filter(e => e.v === 0);
+      o.susZeros = o.zeros.filter(e => e.y);
+      o.oldEdits = ev.filter(e => e.d < yday && e.p !== null);
+      o.tot = doc.tot != null ? doc.tot : null; o.miss = doc.miss != null ? doc.miss : null;
+      o.lateMin = o.start !== null ? Math.max(0, trMinOfDay(o.start) - trStartMinutes()) : null;
+      return o;
+    }
+    const trOpen = new Set();
+    function toggleTrDay(day) { if (trOpen.has(day)) trOpen.delete(day); else trOpen.add(day); renderTeamReport(); }
+    function renderTeamReport() {
+      const list = document.getElementById('trList'), sum = document.getElementById('trSummary');
+      if (!list || !isAymanOnly()) return;
+      const email = (document.getElementById('trPerson') || {}).value || '', month = (document.getElementById('trMonth') || {}).value || getThailandDate().slice(0, 7);
+      const card = (label, val, cls, sub) => `<div class="stat-card ${cls || ''}"><div class="stat-label">${label}</div><div class="stat-value">${val}</div>${sub ? `<div style="font-size:0.74rem; color:var(--text-muted); margin-top:0.2rem;">${sub}</div>` : ''}</div>`;
+      if (!email) {
+        sum.innerHTML = '';
+        list.innerHTML = '<div class="tk-empty big">Nothing recorded yet. The log starts from the moment each person opens this new version. Come back after the next spend entry.</div>';
+        return;
+      }
+      const byDay = {}; trDocs.filter(d => d.email === email && d.day.slice(0, 7) === month).forEach(d => { byDay[d.day] = trStats(d); });
+      const today = getThailandDate();
+      const firstLogged = trDocs.filter(d => d.email === email).map(d => d.day).sort()[0] || today;
+      const days = [];
+      const lastDay = month === today.slice(0, 7) ? parseInt(today.slice(8, 10)) : new Date(parseInt(month.slice(0, 4)), parseInt(month.slice(5, 7)), 0).getDate();
+      for (let d = lastDay; d >= 1; d--) { const k = `${month}-${String(d).padStart(2, '0')}`; if (k >= firstLogged) days.push(k); }
+      const worked = days.map(k => byDay[k]).filter(x => x && x.n);
+      const lateDays = worked.filter(x => x.lateMin > 15);
+      const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+      const avgStart = avg(worked.map(x => trMinOfDay(x.start)));
+      const avgActive = avg(worked.map(x => x.active));
+      const sus = worked.reduce((n, x) => n + x.susZeros.length, 0), skipped = worked.reduce((n, x) => n + (x.miss || 0), 0), empty = days.filter(k => !byDay[k] || !byDay[k].n).length;
+      sum.innerHTML =
+        card('Days with entries', `${worked.length} of ${days.length}`, empty ? 'warning' : 'success', empty ? `${empty} day${empty > 1 ? 's' : ''} with nothing entered` : 'No day missed') +
+        card('Average start', avgStart === null ? '—' : `${String(Math.floor(avgStart / 60)).padStart(2, '0')}:${String(Math.round(avgStart % 60)).padStart(2, '0')}`, '', `Work starts at ${localStorage.getItem('tsnac_tr_start') || '10:00'}`) +
+        card('Started late', `${lateDays.length} day${lateDays.length === 1 ? '' : 's'}`, lateDays.length ? 'danger' : 'success', 'More than 15 min after start') +
+        card('Average working time', avgActive === null ? '—' : trDur(avgActive), '', 'Time spent typing entries') +
+        card('Zeros to check', sus, sus ? 'danger' : 'success', skipped ? `${skipped} account${skipped > 1 ? 's' : ''} left empty` : 'No account left empty');
+      const accInfo = id => { let a = null; ['google', 'tiktok', 'facebook'].forEach(ch => { const h = (data.accounts[ch] || []).find(x => String(x.id) === String(id)); if (h) a = h; }); if (!a) return 'Account ' + id; const st = getStore(a.storeId), pr = getProfile(a.profileId); return `${st ? st.name : 'Unknown store'} · ${pr ? pr.name : 'Account'}`; };
+      const money = v => v === null || v === undefined ? 'empty' : '$' + v;
+      list.innerHTML = days.map(k => {
+        const x = byDay[k], dLabel = new Date(k + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        if (!x || !x.n) return `<div class="tr-row none"><div class="tr-line"><span class="tr-day">${dLabel}</span><span class="tk-tag urgent">Nothing entered</span><span class="tr-meta">${x && x.open ? 'Opened the app at ' + trClock(x.open) + ', typed no spend' : 'No activity recorded'}</span></div></div>`;
+        const chips = [];
+        chips.push(x.lateMin > 15 ? `<span class="tk-tag urgent">Started ${trClock(x.start)} · late ${trDur(x.lateMin * 60)}</span>` : `<span class="tk-tag ok">Started ${trClock(x.start)}</span>`);
+        if (x.miss) chips.push(`<span class="tk-tag urgent">${x.miss} left empty</span>`);
+        if (x.susZeros.length) chips.push(`<span class="tk-tag urgent">${x.susZeros.length} zero${x.susZeros.length > 1 ? 's' : ''} to check</span>`);
+        if (x.oldEdits.length) chips.push(`<span class="tk-tag warn">${x.oldEdits.length} old number${x.oldEdits.length > 1 ? 's' : ''} changed</span>`);
+        const open = trOpen.has(k);
+        let detail = '';
+        if (open) {
+          const yday = actDayMinus(k, 1);
+          detail = `<div class="tr-detail">${x.susZeros.length ? `<div class="tr-warn"><b>Check these in Google Ads.</b> 0 was typed, but the account spent money the day before:<br>${x.susZeros.map(e => `${escapeHtml(accInfo(e.a))} — spent $${e.y} the day before`).join('<br>')}</div>` : ''}
+            <div class="tr-ev head"><span>Time</span><span>Account</span><span>For day</span><span>Change</span></div>
+            ${x.ev.map((e, i) => { const gap = i ? e.t - x.ev[i - 1].t : 0; return `<div class="tr-ev${e.v === 0 && e.y ? ' sus' : ''}"><span>${trClock(e.t)}${gap > 600 ? ` <em>after ${trDur(gap)} pause</em>` : ''}</span><span>${escapeHtml(accInfo(e.a))}</span><span>${e.d === yday ? 'yesterday' : (e.d === k ? 'same day' : e.d.slice(5))}</span><span>${money(e.p)} → <b>${money(e.v)}</b></span></div>`; }).join('')}</div>`;
+        }
+        return `<div class="tr-row"><div class="tr-line" onclick="toggleTrDay('${k}')">
+          <span class="tr-day">${dLabel}</span>
+          <span class="tr-chips">${chips.join('')}</span>
+          <span class="tr-nums"><span><b>${trClock(x.start)} – ${trClock(x.end)}</b>start – finish</span><span><b>${trDur(x.active)}</b>working time</span><span><b>${x.entered}${x.tot != null ? ' / ' + x.tot : ''}</b>accounts filled</span><span><b>${x.zeros.length}</b>zeros</span></span>
+          <span class="tr-caret">${open ? 'Hide' : 'Details'}</span></div>${detail}</div>`;
+      }).join('') || '<div class="tk-empty big">Nothing recorded for this month.</div>';
+    }
     syncThemeToggle();
     init();
   </script>
