@@ -1662,6 +1662,13 @@
     .tr-ev em { font-style: normal; font-family: 'Geist', sans-serif; font-size: 0.7rem; color: var(--warning); margin-left: 0.3rem; }
     .tr-ev.sus { background: var(--danger-bg); }
     @media (max-width: 768px) { .tr-nums { flex-wrap: wrap; gap: 0.6rem 1.2rem; } .tr-ev { grid-template-columns: 1fr 1.6fr; } .tr-day { width: auto; } #trSummary { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+    .tk-note-btn.has-note { background: var(--accent); border-color: var(--accent); color: #fff; } .tk-note-btn.has-note .ic { color: inherit; }
+    .tk-new .tk-note-btn { height: auto; align-self: stretch; padding: 0 0.75rem; flex: none; }
+    .tk-notebox { border-top: 1px solid var(--border-light); padding: 0.7rem 0.9rem 0.8rem; }
+    .tk-notebox label { display: block; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .tk-notebox textarea { width: 100%; resize: vertical; font: inherit; font-size: 0.9rem; line-height: 1.45; }
+    .tk-notebox-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 0.45rem; font-size: 0.72rem; color: var(--text-muted); }
     /* ── Icons (replace every emoji) ── */
     .ic { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .ic.ic-fill { fill: currentColor; stroke: none; }
@@ -2317,11 +2324,12 @@
         </div>
         <div id="taskStats" class="task-stats"></div>
         <div class="tk-new">
-          <select id="newTaskType" class="form-input" aria-label="Task type" onchange="syncNewTaskForm()">
+          <select id="newTaskType" class="form-input" aria-label="Task type">
             <option value="fulfill">To fulfill</option><option value="recreate">Recreate</option><option value="hold">Payment hold</option><option value="storeoff">Storefront off</option>
             <option value="bills">Bills due</option><option value="recycle">Recycle</option><option value="optimize">Optimize ads</option><option value="other">Others</option>
           </select>
           <input type="text" id="newTaskTitle" class="form-input" placeholder="New task, e.g. Recreate Zafira" onkeydown="if(event.key==='Enter')addStoreTask()">
+          <button type="button" class="tk-btn tk-note-btn" id="newTaskNoteBtn" title="Write what needs to be done" aria-label="Write what needs to be done" aria-pressed="false" onclick="toggleNewTaskNote()">📝</button>
           <input type="text" id="newTaskNote" class="form-input" placeholder="What needs to be done?" style="display:none;" onkeydown="if(event.key==='Enter')addStoreTask()">
           <label class="tk-urgent-check"><input type="checkbox" id="newTaskUrgent"> Urgent</label>
           <button class="btn btn-primary" onclick="addStoreTask()">Add task</button>
@@ -5340,14 +5348,14 @@ Or just card numbers:
       if (t.note.startsWith(TASK_PACK)) {
         try {
           const x = JSON.parse(t.note.slice(TASK_PACK.length));
-          t.note = x.n || ''; t.urgent = !!x.u; t.comments = Array.isArray(x.c) ? x.c : []; t.pc = x.pc || '';
+          t.note = x.n || ''; t.urgent = !!x.u; t.comments = Array.isArray(x.c) ? x.c : []; t.pc = x.pc || ''; t.todo = x.d || '';
           if (x.a) t.at = x.a;
         } catch (e) { t.note = ''; }
       }
       return t;
     }
     function packTaskNote(t) {
-      return TASK_PACK + JSON.stringify({ n: t.note || '', u: t.urgent ? 1 : 0, c: t.comments || [], pc: t.pc || '', a: t.at || new Date().toISOString() });
+      return TASK_PACK + JSON.stringify({ n: t.note || '', u: t.urgent ? 1 : 0, c: t.comments || [], pc: t.pc || '', d: t.todo || '', a: t.at || new Date().toISOString() });
     }
     function mergeComments(a, b) {
       const seen = new Set(), out = [];
@@ -5538,36 +5546,58 @@ Or just card numbers:
     function addStoreTask(col) {
       const inp = document.getElementById('newTaskTitle'), typeSel = document.getElementById('newTaskType'), urg = document.getElementById('newTaskUrgent');
       const noteInp = document.getElementById('newTaskNote');
-      if (col && typeSel) { typeSel.value = col; syncNewTaskForm(); }
+      if (col && typeSel) typeSel.value = col;
       const title = ((inp && inp.value) || '').trim();
       if (!title) { if (inp) inp.focus(); return; }
-      const isOther = typeSel && typeSel.value === 'other';
-      const note = isOther && noteInp ? noteInp.value.trim() : '';
-      if (isOther && !note && document.activeElement === inp) { noteInp.focus(); return; }   // Enter on the name jumps to "what"
-      if (noteInp) noteInp.value = '';
+      const note = noteInp && noteInp.style.display !== 'none' ? noteInp.value.trim() : '';
       const t = { id: 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000), title, note, col: (typeSel && typeSel.value) || 'fulfill', by: whoAmI(), at: new Date().toISOString(), urgent: !!(urg && urg.checked), comments: [], pc: '' };
       storeTasks.push(t);
       pushTask(t);
       inp.value = ''; if (urg) urg.checked = false;
+      if (noteInp) noteInp.value = '';
+      setNewTaskNote(false);
       renderStoreTasks();
       inp.focus();
     }
-    // "Others" tasks get a second box to say what needs doing
-    function syncNewTaskForm() {
-      const sel = document.getElementById('newTaskType'), note = document.getElementById('newTaskNote'), title = document.getElementById('newTaskTitle');
-      if (!sel || !note) return;
-      const other = sel.value === 'other';
-      note.style.display = other ? '' : 'none';
-      if (title) title.placeholder = other ? 'Store or name' : 'New task, e.g. Recreate Zafira';
+    // The "what needs to be done" box for a new task stays hidden until the note button is clicked
+    function setNewTaskNote(on) {
+      const note = document.getElementById('newTaskNote'), btn = document.getElementById('newTaskNoteBtn');
+      if (!note) return;
+      note.style.display = on ? '' : 'none';
+      if (btn) { btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.classList.toggle('has-note', !!on); }
+    }
+    function toggleNewTaskNote() {
+      const note = document.getElementById('newTaskNote'); if (!note) return;
+      const on = note.style.display === 'none';
+      setNewTaskNote(on);
+      if (on) note.focus(); else { const t = document.getElementById('newTaskTitle'); if (t) t.focus(); }
+    }
+    function syncNewTaskForm() {}
+    // What needs to be done: one hidden note on every task, manual or automatic.
+    // (Automatic tasks keep their own system text separately, so it is never overwritten.)
+    function taskTodo(t) { return t.id.startsWith('auto_') ? (t.todo || '') : (t.note || ''); }
+    let noteOpenId = null;
+    function toggleTaskNote(id) {
+      noteOpenId = noteOpenId === id ? null : id;
+      if (noteOpenId) openTaskId = null;
+      renderStoreTasks();
+      const box = document.getElementById('taskNoteBox'); if (box) { box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+    }
+    function saveTaskNote(id, close) {
+      const t = storeTasks.find(x => x.id === id), box = document.getElementById('taskNoteBox');
+      if (t && box) {
+        const v = box.value.trim();
+        if (v !== taskTodo(t)) { if (t.id.startsWith('auto_')) t.todo = v; else t.note = v; pushTask(t); showAutoSaveIndicator('✓ Saved'); }
+      }
+      if (close) { noteOpenId = null; renderStoreTasks(); }
     }
     // name and details are edited right inside the task
     function saveTaskText(id) {
       const t = storeTasks.find(x => x.id === id); if (!t) return;
-      const ti = document.getElementById('taskEditTitle'), ni = document.getElementById('taskEditNote');
-      const title = ti ? ti.value.trim() : t.title, note = ni ? ni.value.trim() : t.note;
-      if ((!title || title === t.title) && note === (t.note || '')) return;
-      if (title) t.title = title;
-      t.note = note;
+      const ti = document.getElementById('taskEditTitle');
+      const title = ti ? ti.value.trim() : t.title;
+      if (!title || title === t.title) return;
+      t.title = title;
       pushTask(t);
     }
     function editStoreTask(id) {
@@ -5601,13 +5631,13 @@ Or just card numbers:
     let openTaskId = null, taskFilter = 'all';
     function toggleTaskOpen(id) {
       openTaskId = openTaskId === id ? null : id;
-      if (openTaskId) markTaskSeen(id);
+      if (openTaskId) { markTaskSeen(id); noteOpenId = null; }
       renderStoreTasks();
       const inp = document.getElementById('taskCommentInput'); if (inp && window.innerWidth > 768) inp.focus();
     }
     function setTaskFilter(f) {
       taskFilter = f;
-      const sel = document.getElementById('newTaskType'); if (sel && f !== 'all') { sel.value = f; syncNewTaskForm(); }
+      const sel = document.getElementById('newTaskType'); if (sel && f !== 'all') sel.value = f;
       renderStoreTasks();
     }
     async function addTaskComment(id) {
@@ -5785,7 +5815,7 @@ Or just card numbers:
       // keep a half-typed comment across refreshes
       const oldInp = document.getElementById('taskCommentInput');
       const draft = oldInp ? oldInp.value : '', hadFocus = oldInp && document.activeElement === oldInp;
-      const keep = {}; ['taskEditTitle', 'taskEditNote'].forEach(k => { const e = document.getElementById(k); if (e && document.activeElement === e) keep[k] = { v: e.value, a: e.selectionStart }; });
+      const keep = {}; ['taskEditTitle', 'taskNoteBox'].forEach(k => { const e = document.getElementById(k); if (e && document.activeElement === e) keep[k] = { v: e.value, a: e.selectionStart }; });
       const bb = document.getElementById('bulkBar');
       if (bb) bb.innerHTML = bulkMode
         ? `<div class="tk-digest" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;"><span><strong>${selectedTasks.size}</strong> selected. Tap tasks to select them</span><span style="margin-left:auto; display:flex; gap:0.5rem;"><button class="btn btn-sm btn-primary" onclick="bulkClearTasks()">Mark selected done</button><button class="btn btn-sm btn-secondary" onclick="toggleBulkMode()">Cancel</button></span></div>`
@@ -5817,13 +5847,14 @@ Or just card numbers:
         const chips = (t.urgent ? '<span class="tk-tag urgent">Urgent</span>' : '') + (taskIsNew(t) ? '<span class="tk-tag new">New</span>' : '') +
           (auto && t.note && t.note.length <= 12 ? `<span class="tk-tag">${escapeHtml(t.note)}</span>` : '');
         const lastC = nC ? t.comments[nC - 1] : null;
-        const sub = !auto && t.note ? escapeHtml(t.note) : (lastC && !isOpen ? `<b>${escapeHtml(lastC.b)}:</b> ${escapeHtml(lastC.m)}` : '');
+        const sub = (lastC && !isOpen) ? `<b>${escapeHtml(lastC.b)}:</b> ${escapeHtml(lastC.m)}` : '';
+        const todo = taskTodo(t), noteOpen = noteOpenId === t.id && !bulkMode;
         let panel = '';
         if (isOpen) {
           const thread = nC
             ? t.comments.map(c => `<div class="tk-c${c.b === me ? ' me' : ''}"><div class="tk-c-head"><b>${escapeHtml(c.b)}</b><span>${taskTimeAgo(c.t)}</span></div><div class="tk-c-body">${escapeHtml(c.m)}</div></div>`).join('')
             : '<div class="tk-empty">No comments yet. Ask your question or write the update here, so it stays with the task.</div>';
-          const edit = auto ? '' : `<div class="tk-edit"><label>Name<input type="text" id="taskEditTitle" class="form-input" value="${escapeHtml(t.title)}" onchange="saveTaskText('${t.id}')" onkeydown="if(event.key==='Enter')this.blur()"></label><label>What needs to be done<input type="text" id="taskEditNote" class="form-input" value="${escapeHtml(t.note || '')}" placeholder="Add details" onchange="saveTaskText('${t.id}')" onkeydown="if(event.key==='Enter')this.blur()"></label></div>`;
+          const edit = auto ? '' : `<div class="tk-edit" style="grid-template-columns: 1fr;"><label>Name<input type="text" id="taskEditTitle" class="form-input" value="${escapeHtml(t.title)}" onchange="saveTaskText('${t.id}')" onkeydown="if(event.key==='Enter')this.blur()"></label></div>`;
           panel = `<div class="tk-panel">${edit}
             <div class="tk-thread">${thread}</div>
             <div class="tk-compose"><input type="text" id="taskCommentInput" class="form-input" placeholder="Write a comment" onkeydown="if(event.key==='Enter')addTaskComment('${t.id}')"><button class="btn btn-primary btn-sm" onclick="addTaskComment('${t.id}')">Send</button></div>
@@ -5841,10 +5872,13 @@ Or just card numbers:
             </div>
             ${bulkMode ? '' : `<div class="tk-actions">
               <button class="tk-btn${unread ? ' unread' : ''}" title="Comments" onclick="toggleTaskOpen('${t.id}')">💬 ${nC || ''}${unread ? `<em>${unread} new</em>` : ''}</button>
+              <button class="tk-btn tk-note-btn${todo ? ' has-note' : ''}" title="${todo ? 'Read what needs to be done' : 'Write what needs to be done'}" aria-label="What needs to be done" onclick="toggleTaskNote('${t.id}')">📝</button>
               <button class="tk-btn${t.urgent ? ' is-urgent' : ''}" title="${t.urgent ? 'Remove urgent' : 'Mark urgent'}" onclick="toggleTaskUrgent('${t.id}')">🔥</button>
               <button class="tk-btn done" onclick="deleteStoreTask('${t.id}')">✓ Done</button>
             </div>`}
-          </div>${panel}
+          </div>${noteOpen ? `<div class="tk-notebox"><label for="taskNoteBox">What needs to be done</label>
+            <textarea id="taskNoteBox" class="form-input" rows="2" placeholder="Write what has to be done for this task" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveTaskNote('${t.id}',true);}else if(event.key==='Escape'){noteOpenId=null;renderStoreTasks();}">${escapeHtml(todo)}</textarea>
+            <div class="tk-notebox-foot"><span>Enter saves. Shift+Enter for a new line</span><button class="btn btn-primary btn-sm" onclick="saveTaskNote('${t.id}', true)">Save</button></div></div>` : ''}${panel}
         </div>`;
       }).join('');
       board.innerHTML = rows || `<div class="tk-empty big">${open.length ? 'Nothing of this type is open.' : 'No open tasks. Add one above when something needs doing.'}</div>`;
